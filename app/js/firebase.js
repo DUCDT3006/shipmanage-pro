@@ -1,5 +1,5 @@
 /**
- * Firebase Integration & Cloud Database Sync V2.0
+ * Firebase Integration & Cloud Database Sync V2.0 (Firestore Version)
  */
 
 // Your web app's Firebase configuration
@@ -13,8 +13,7 @@ const firebaseConfig = {
   measurementId: "G-P5N1346GZS"
 };
 
-// Initialize Firebase (wrapped to prevent script loading order errors)
-let database = null;
+let db = null;
 let isFirebaseInitialized = false;
 
 function initFirebase() {
@@ -24,9 +23,9 @@ function initFirebase() {
             if (typeof firebase.analytics === 'function') {
                 firebase.analytics();
             }
-            database = firebase.database();
+            db = firebase.firestore();
             isFirebaseInitialized = true;
-            console.log("Firebase initialized successfully!");
+            console.log("Firebase Firestore initialized successfully!");
             setupFirebaseSync();
         } else {
             console.warn("Firebase SDK is not loaded. Working in local-only mode.");
@@ -69,21 +68,21 @@ function updateServerStatus(status, text) {
     `;
 }
 
-// Two-way synchronization with Firebase Realtime Database
+// Two-way synchronization with Firebase Firestore
 function setupFirebaseSync() {
-    if (!database) return;
+    if (!db) return;
     
-    const dbRef = database.ref('shipmanage/state');
-    let isInitialLoad = true;
+    // We store the state in a single document 'state' in a collection 'shipmanage'
+    const docRef = db.collection('shipmanage').doc('state');
     
     updateServerStatus('connecting', 'Đang tải dữ liệu đám mây...');
 
-    // 1. Listen for updates in Realtime Database
-    dbRef.on('value', (snapshot) => {
-        const cloudState = snapshot.val();
-        
-        if (cloudState) {
-            console.log("Received state update from Firebase.");
+    // 1. Listen for updates in Firestore
+    docRef.onSnapshot((doc) => {
+        if (doc.exists) {
+            const cloudState = doc.data();
+            console.log("Received state update from Firebase Firestore.");
+            
             // Update local state in AppData
             AppData.state = cloudState;
             
@@ -92,41 +91,57 @@ function setupFirebaseSync() {
             
             // If the main application is already initialized and rendered, refresh the current view
             if (typeof app !== 'undefined' && app.currentView) {
-                // Keep the same view active with updated data
                 app.navigate(app.currentView);
             }
             
             updateServerStatus('online', 'Đã đồng bộ đám mây');
         } else {
-            // First time use: Firebase is empty, upload local storage state to Firebase
-            console.log("Firebase has no existing data. Uploading local state as backup.");
+            // First time use: Firestore is empty, upload local storage state to Firebase
+            console.log("Firestore has no existing data. Uploading local state as backup.");
             if (AppData.state) {
-                dbRef.set(AppData.state);
-                updateServerStatus('online', 'Đã đồng bộ đám mây');
+                docRef.set(AppData.state)
+                    .then(() => {
+                        updateServerStatus('online', 'Đã đồng bộ đám mây');
+                    })
+                    .catch((err) => {
+                        console.error("Error setting initial state in Firestore:", err);
+                        if (err.code === 'permission-denied') {
+                            updateServerStatus('error', 'Lỗi phân quyền (Chưa bật Rules)');
+                        } else {
+                            updateServerStatus('error', 'Lỗi đồng bộ (Offline)');
+                        }
+                    });
             }
         }
-        isInitialLoad = false;
     }, (error) => {
-        console.error("Firebase database error:", error);
-        updateServerStatus('error', 'Lỗi đồng bộ (Offline)');
+        console.error("Firebase Firestore subscription error:", error);
+        if (error.code === 'permission-denied') {
+            updateServerStatus('error', 'Lỗi phân quyền (Chưa bật Rules)');
+        } else {
+            updateServerStatus('error', 'Lỗi đồng bộ (Offline)');
+        }
     });
 
-    // 2. Intercept AppData.save() to push updates to Firebase
+    // 2. Intercept AppData.save() to push updates to Firestore
     const originalSave = AppData.save;
     AppData.save = function() {
         // Run original save to localStorage (keeps it lightning fast)
         originalSave.call(AppData);
         
         // Push state to Firebase in background
-        if (isFirebaseInitialized && database) {
+        if (isFirebaseInitialized && db) {
             updateServerStatus('connecting', 'Đang lưu đám mây...');
-            dbRef.set(AppData.state)
+            docRef.set(AppData.state)
                 .then(() => {
                     updateServerStatus('online', 'Đã đồng bộ đám mây');
                 })
                 .catch((err) => {
-                    console.error("Failed to save to Firebase:", err);
-                    updateServerStatus('error', 'Lỗi lưu dữ liệu (Offline)');
+                    console.error("Failed to save to Firebase Firestore:", err);
+                    if (err.code === 'permission-denied') {
+                        updateServerStatus('error', 'Lỗi phân quyền (Chưa bật Rules)');
+                    } else {
+                        updateServerStatus('error', 'Lỗi lưu dữ liệu (Offline)');
+                    }
                 });
         }
     };
