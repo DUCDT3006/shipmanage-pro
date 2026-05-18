@@ -1,0 +1,12 @@
+# Temporary folders and zip files
+temp.zip
+temp_01/
+temp_03/
+temp_excel/
+
+# VS Code directory
+.vscode/
+
+# Office temporary files
+~$*.xlsx
+~$*.docx

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShipManage Pro V2.0</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar glass-panel">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fa-solid fa-anchor"></i>
+                    <span>ShipManage <small>V2.0</small></span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-view="dashboard">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Bảng điều khiển</span>
+                </a>
+                <a href="#" class="nav-item" data-view="financials">
+                    <i class="fa-solid fa-money-bill-transfer"></i>
+                    <span>Theo dõi Tài chính</span>
+                </a>
+                <a href="#" class="nav-item" data-view="fuel">
+                    <i class="fa-solid fa-gas-pump"></i>
+                    <span>Quản lý Nhiên liệu</span>
+                </a>
+                <a href="#" class="nav-item" data-view="shipments">
+                    <i class="fa-solid fa-route"></i>
+                    <span>Quản lý Chuyến hàng</span>
+                </a>
+                <a href="#" class="nav-item" data-view="partners">
+                    <i class="fa-solid fa-users-rectangle"></i>
+                    <span>NCC - Khách hàng</span>
+                </a>
+                <a href="#" class="nav-item" data-view="vessel-expenses">
+                    <i class="fa-solid fa-wallet"></i>
+                    <span>Quản lý Chi phí Tàu</span>
+                </a>
+                <a href="#" class="nav-item" data-view="monthly-costs">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span>Chi phí theo Tháng</span>
+                </a>
+                <a href="#" class="nav-item" data-view="company">
+                    <i class="fa-solid fa-building"></i>
+                    <span>Master Data</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">Manager</span>
+                        <span class="user-role">Administrator</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header glass-panel">
+                <div class="header-search">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" placeholder="Tìm kiếm dữ liệu...">
+                </div>
+                <div class="header-actions">
+                    <div class="server-status">
+                        <span class="status-dot"></span> Online
+                    </div>
+                    <button class="icon-btn theme-toggle"><i class="fa-regular fa-moon"></i></button>
+                    <button class="icon-btn"><i class="fa-solid fa-gear"></i></button>
+                </div>
+            </header>
+
+            <!-- Dynamic Views Container -->
+            <div id="view-container" class="view-container">
+                <!-- Views will be injected here by JS -->
+            </div>
+        </main>
+
+        <!-- Report Modal -->
+        <div class="modal-overlay" id="report-modal">
+            <div class="modal" style="max-width: 800px; padding: 0;">
+                <div id="report-content"></div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="trans-modal">
+            <div class="modal"><div id="trans-modal-content"></div></div>
+        </div>
+
+        <div class="modal-overlay" id="fuel-modal">
+            <div class="modal"><div id="fuel-modal-content"></div></div>
+        </div>
+
+        <div class="modal-overlay" id="ship-modal">
+            <div class="modal" style="max-width:900px;"><div id="ship-modal-content"></div></div>
+        </div>
+
+        <div class="modal-overlay" id="fuel-voyage-modal">
+            <div class="modal"><div id="fuel-voyage-modal-content"></div></div>
+        </div>
+
+        <div class="modal-overlay" id="vessel-expense-modal">
+            <div class="modal" style="max-width: 600px;"><div id="vessel-expense-modal-content"></div></div>
+        </div>
+
+        <div class="modal-overlay" id="vessel-modal">
+            <div class="modal" style="max-width: 600px;"><div id="vessel-modal-content"></div></div>
+        </div>
+
+        <div class="modal-overlay" id="partner-modal">
+            <div class="modal" style="max-width: 500px;"><div id="partner-modal-content"></div></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/views.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

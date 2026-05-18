@@ -1,0 +1,380 @@
+﻿{
+    "fuelVoyages":  [
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG05-C1",
+                            "fuelLocation":  "",
+                            "cargoType":  "Cát",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C1",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  24295
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG05-C2",
+                            "fuelLocation":  "",
+                            "cargoType":  "Clinker",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C2",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  14320
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG05-C3",
+                            "fuelLocation":  "",
+                            "cargoType":  "Cát",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C3",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  23978
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG05-C4",
+                            "fuelLocation":  "",
+                            "cargoType":  "Xỉ",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C4",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  12593
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG05-C5",
+                            "fuelLocation":  "",
+                            "cargoType":  "Cát",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C5",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  22460
+                        },
+                        {
+                            "fuelDate":  "2026-03-02",
+                            "id":  "FV-VG05-C6",
+                            "fuelLocation":  "Cảng Hòn La",
+                            "cargoType":  "Cliker",
+                            "fuelVendor":  "Hồng Vân",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C6",
+                            "fuelUnitPrice":  "20144",
+                            "addedFuel":  21850,
+                            "initialFuel":  35730
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG05-C7",
+                            "fuelLocation":  "",
+                            "cargoType":  "Quặng",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C7",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  25534
+                        },
+                        {
+                            "fuelDate":  "2026-03-23",
+                            "id":  "FV-VG05-C8",
+                            "fuelLocation":  "Cảng Vật Cách",
+                            "cargoType":  "Than",
+                            "fuelVendor":  "Hồng Minh",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C8",
+                            "fuelUnitPrice":  "33920",
+                            "addedFuel":  32030,
+                            "initialFuel":  41588
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG05-C9",
+                            "fuelLocation":  "",
+                            "cargoType":  "Xỉ",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C9",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  38900
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG05-C10",
+                            "fuelLocation":  "",
+                            "cargoType":  "Cát",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C10",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  27105
+                        },
+                        {
+                            "fuelDate":  "2026-04-15",
+                            "id":  "FV-VG05-C11",
+                            "fuelLocation":  "Đà Nẵng",
+                            "cargoType":  "Clinker",
+                            "fuelVendor":  "Pvoil Đà Nẵng",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C11",
+                            "fuelUnitPrice":  "32890",
+                            "addedFuel":  19550,
+                            "initialFuel":  36680
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG05-C12",
+                            "fuelLocation":  "",
+                            "cargoType":  "Quặng",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG05",
+                            "voyageNo":  "C12",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  28843
+                        },
+                        {
+                            "fuelDate":  "2026-01-05",
+                            "id":  "FV-VG09-C1",
+                            "fuelLocation":  "Cái Cui",
+                            "cargoType":  "Cát",
+                            "fuelVendor":  "PetrolTime",
+                            "vesselId":  "VG09",
+                            "voyageNo":  "C1",
+                            "fuelUnitPrice":  "18140",
+                            "addedFuel":  20000,
+                            "initialFuel":  31800
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG09-C2",
+                            "fuelLocation":  "",
+                            "cargoType":  "Xỉ",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG09",
+                            "voyageNo":  "C2",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  18098
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG09-C3",
+                            "fuelLocation":  "",
+                            "cargoType":  "Tro ẩm",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG09",
+                            "voyageNo":  "C3",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  26396
+                        },
+                        {
+                            "fuelDate":  "2026-02-11",
+                            "id":  "FV-VG09-C4",
+                            "fuelLocation":  "Sơn Dương",
+                            "cargoType":  "Xỉ",
+                            "fuelVendor":  "Hoàng Khải",
+                            "vesselId":  "VG09",
+                            "voyageNo":  "C4",
+                            "fuelUnitPrice":  "18150",
+                            "addedFuel":  19570,
+                            "initialFuel":  31233
+                        },
+                        {
+                            "fuelDate":  "",
+                            "id":  "FV-VG09-C5",
+                            "fuelLocation":  "",
+                            "cargoType":  "Cát",
+                            "fuelVendor":  "",
+                            "vesselId":  "VG09",
+                            "voyageNo":  "C5",
+                            "fuelUnitPrice":  "",
+                            "addedFuel":  0,
+                            "initialFuel":  16108
+                        }
+                    ],
+    "fuelLogs":  [
+                     {
+                         "startTime":  "12/28/2025 6:00",
+                         "id":  "FL-f0644118",
+                         "fuelVoyageId":  "FV-VG05-C1",
+                         "endTime":  "12/28/2025 15:00",
+                         "endPos":  "Khu neo Hậu Giang",
+                         "fuelRate":  95,
+                         "hours":  9,
+                         "startPos":  "Vĩnh Xương"
+                     },
+                     {
+                         "startTime":  "1/4/2026 16:00",
+                         "id":  "FL-e5f78ee7",
+                         "fuelVoyageId":  "FV-VG05-C2",
+                         "endTime":  "1/4/2026 20:30",
+                         "endPos":  "Neo Cảng Chân Mây",
+                         "fuelRate":  90,
+                         "hours":  4.5,
+                         "startPos":  "Đà Nẵng"
+                     },
+                     {
+                         "startTime":  "1/16/2026 6:30",
+                         "id":  "FL-564adb3f",
+                         "fuelVoyageId":  "FV-VG05-C3",
+                         "endTime":  "1/16/2026 13:00",
+                         "endPos":  "Neo Vĩnh Xương",
+                         "fuelRate":  90,
+                         "hours":  6.5,
+                         "startPos":  "An Giang"
+                     },
+                     {
+                         "startTime":  "1/26/2026 22:00",
+                         "id":  "FL-b56d27d6",
+                         "fuelVoyageId":  "FV-VG05-C4",
+                         "endTime":  "1/27/2026 5:20",
+                         "endPos":  "Sơn Dương",
+                         "fuelRate":  90,
+                         "hours":  31.333333,
+                         "startPos":  "Đà Nẵng"
+                     },
+                     {
+                         "startTime":  "2/6/2026 6:30",
+                         "id":  "FL-a11a8cb4",
+                         "fuelVoyageId":  "FV-VG05-C5",
+                         "endTime":  "2/6/2026 14:40",
+                         "endPos":  "Vĩnh Xương",
+                         "fuelRate":  90,
+                         "hours":  8.1666667,
+                         "startPos":  "Cần Thơ"
+                     },
+                     {
+                         "startTime":  "2/25/2026 15:20",
+                         "id":  "FL-1f39f0c5",
+                         "fuelVoyageId":  "FV-VG05-C6",
+                         "endTime":  "2/26/2026 7:20",
+                         "endPos":  "Hòn La",
+                         "fuelRate":  90,
+                         "hours":  16,
+                         "startPos":  "Đà Nẵng"
+                     },
+                     {
+                         "startTime":  "3/9/2026 6:00",
+                         "id":  "FL-df49cc62",
+                         "fuelVoyageId":  "FV-VG05-C7",
+                         "endTime":  "3/9/2026 13:40",
+                         "endPos":  "Vĩnh Xương",
+                         "fuelRate":  95,
+                         "hours":  7.6666667,
+                         "startPos":  "XM Tây Đô"
+                     },
+                     {
+                         "startTime":  "3/23/2026 13:00",
+                         "id":  "FL-2da397b5",
+                         "fuelVoyageId":  "FV-VG05-C8",
+                         "endTime":  "3/23/2026 18:40",
+                         "endPos":  "Cửa Ông",
+                         "fuelRate":  95,
+                         "hours":  5.6666667,
+                         "startPos":  "Vật Cách"
+                     },
+                     {
+                         "startTime":  "3/29/2026 12:20",
+                         "id":  "FL-02f2c91d",
+                         "fuelVoyageId":  "FV-VG05-C9",
+                         "endTime":  "3/29/2026 23:40",
+                         "endPos":  "Sơn Dương",
+                         "fuelRate":  105,
+                         "hours":  11.333333,
+                         "startPos":  "Nghi Sơn"
+                     },
+                     {
+                         "startTime":  "4/6/2026 8:40",
+                         "id":  "FL-b3897508",
+                         "fuelVoyageId":  "FV-VG05-C10",
+                         "endTime":  "4/6/2026 19:00",
+                         "endPos":  "Vĩnh Xương",
+                         "fuelRate":  95,
+                         "hours":  10.333333,
+                         "startPos":  "Hậu Giang"
+                     },
+                     {
+                         "startTime":  "4/15/2026 21:30",
+                         "id":  "FL-f20a0cb7",
+                         "fuelVoyageId":  "FV-VG05-C11",
+                         "endTime":  "4/16/2026 1:15",
+                         "endPos":  "Chân Mây",
+                         "fuelRate":  95,
+                         "hours":  3.75,
+                         "startPos":  "Đà Nẵng"
+                     },
+                     {
+                         "startTime":  "4/25/2026 6:00",
+                         "id":  "FL-6a3c8973",
+                         "fuelVoyageId":  "FV-VG05-C12",
+                         "endTime":  "4/25/2026 16:00",
+                         "endPos":  "Vĩnh Xương",
+                         "fuelRate":  95,
+                         "hours":  10,
+                         "startPos":  "Cái Cui"
+                     },
+                     {
+                         "startTime":  "1/8/2026 9:00",
+                         "id":  "FL-013ff518",
+                         "fuelVoyageId":  "FV-VG09-C1",
+                         "endTime":  "1/13/2026 19:30",
+                         "endPos":  "Đà Nẵng",
+                         "fuelRate":  105,
+                         "hours":  130.5,
+                         "startPos":  "Vĩnh Xương"
+                     },
+                     {
+                         "startTime":  "1/18/2026 7:00",
+                         "id":  "FL-5a687353",
+                         "fuelVoyageId":  "FV-VG09-C2",
+                         "endTime":  "1/19/2026 6:00",
+                         "endPos":  "Sơn Dương",
+                         "fuelRate":  100,
+                         "hours":  23,
+                         "startPos":  "Đà Nẵng"
+                     },
+                     {
+                         "startTime":  "1/26/2026 20:00",
+                         "id":  "FL-322b8759",
+                         "fuelVoyageId":  "FV-VG09-C3",
+                         "endTime":  "1/27/2026 21:00",
+                         "endPos":  "Neo phao",
+                         "fuelRate":  100,
+                         "hours":  25,
+                         "startPos":  "Cảng NMXM"
+                     },
+                     {
+                         "startTime":  "2/10/2026 15:00",
+                         "id":  "FL-d92685fe",
+                         "fuelVoyageId":  "FV-VG09-C4",
+                         "endTime":  "2/11/2026 3:30",
+                         "endPos":  "Sơn Dương",
+                         "fuelRate":  110,
+                         "hours":  12.5,
+                         "startPos":  "Nghi Sơn"
+                     },
+                     {
+                         "startTime":  "3/3/2026 6:00",
+                         "id":  "FL-f2fa3667",
+                         "fuelVoyageId":  "FV-VG09-C5",
+                         "endTime":  "3/3/2026 17:00",
+                         "endPos":  "Vĩnh Xương",
+                         "fuelRate":  100,
+                         "hours":  11,
+                         "startPos":  "Định An"
+                     }
+                 ]
+}
