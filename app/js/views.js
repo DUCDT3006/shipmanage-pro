@@ -159,8 +159,8 @@ const Views = {
                                 <tbody>
                                     ${AppData.state.vessels.map(v => `
                                         <tr>
-                                            <td><strong>${v.name}</strong></td>
-                                            <td>${v.captain}</td>
+                                            <td><strong>${esc(v.name)}</strong></td>
+                                            <td>${esc(v.captain)}</td>
                                             <td><span class="badge badge-success">Đang hành trình</span></td>
                                         </tr>
                                     `).join('')}
@@ -179,7 +179,7 @@ const Views = {
                                     ${AppData.getTransactions().slice(0,5).map(t => `
                                         <tr>
                                             <td>${t.date ? t.date.split('-').reverse().join('/') : ''}</td>
-                                            <td>${t.content}</td>
+                                            <td>${esc(t.content)}</td>
                                             <td class="${t.thu > 0 ? 'value-positive' : 'value-negative'}">
                                                 ${AppData.formatCurrency(t.thu > 0 ? t.thu : -t.chi)}
                                             </td>
@@ -493,12 +493,12 @@ const Views = {
                                     }
                                     return filtered.map(t => `
                                         <tr style="${t.category === 'Luân chuyển' ? 'opacity: 0.6; font-style: italic;' : ''}">
-                                            <td>${t.date}</td>
-                                            <td><span class="badge badge-outline">${t.vessel}</span></td>
-                                            <td>${t.category}</td>
-                                            <td>${t.content}</td>
-                                            <td>${t.partner}</td>
-                                            <td><small>${t.account}</small></td>
+                                            <td>${esc(t.date)}</td>
+                                            <td><span class="badge badge-outline">${esc(t.vessel)}</span></td>
+                                            <td>${esc(t.category)}</td>
+                                            <td>${esc(t.content)}</td>
+                                            <td>${esc(t.partner)}</td>
+                                            <td><small>${esc(t.account)}</small></td>
                                             <td class="value-positive">${t.thu > 0 ? AppData.formatCurrency(t.thu) : '-'}</td>
                                             <td class="value-negative">${t.chi > 0 ? AppData.formatCurrency(t.chi) : '-'}</td>
                                             <td>
@@ -833,12 +833,12 @@ const Views = {
                             <tbody>
                                 ${activeTab === 'vendor' ? 
                                     (AppData.getVendors().length === 0 ? '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Chua co nha cung cap nao. Nhan "Them NCC" de bat dau.</td></tr>' :
-                                    AppData.getVendors().map(v => `<tr><td><strong>${v.name}</strong> <span class="badge badge-outline">NCC</span></td><td>${v.address || '---'}</td><td>${v.contact || '---'}</td><td>
+                                    AppData.getVendors().map(v => `<tr><td><strong>${esc(v.name)}</strong> <span class="badge badge-outline">NCC</span></td><td>${esc(v.address) || '---'}</td><td>${esc(v.contact) || '---'}</td><td>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.editVendor('${v.id}')"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.deleteVendor('${v.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
                                     </td></tr>`).join('')) :
                                     (AppData.getCustomers().length === 0 ? '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Chua co khach hang nao. Nhan "Them Khach hang" de bat dau.</td></tr>' :
-                                    AppData.getCustomers().map(c => `<tr><td><strong>${c.name}</strong> <span class="badge badge-outline">KH</span></td><td>${c.address || '---'}</td><td>${c.contact || '---'}</td><td>
+                                    AppData.getCustomers().map(c => `<tr><td><strong>${esc(c.name)}</strong> <span class="badge badge-outline">KH</span></td><td>${esc(c.address) || '---'}</td><td>${esc(c.contact) || '---'}</td><td>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.editCustomer('${c.id}')"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.deleteCustomer('${c.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
                                     </td></tr>`).join(''))
@@ -1746,15 +1746,15 @@ const Views = {
                                 <tbody>
                                     ${AppData.state.vessels.map(v => `
                                         <tr>
-                                            <td><strong>${v.name}</strong></td>
+                                            <td><strong>${esc(v.name)}</strong></td>
                                             <td><span class="badge badge-success" style="font-weight:600;">${v.capacity ? (Number(v.capacity).toLocaleString('vi-VN') + ' tấn') : '---'}</span></td>
                                             <td>
-                                                <strong>${v.captain || '---'}</strong>
-                                                ${v.captainPhone ? `<br><small style="color:var(--text-muted)"><i class="fa-solid fa-phone"></i> ${v.captainPhone}</small>` : ''}
+                                                <strong>${esc(v.captain) || '---'}</strong>
+                                                ${v.captainPhone ? `<br><small style="color:var(--text-muted)"><i class="fa-solid fa-phone"></i> ${esc(v.captainPhone)}</small>` : ''}
                                             </td>
                                             <td>
-                                                <strong>${v.manager || '---'}</strong>
-                                                ${v.managerPhone ? `<br><small style="color:var(--text-muted)"><i class="fa-solid fa-phone"></i> ${v.managerPhone}</small>` : ''}
+                                                <strong>${esc(v.manager) || '---'}</strong>
+                                                ${v.managerPhone ? `<br><small style="color:var(--text-muted)"><i class="fa-solid fa-phone"></i> ${esc(v.managerPhone)}</small>` : ''}
                                             </td>
                                             <td><span class="badge badge-outline">${Math.round(v.fuelRate)} L/h</span></td>
                                             <td>

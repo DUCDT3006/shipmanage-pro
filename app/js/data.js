@@ -21,6 +21,12 @@ const fixMojibake = (str) => {
     return str;
 };
 
+// Escape HTML để chống XSS khi nhúng dữ liệu người dùng vào template (innerHTML)
+function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 const correctVendors = [
     { name: 'Petrolimex', type: 'Dầu DO/LO', contact: '0987654321', address: 'Hải Phòng' },
     { name: 'Cảng Chân Mây', type: 'Cảng', contact: '0987654322', address: 'Huế' },

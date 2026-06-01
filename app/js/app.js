@@ -2460,7 +2460,7 @@ const app = {
                     : (modules.filter(m => mb.permissions && mb.permissions[m.key]).map(m => m.label).join(', ') || '—');
                 const active = mb.active !== false;
                 html += `<tr>
-                    <td>${mb.email || ''} ${mb.uid === me.uid ? '<span class="badge badge-outline">Bạn</span>' : ''}</td>
+                    <td>${esc(mb.email || '')} ${mb.uid === me.uid ? '<span class="badge badge-outline">Bạn</span>' : ''}</td>
                     <td>${mb.role === 'owner' ? '<span class="badge badge-success">Chủ</span>' : '<span class="badge badge-outline">Nhân viên</span>'}</td>
                     <td style="font-size:0.8rem; max-width:300px;">${permList}</td>
                     <td>${active ? '<span style="color:var(--secondary)">Hoạt động</span>' : '<span style="color:var(--accent)">Đã khóa</span>'}</td>
