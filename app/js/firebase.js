@@ -61,6 +61,8 @@ let isFirebaseInitialized = false;
 let suppressPush = false;            // chặn đẩy ngược khi đang áp dụng thay đổi từ cloud
 let originalSave = null;             // bản save() gốc (chỉ ghi localStorage)
 let rerenderTimer = null;
+let auth = null;                     // Firebase Auth
+let authStarted = false;             // đã start hybrid sync sau đăng nhập chưa
 
 // Bộ nhớ "đã đồng bộ" để tính diff (tránh đẩy lại dữ liệu không đổi)
 const lastSynced = {
@@ -81,7 +83,14 @@ function initFirebase() {
       db = firebase.firestore();
       isFirebaseInitialized = true;
       console.log('[Sync V3] Firebase Firestore initialized (Hybrid layout).');
-      setupHybridSync();
+      // GATE: chỉ đồng bộ cloud sau khi đăng nhập
+      if (typeof firebase.auth === 'function') {
+        auth = firebase.auth();
+        setupAuthGate();
+      } else {
+        console.warn('[Auth] SDK Auth chưa nạp — chạy local, không đồng bộ.');
+        updateServerStatus('offline', 'Ngoại tuyến (Lưu cục bộ)');
+      }
     } else {
       console.warn('[Sync V3] Firebase SDK not loaded. Local-only mode.');
       updateServerStatus('offline', 'Ngoại tuyến (Lưu cục bộ)');
@@ -155,6 +164,111 @@ function scheduleRerender() {
       try { app.navigate(app.currentView); } catch (e) { /* ignore */ }
     }
   }, 120);
+}
+
+// ===============================================================
+// AUTHENTICATION GATE (Phase 1) — chặn cửa, phải đăng nhập mới vào
+// ===============================================================
+function setupAuthGate() {
+  injectLoginOverlay();
+  updateServerStatus('connecting', 'Đang kiểm tra đăng nhập...');
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      hideLoginOverlay();
+      const badge = document.getElementById('auth-user-badge');
+      if (badge) badge.textContent = user.email || 'Đã đăng nhập';
+      if (!authStarted) {
+        authStarted = true;
+        setupHybridSync();          // chỉ đồng bộ cloud SAU khi đăng nhập
+      }
+    } else {
+      showLoginOverlay();
+      updateServerStatus('offline', 'Chưa đăng nhập');
+    }
+  });
+}
+
+function injectLoginOverlay() {
+  if (document.getElementById('auth-overlay')) return;
+  const ov = document.createElement('div');
+  ov.id = 'auth-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#0b0f19;background-image:radial-gradient(at 0% 0%, rgba(59,130,246,0.12) 0, transparent 50%),radial-gradient(at 100% 100%, rgba(16,185,129,0.06) 0, transparent 50%);font-family:Inter,sans-serif;';
+  ov.innerHTML = `
+    <div style="background:rgba(17,24,39,0.85);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:2.5rem;width:90%;max-width:400px;box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <div style="font-size:2.5rem;color:#3b82f6;margin-bottom:0.5rem;"><i class="fa-solid fa-anchor"></i></div>
+        <h2 style="color:#fff;margin:0;font-size:1.4rem;font-weight:700;">ShipManage Pro</h2>
+        <p style="color:#94a3b8;font-size:0.85rem;margin:0.4rem 0 0;">Đăng nhập để tiếp tục</p>
+      </div>
+      <form id="auth-form" onsubmit="event.preventDefault();doLogin();">
+        <div style="margin-bottom:1rem;">
+          <label style="display:block;color:#cbd5e1;font-size:0.8rem;margin-bottom:0.35rem;">Email</label>
+          <input id="auth-email" type="email" required autocomplete="username" placeholder="email@congty.com"
+            style="width:100%;box-sizing:border-box;padding:0.7rem 0.9rem;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.3);color:#fff;font-size:0.95rem;">
+        </div>
+        <div style="margin-bottom:1.25rem;">
+          <label style="display:block;color:#cbd5e1;font-size:0.8rem;margin-bottom:0.35rem;">Mật khẩu</label>
+          <input id="auth-pass" type="password" required autocomplete="current-password" placeholder="••••••••"
+            style="width:100%;box-sizing:border-box;padding:0.7rem 0.9rem;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.3);color:#fff;font-size:0.95rem;">
+        </div>
+        <div id="auth-error" style="display:none;color:#fca5a5;font-size:0.82rem;margin-bottom:0.9rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);padding:0.6rem 0.8rem;border-radius:8px;"></div>
+        <button id="auth-submit" type="submit"
+          style="width:100%;padding:0.8rem;border:none;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-weight:600;font-size:0.95rem;cursor:pointer;">
+          Đăng nhập
+        </button>
+      </form>
+      <p style="color:#64748b;font-size:0.72rem;text-align:center;margin:1.25rem 0 0;">Tài khoản do quản trị viên cấp.</p>
+    </div>`;
+  document.body.appendChild(ov);
+}
+
+function showLoginOverlay() {
+  const ov = document.getElementById('auth-overlay');
+  if (ov) ov.style.display = 'flex';
+}
+function hideLoginOverlay() {
+  const ov = document.getElementById('auth-overlay');
+  if (ov) ov.style.display = 'none';
+}
+function showLoginError(msg) {
+  const e = document.getElementById('auth-error');
+  if (e) { e.textContent = msg; e.style.display = 'block'; }
+}
+
+function doLogin() {
+  if (!auth) return;
+  const email = (document.getElementById('auth-email') || {}).value;
+  const pass = (document.getElementById('auth-pass') || {}).value;
+  const btn = document.getElementById('auth-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Đang đăng nhập...'; }
+  auth.signInWithEmailAndPassword(email, pass)
+    .catch(err => showLoginError(mapAuthError(err)))
+    .finally(() => { if (btn) { btn.disabled = false; btn.textContent = 'Đăng nhập'; } });
+}
+
+function signOutApp() {
+  if (!auth) return;
+  auth.signOut().then(() => location.reload());
+}
+// cho phép gọi từ HTML inline + nút đăng xuất
+if (typeof window !== 'undefined') {
+  window.doLogin = doLogin;
+  window.signOutApp = signOutApp;
+}
+
+function mapAuthError(err) {
+  const c = err && err.code ? err.code : '';
+  switch (c) {
+    case 'auth/invalid-email': return 'Email không hợp lệ.';
+    case 'auth/user-disabled': return 'Tài khoản đã bị khóa.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential': return 'Sai email hoặc mật khẩu.';
+    case 'auth/too-many-requests': return 'Thử quá nhiều lần. Vui lòng đợi rồi thử lại.';
+    case 'auth/network-request-failed': return 'Lỗi mạng. Kiểm tra kết nối Internet.';
+    case 'auth/operation-not-allowed': return 'Chưa bật Email/Password trong Firebase Console.';
+    default: return 'Đăng nhập thất bại: ' + (err && err.message ? err.message : c);
+  }
 }
 
 // ---------------------------------------------------------------

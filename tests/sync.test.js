@@ -88,7 +88,13 @@ function buildSandbox(mock, appdata) {
   const firebaseMock = {
     initializeApp: () => {},
     firestore: () => mock.db,
-    analytics: () => ({})
+    analytics: () => ({}),
+    // Auth mock: tự báo đã đăng nhập ngay để cổng auth đi qua
+    auth: () => ({
+      onAuthStateChanged: (cb) => { cb({ email: 'test@demo.com', uid: 'u1' }); },
+      signInWithEmailAndPassword: () => Promise.resolve(),
+      signOut: () => Promise.resolve()
+    })
   };
   let domReady = null;
   const sandbox = {
@@ -102,9 +108,12 @@ function buildSandbox(mock, appdata) {
     document: {
       addEventListener: (ev, cb) => { if (ev === 'DOMContentLoaded') domReady = cb; },
       querySelector: () => null,
-      createElement: () => ({}),
-      head: { appendChild: () => {} }
+      getElementById: () => null,
+      createElement: () => ({ style: {} }),
+      head: { appendChild: () => {} },
+      body: { appendChild: () => {} }
     },
+    window: {},
     console, setTimeout, clearTimeout, Promise, JSON, Object, Array, Date, String, Set, Map
   };
   vm.createContext(sandbox);

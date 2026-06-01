@@ -100,7 +100,9 @@
                             <span class="status-dot" style="background-color: #10b981; box-shadow: 0 0 10px #10b981; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle;"></span> <span style="font-size: 0.85rem; font-weight: 500;">Offline (Local Mode)</span>
                         </div>
                     </div>
+                    <span id="auth-user-badge" style="font-size: 0.8rem; color: var(--text-muted); margin: 0 8px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
                     <button class="icon-btn theme-toggle"><i class="fa-regular fa-moon"></i></button>
+                    <button class="icon-btn" title="Đăng xuất" onclick="signOutApp()"><i class="fa-solid fa-right-from-bracket"></i></button>
                     <button class="icon-btn"><i class="fa-solid fa-gear"></i></button>
                 </div>
             </header>
@@ -155,8 +157,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
-    <!-- Firebase SDK (compat) — cloud sync Hybrid V3 -->
+    <!-- Firebase SDK (compat) — cloud sync Hybrid V3 + Auth -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
 
