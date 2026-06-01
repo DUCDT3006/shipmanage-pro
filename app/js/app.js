@@ -2387,17 +2387,17 @@ const app = {
             department: document.getElementById('emp-department').value,
             joinDate: document.getElementById('emp-join').value,
             leaveDate: document.getElementById('emp-leave').value,
-            basicSalary: Number(document.getElementById('emp-basic-salary').value) || 0,
-            mealAllowance: Number(document.getElementById('emp-meal-allowance').value) || 0,
-            phoneAllowance: Number(document.getElementById('emp-phone-allowance').value) || 0,
-            clothingAllowance: Number(document.getElementById('emp-clothing-allowance').value) || 0,
-            transportAllowance: Number(document.getElementById('emp-transport-allowance').value) || 0,
-            personalDeduction: Number(document.getElementById('emp-personal-deduction').value) || 0,
+            basicSalary: this.parseNum(document.getElementById('emp-basic-salary').value),
+            mealAllowance: this.parseNum(document.getElementById('emp-meal-allowance').value),
+            phoneAllowance: this.parseNum(document.getElementById('emp-phone-allowance').value),
+            clothingAllowance: this.parseNum(document.getElementById('emp-clothing-allowance').value),
+            transportAllowance: this.parseNum(document.getElementById('emp-transport-allowance').value),
+            personalDeduction: this.parseNum(document.getElementById('emp-personal-deduction').value),
             dependents: Number(document.getElementById('emp-dependents').value) || 0,
-            actualSalary: Number(document.getElementById('emp-actual-salary').value) || 0,
-            insurance: Number(document.getElementById('emp-insurance').value) || 0,
-            deliveryAllowance: Number(document.getElementById('emp-delivery-allowance').value) || 0,
-            completionBonus: Number(document.getElementById('emp-completion-bonus').value) || 0,
+            actualSalary: this.parseNum(document.getElementById('emp-actual-salary').value),
+            insurance: this.parseNum(document.getElementById('emp-insurance').value),
+            deliveryAllowance: this.parseNum(document.getElementById('emp-delivery-allowance').value),
+            completionBonus: this.parseNum(document.getElementById('emp-completion-bonus').value),
             notes: document.getElementById('emp-notes').value
         };
         AppData.saveEmployee(emp);
@@ -3911,8 +3911,8 @@ const app = {
         };
 
         // Set static fields
-        document.getElementById('ve-food').value = report.food !== undefined ? report.food : '';
-        document.getElementById('ve-material').value = report.material !== undefined ? report.material : '';
+        document.getElementById('ve-food').value = report.food !== undefined ? this.fmtMoney(report.food) : '';
+        document.getElementById('ve-material').value = report.material !== undefined ? this.fmtMoney(report.material) : '';
 
         // Generate dynamic rows for Port Expenses
         const portContainer = document.getElementById('ve-ports-container');
@@ -4043,8 +4043,8 @@ const app = {
             id: `CR-${vesselId}-${month}`,
             vesselId,
             month,
-            food: Number(document.getElementById('ve-food').value) || 0,
-            material: Number(document.getElementById('ve-material').value) || 0,
+            food: this.parseNum(document.getElementById('ve-food').value),
+            material: this.parseNum(document.getElementById('ve-material').value),
             portExpenses,
             brokerages
         };

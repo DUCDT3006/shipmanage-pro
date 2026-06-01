@@ -1024,14 +1024,14 @@ const Views = {
                         <!-- 1. Tiền ăn uống -->
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label class="form-label" style="font-weight: 600; color: var(--text-main);"><i class="fa-solid fa-utensils"></i> 1. Tiền ăn & bồi dưỡng TV</label>
-                            <input type="number" class="form-control" id="ve-food" placeholder="Nhập tổng tiền ăn uống..." style="background: rgba(0,0,0,0.4); font-weight:600; color: var(--secondary);">
+                            <input type="text" inputmode="numeric" class="form-control money" id="ve-food" placeholder="Nhập tổng tiền ăn uống..." style="background: rgba(0,0,0,0.4); font-weight:600; color: var(--secondary);">
                             <small class="form-text text-muted">Chi phí ăn uống phân bổ đều theo số ngày chạy tàu.</small>
                         </div>
 
                         <!-- 4. Vật tư & CP khác -->
                         <div class="form-group" style="margin-bottom: 1.25rem;">
                             <label class="form-label" style="font-weight: 600; color: var(--text-main);"><i class="fa-solid fa-wrench"></i> 4. Tiền Vật tư, sửa chữa (Tàu chi)</label>
-                            <input type="number" class="form-control" id="ve-material" placeholder="Nhập tổng tiền vật tư, sửa chữa..." style="background: rgba(0,0,0,0.4); font-weight:600; color: var(--secondary);">
+                            <input type="text" inputmode="numeric" class="form-control money" id="ve-material" placeholder="Nhập tổng tiền vật tư, sửa chữa..." style="background: rgba(0,0,0,0.4); font-weight:600; color: var(--secondary);">
                             <small class="form-text text-muted">Chi phí vật tư tàu tự mua phân bổ đều theo số ngày chạy tàu.</small>
                         </div>
 
@@ -1357,28 +1357,28 @@ const Views = {
                         </div>
                     </div>
                     <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Lương cơ bản (VND)</label><input type="number" step="any" class="form-control" id="emp-basic-salary" value="${e.basicSalary || ''}"></div>
-                        <div class="form-group"><label class="form-label">Mức lương thực tế (VND)</label><input type="number" step="any" class="form-control" id="emp-actual-salary" value="${e.actualSalary || ''}"></div>
+                        <div class="form-group"><label class="form-label">Lương cơ bản (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="emp-basic-salary" value="${app.fmtMoney(e.basicSalary || '')}"></div>
+                        <div class="form-group"><label class="form-label">Mức lương thực tế (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="emp-actual-salary" value="${app.fmtMoney(e.actualSalary || '')}"></div>
                     </div>
                     <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Tiền ăn ca (VND)</label><input type="number" step="any" class="form-control" id="emp-meal-allowance" value="${e.mealAllowance || ''}"></div>
-                        <div class="form-group"><label class="form-label">Điện thoại (VND)</label><input type="number" step="any" class="form-control" id="emp-phone-allowance" value="${e.phoneAllowance || ''}"></div>
+                        <div class="form-group"><label class="form-label">Tiền ăn ca (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="emp-meal-allowance" value="${app.fmtMoney(e.mealAllowance || '')}"></div>
+                        <div class="form-group"><label class="form-label">Điện thoại (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="emp-phone-allowance" value="${app.fmtMoney(e.phoneAllowance || '')}"></div>
                     </div>
                     <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Phụ cấp trang phục (VND)</label><input type="number" step="any" class="form-control" id="emp-clothing-allowance" value="${e.clothingAllowance || ''}"></div>
-                        <div class="form-group"><label class="form-label">Xăng xe, đi lại (VND)</label><input type="number" step="any" class="form-control" id="emp-transport-allowance" value="${e.transportAllowance || ''}"></div>
+                        <div class="form-group"><label class="form-label">Phụ cấp trang phục (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="emp-clothing-allowance" value="${app.fmtMoney(e.clothingAllowance || '')}"></div>
+                        <div class="form-group"><label class="form-label">Xăng xe, đi lại (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="emp-transport-allowance" value="${app.fmtMoney(e.transportAllowance || '')}"></div>
                     </div>
                     <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Giảm trừ bản thân (VND)</label><input type="number" step="any" class="form-control" id="emp-personal-deduction" value="${e.personalDeduction || 15500000}"></div>
+                        <div class="form-group"><label class="form-label">Giảm trừ bản thân (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="emp-personal-deduction" value="${app.fmtMoney(e.personalDeduction || 15500000)}"></div>
                         <div class="form-group"><label class="form-label">Số lượng NPT</label><input type="number" class="form-control" id="emp-dependents" value="${e.dependents || 0}"></div>
                     </div>
                     <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Tiền bảo hiểm (VND)</label><input type="number" step="any" class="form-control" id="emp-insurance" value="${e.insurance || 0}"></div>
+                        <div class="form-group"><label class="form-label">Tiền bảo hiểm (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="emp-insurance" value="${app.fmtMoney(e.insurance || 0)}"></div>
                         <div class="form-group"></div>
                     </div>
                     <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Phụ cấp giao nhận (VND)</label><input type="number" step="any" class="form-control" id="emp-delivery-allowance" value="${e.deliveryAllowance || 0}"></div>
-                        <div class="form-group"><label class="form-label">Thưởng hoàn thành CV (VND)</label><input type="number" step="any" class="form-control" id="emp-completion-bonus" value="${e.completionBonus || 0}"></div>
+                        <div class="form-group"><label class="form-label">Phụ cấp giao nhận (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="emp-delivery-allowance" value="${app.fmtMoney(e.deliveryAllowance || 0)}"></div>
+                        <div class="form-group"><label class="form-label">Thưởng hoàn thành CV (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="emp-completion-bonus" value="${app.fmtMoney(e.completionBonus || 0)}"></div>
                     </div>
                     <div class="grid-2">
                         <div class="form-group"><label class="form-label">Ngày vào làm / Nhập tàu</label><input type="date" class="form-control" id="emp-join" value="${e.joinDate || ''}"></div>
@@ -2655,7 +2655,7 @@ const Views = {
 
                     <div class="form-group">
                         <label class="form-label">Số Tiền (VND)</label>
-                        <input type="number" step="any" class="form-control" id="ve-m-amount" value="${e.amount || ''}" required placeholder="Nhập số tiền chi...">
+                        <input type="text" inputmode="numeric" class="form-control money" id="ve-m-amount" value="${app.fmtMoney(e.amount || '')}" required placeholder="Nhập số tiền chi...">
                     </div>
 
                     <div class="form-group">
