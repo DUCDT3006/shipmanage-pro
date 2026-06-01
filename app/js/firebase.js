@@ -188,6 +188,9 @@ function setupAuthGate() {
       // (Phase 3 sẽ tra users/{uid}.tenantId để user phụ trỏ về tenant của owner.)
       tenantId = user.uid;
       console.log('[Tenant] tenantId =', tenantId);
+      // Đổi user/tenant trên cùng trình duyệt -> reset local về TRẮNG
+      // (tránh dữ liệu khách này lẫn sang khách khác qua localStorage).
+      resetLocalIfTenantChanged(tenantId);
       if (!authStarted) {
         authStarted = true;
         setupHybridSync();          // chỉ đồng bộ cloud SAU khi đăng nhập
@@ -197,6 +200,32 @@ function setupAuthGate() {
       updateServerStatus('offline', 'Chưa đăng nhập');
     }
   });
+}
+
+// State trắng cho khách mới (không phải dữ liệu mẫu Vũ Gia) -> khách tự nhập công ty
+function blankState() {
+  return {
+    company: { name: '', taxId: '', bankInfo: '', address: '',
+      openingBalances: { 'ABbank': 0, 'Viettinbank': 0, 'Tài khoản cá nhân': 0, 'Tiền mặt': 0 } },
+    vessels: [], vendors: [], customers: [], employees: [], monthlyCosts: [],
+    transactions: [], fuelLogs: [], fuelVoyages: [], shipments: [],
+    captainReports: [], vesselExpenses: [], timesheets: []
+  };
+}
+
+// Đổi tenant (đăng nhập user khác) trên cùng trình duyệt -> xoá cache local, bắt đầu trắng.
+// Nếu tenant đã có dữ liệu trên cloud, các listener sẽ tự nạp lại sau đó.
+function resetLocalIfTenantChanged(tid) {
+  const KEY = 'shipManage_currentTenant';
+  const cached = localStorage.getItem(KEY);
+  if (cached === tid) return;                 // cùng tenant -> giữ cache cho nhanh
+  AppData.state = blankState();
+  try { localStorage.setItem('shipManageDB_v2', JSON.stringify(AppData.state)); } catch (e) {}
+  localStorage.setItem(KEY, tid);
+  console.log('[Tenant] Đổi tenant -> reset dữ liệu local về trắng.');
+  if (typeof app !== 'undefined' && app.currentView) {
+    try { app.navigate(app.currentView); } catch (e) { /* ignore */ }
+  }
 }
 
 function injectLoginOverlay() {

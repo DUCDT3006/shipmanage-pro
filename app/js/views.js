@@ -594,6 +594,13 @@ const Views = {
 
     fuel: (vesselId) => {
         const vessels = AppData.getVessels();
+        if (!vessels || vessels.length === 0) {
+            return `<div class="view-section"><div class="page-header"><div><h1 class="page-title">Quản lý Nhiên liệu</h1></div></div>
+                <div class="glass-card" style="text-align:center; padding:3rem;">
+                    <i class="fa-solid fa-ship" style="font-size:2.5rem; color:var(--primary-light); margin-bottom:1rem;"></i>
+                    <p>Chưa có tàu nào. Vui lòng thêm tàu trong mục <strong>Master Data</strong> (Thiết lập) trước khi quản lý nhiên liệu.</p>
+                </div></div>`;
+        }
         const selectedVesselId = vesselId || vessels[0].id;
         const selectedVessel = AppData.getVessel(selectedVesselId);
         const voyages = AppData.getFuelVoyages(selectedVesselId);

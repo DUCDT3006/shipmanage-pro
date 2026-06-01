@@ -71,7 +71,8 @@ function makeMock() {
 }
 
 function makeAppData() {
-  const lsStore = {};
+  // Giả lập "đã ở đúng tenant u1" để bỏ qua reset-về-trắng (test này tập trung vào sync/migration)
+  const lsStore = { 'shipManage_currentTenant': 'u1' };
   const AppData = {
     state: {
       company: { name: 'Cty', openingBalances: {} },
@@ -199,6 +200,20 @@ function buildSandbox(mock, appdata) {
   const before = appdata.AppData.state.transactions.length;
   mock.fireColl('tenants/u1/sm3_transactions', []); // không có docChanges
   check('snapshot rỗng KHÔNG xoá dữ liệu local', appdata.AppData.state.transactions.length === before);
+
+  // ---------- Đổi tenant -> reset local về trắng ----------
+  console.log('[Group] Reset khi đổi tenant');
+  const hadData = appdata.AppData.state.transactions.length > 0;
+  sb.resetLocalIfTenantChanged('u2-khac');   // đăng nhập tenant KHÁC
+  check('trước đó có dữ liệu', hadData);
+  check('đổi tenant -> transactions về rỗng', appdata.AppData.state.transactions.length === 0);
+  check('đổi tenant -> vessels về rỗng', appdata.AppData.state.vessels.length === 0);
+  check('marker tenant được cập nhật', appdata.lsStore['shipManage_currentTenant'] === 'u2-khac');
+  check('gọi lại cùng tenant -> KHÔNG reset nữa', (() => {
+    appdata.AppData.state.transactions.push({ id: 'KEEP1' });
+    sb.resetLocalIfTenantChanged('u2-khac'); // cùng tenant
+    return appdata.AppData.state.transactions.length === 1;
+  })());
 
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();
