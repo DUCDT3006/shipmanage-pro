@@ -1557,23 +1557,24 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
             return Math.round((Number(monthly[field]) || 0) / daysInMonth);
         }
 
+        // Tối ưu: duyệt theo TỪNG THÁNG giao thoa (O số tháng ≈ 1-2), thay vì từng ngày (O số ngày).
+        // Kết quả tương đương loop ngày (chênh tối đa ±1 VND do làm tròn dấu phẩy động).
         let totalCost = 0;
-        let current = new Date(d1);
-
-        while (current < d2) {
-            let next = new Date(current);
-            next.setDate(current.getDate() + 1);
-            if (next > d2) next = new Date(d2);
-
-            const mStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
-            const monthly = this.getMonthlyCosts(mStr, vesselId);
-            const [y, m] = mStr.split('-').map(Number);
-            const daysInMonth = new Date(y, m, 0).getDate();
-            
-            const fraction = (next - current) / (1000 * 60 * 60 * 24);
-            totalCost += ((Number(monthly[field]) || 0) / daysInMonth) * fraction;
-
-            current = next;
+        let cur = new Date(d1.getFullYear(), d1.getMonth(), 1);   // đầu tháng của d1
+        while (cur < d2) {
+            const y = cur.getFullYear(), m = cur.getMonth();       // m: 0-based
+            const monthStart = new Date(y, m, 1);
+            const monthEnd = new Date(y, m + 1, 1);                // loại trừ (đầu tháng sau)
+            const overlapStart = d1 > monthStart ? d1 : monthStart;
+            const overlapEnd = d2 < monthEnd ? d2 : monthEnd;
+            const overlapDays = (overlapEnd - overlapStart) / (1000 * 60 * 60 * 24);
+            if (overlapDays > 0) {
+                const mStr = `${y}-${String(m + 1).padStart(2, '0')}`;
+                const monthly = this.getMonthlyCosts(mStr, vesselId);
+                const daysInMonth = new Date(y, m + 1, 0).getDate();
+                totalCost += ((Number(monthly[field]) || 0) / daysInMonth) * overlapDays;
+            }
+            cur = new Date(y, m + 1, 1);                           // sang tháng kế
         }
 
         return Math.round(totalCost);
