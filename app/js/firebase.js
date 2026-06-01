@@ -182,14 +182,23 @@ function buildGrouped() {
   return o;
 }
 
-// Re-render có debounce nhẹ để tránh giật khi nhiều snapshot dồn về
+// Re-render khi có dữ liệu mới từ cloud — debounce + GIỮ trải nghiệm:
+//  - bỏ qua nếu đang mở modal (không phá thao tác nhập liệu)
+//  - giữ nguyên vị trí cuộn và ô đang focus
 function scheduleRerender() {
   if (rerenderTimer) clearTimeout(rerenderTimer);
   rerenderTimer = setTimeout(() => {
-    if (typeof app !== 'undefined' && app.currentView) {
-      try { app.navigate(app.currentView); } catch (e) { /* ignore */ }
-    }
-  }, 120);
+    if (typeof document === 'undefined' || typeof app === 'undefined' || !app.currentView) return;
+    // Đang mở modal -> hoãn re-render (state đã cập nhật, sẽ làm mới khi đóng/điều hướng)
+    if (document.querySelector('.modal-overlay.active')) return;
+    const vc = document.getElementById('view-container');
+    const scrollTop = vc ? vc.scrollTop : 0;
+    const activeEl = document.activeElement;
+    const activeId = activeEl && activeEl.id ? activeEl.id : null;
+    try { app.navigate(app.currentView); } catch (e) { /* ignore */ }
+    if (vc) vc.scrollTop = scrollTop;                       // khôi phục vị trí cuộn
+    if (activeId) { const el = document.getElementById(activeId); if (el && el.focus) el.focus(); }
+  }, 200);
 }
 
 // ===============================================================
