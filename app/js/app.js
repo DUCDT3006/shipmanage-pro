@@ -233,6 +233,76 @@ const app = {
         XLSX.writeFile(wb, filename);
     },
 
+    // === JSON Backup/Restore (bản sao lưu trung thực tuyệt đối từ localStorage) ===
+    exportLocalJSON() {
+        const data = localStorage.getItem('shipManageDB_v2');
+        if (!data) return alert('Không tìm thấy dữ liệu trong localStorage!');
+        try {
+            // Định dạng đẹp + đính kèm metadata để dễ kiểm tra
+            const state = JSON.parse(data);
+            const counts = {};
+            ['transactions', 'fuelLogs', 'fuelVoyages', 'shipments', 'captainReports',
+             'vesselExpenses', 'timesheets', 'employees', 'vendors', 'customers', 'vessels']
+                .forEach(k => { if (Array.isArray(state[k])) counts[k] = state[k].length; });
+            const payload = {
+                _backupMeta: {
+                    app: 'ShipManage',
+                    schema: 'shipManageDB_v2',
+                    exportedAt: new Date().toISOString(),
+                    sizeKB: Math.round(data.length / 1024),
+                    counts
+                },
+                state
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'shipmanage_backup_' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            console.log('✅ Đã xuất backup JSON:', payload._backupMeta);
+        } catch (e) {
+            alert('Lỗi khi xuất backup JSON: ' + e.message);
+        }
+    },
+
+    importLocalJSON(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const parsed = JSON.parse(e.target.result);
+                // Hỗ trợ cả 2 dạng: {state:{...}} (có metadata) hoặc state thuần
+                const newState = parsed && parsed.state ? parsed.state : parsed;
+                if (!newState || typeof newState !== 'object' || !Array.isArray(newState.transactions)) {
+                    throw new Error('File không đúng định dạng backup ShipManage (thiếu mảng transactions).');
+                }
+                const meta = parsed._backupMeta;
+                const summary = meta && meta.counts
+                    ? Object.entries(meta.counts).map(([k, v]) => `  • ${k}: ${v}`).join('\n')
+                    : `  • transactions: ${newState.transactions.length}`;
+                const ok = confirm(
+                    '⚠️ KHÔI PHỤC TỪ JSON sẽ GHI ĐÈ toàn bộ dữ liệu hiện tại trên trình duyệt này.\n\n' +
+                    'Dữ liệu trong file:\n' + summary + '\n\n' +
+                    (meta ? 'Xuất lúc: ' + meta.exportedAt + '\n\n' : '') +
+                    'Bạn có chắc chắn muốn tiếp tục? (Nên Tải Backup JSON hiện tại trước khi khôi phục.)'
+                );
+                if (!ok) { event.target.value = ''; return; }
+                localStorage.setItem('shipManageDB_v2', JSON.stringify(newState));
+                AppData.state = newState;
+                AppData.save();
+                this.navigate(this.currentView || 'dashboard');
+                alert('✅ Đã khôi phục dữ liệu từ JSON thành công!');
+            } catch (err) {
+                alert('❌ Lỗi khi đọc file JSON: ' + err.message);
+            } finally {
+                event.target.value = '';
+            }
+        };
+        reader.readAsText(file);
+    },
+
     exportSystemBackup() {
         if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện xuất Excel!');
         const wb = XLSX.utils.book_new();

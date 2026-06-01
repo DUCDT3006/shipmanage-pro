@@ -1760,6 +1760,26 @@ const Views = {
                         </div>
                     </div>
 
+                    <div class="glass-card" style="margin-top: 1.5rem; grid-column: span 2; border: 1px solid var(--secondary);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="margin: 0;"><i class="fa-solid fa-shield-halved" style="color: var(--secondary);"></i> Sao lưu & Khôi phục JSON <span class="badge badge-success" style="font-size:0.7rem;">Chuẩn nhất</span></h3>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <button class="btn btn-primary" onclick="app.exportLocalJSON()" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                                    <i class="fa-solid fa-download"></i> Tải Backup JSON
+                                </button>
+                                <div style="position: relative; overflow: hidden; display: inline-block;">
+                                    <button class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; border-color: var(--secondary);">
+                                        <i class="fa-solid fa-upload"></i> Khôi phục từ JSON
+                                    </button>
+                                    <input type="file" accept=".json" onchange="app.importLocalJSON(event)" style="position: absolute; font-size: 100px; opacity: 0; right: 0; top: 0; cursor: pointer;">
+                                </div>
+                            </div>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+                            <i class="fa-solid fa-circle-info"></i> Backup JSON sao chép <strong>nguyên vẹn 100%</strong> toàn bộ dữ liệu (không mất mát như Excel). Khuyến nghị tải backup JSON <strong>trước mỗi lần</strong> thử nghiệm hoặc khôi phục dữ liệu.
+                        </p>
+                    </div>
+
                     <div class="glass-card" style="margin-top: 1.5rem; grid-column: span 2;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
                             <h3 style="margin: 0;">Sao lưu & Khôi phục Dữ liệu (Excel)</h3>
