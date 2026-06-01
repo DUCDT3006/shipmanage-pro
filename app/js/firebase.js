@@ -212,19 +212,16 @@ function setupAuthGate() {
         if (typeof window !== 'undefined') window.SM_USER = currentUser;
         tenantId = info.tenantId;
         console.log('[Tenant] tenantId =', tenantId, '| role =', info.role);
-
         hideLoginOverlay();
-        const badge = document.getElementById('auth-user-badge');
-        if (badge) badge.textContent = (user.email || '') + (info.role === 'sub' ? ' (NV)' : '');
 
-        resetLocalIfTenantChanged(tenantId);
-        applyPermissionGating();
-        if (!authStarted) {
-          authStarted = true;
-          setupHybridSync();          // chỉ đồng bộ cloud SAU khi đăng nhập
-        } else {
-          scheduleRerender();
+        // Phase 4: kiểm tra license của tenant trước khi vào app
+        const lic = await checkLicense(tenantId);
+        currentUser.maxSubUsers = lic.maxSubUsers || 0;
+        if (!lic.valid) {
+          showLicenseGate(currentUser.role === 'owner' ? 'activate' : 'blocked', lic.reason);
+          return;                      // chưa kích hoạt / hết hạn -> không vào app, không sync
         }
+        proceedAfterLicense();
       } catch (e) {
         console.error('[Auth] resolveTenantAndRole error:', e);
         updateServerStatus('error', 'Lỗi tải hồ sơ người dùng');
@@ -235,6 +232,98 @@ function setupAuthGate() {
     }
   });
 }
+
+// Sau khi license hợp lệ -> vào app + bắt đầu đồng bộ
+function proceedAfterLicense() {
+  hideLoginOverlay();
+  hideLicenseGate();
+  const badge = (typeof document !== 'undefined') ? document.getElementById('auth-user-badge') : null;
+  if (badge && currentUser) badge.textContent = (currentUser.email || '') + (currentUser.role === 'sub' ? ' (NV)' : '');
+  resetLocalIfTenantChanged(tenantId);
+  applyPermissionGating();
+  if (!authStarted) { authStarted = true; setupHybridSync(); }
+  else { scheduleRerender(); }
+}
+
+// ===== Phase 4: License =====
+// Nguồn sự thật là licenses/{key} (owner KHÔNG sửa được -> không tự kích hoạt khống).
+async function checkLicense(tid) {
+  try {
+    const tsnap = await db.collection('tenants').doc(tid).get();
+    const key = tsnap.exists ? (tsnap.data().licenseKey || null) : null;
+    if (!key) return { valid: false, reason: 'Chưa kích hoạt' };
+    const lsnap = await db.collection('licenses').doc(key).get();
+    if (!lsnap.exists) return { valid: false, reason: 'Key không tồn tại' };
+    const d = lsnap.data();
+    const today = new Date().toISOString().slice(0, 10);
+    if (d.status === 'revoked') return { valid: false, reason: 'Key đã bị thu hồi' };
+    if (d.activatedBy && d.activatedBy !== tid) return { valid: false, reason: 'Key đã dùng cho tài khoản khác' };
+    if (d.expiresAt && d.expiresAt < today) return { valid: false, reason: 'License đã hết hạn (' + d.expiresAt + ')' };
+    return { valid: true, maxSubUsers: d.maxSubUsers || 0, expiresAt: d.expiresAt || null, plan: d.plan || '' };
+  } catch (e) {
+    console.error('[License] checkLicense error:', e);
+    return { valid: false, reason: 'Lỗi kiểm tra license' };
+  }
+}
+async function activateLicense(key) {
+  key = (key || '').trim();
+  if (!key) throw new Error('Vui lòng nhập key.');
+  const lref = db.collection('licenses').doc(key);
+  const lsnap = await lref.get();
+  if (!lsnap.exists) throw new Error('Key không tồn tại.');
+  const d = lsnap.data();
+  const today = new Date().toISOString().slice(0, 10);
+  if (d.status === 'revoked') throw new Error('Key đã bị thu hồi.');
+  if (d.activatedBy && d.activatedBy !== tenantId) throw new Error('Key đã được dùng cho tài khoản khác.');
+  if (d.expiresAt && d.expiresAt < today) throw new Error('Key đã hết hạn (' + d.expiresAt + ').');
+  await lref.set({ activatedBy: tenantId, activatedAt: new Date().toISOString(), status: 'active' }, { merge: true });
+  await db.collection('tenants').doc(tenantId).set({ licenseKey: key }, { merge: true });
+  if (currentUser) currentUser.maxSubUsers = d.maxSubUsers || 0;
+  return { maxSubUsers: d.maxSubUsers || 0, expiresAt: d.expiresAt || null };
+}
+function injectLicenseOverlay() {
+  if (typeof document === 'undefined' || document.getElementById('license-overlay')) return;
+  const ov = document.createElement('div');
+  ov.id = 'license-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;background:#0b0f19;font-family:Inter,sans-serif;';
+  ov.innerHTML = '<div id="license-card" style="background:rgba(17,24,39,0.9);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:2.5rem;width:90%;max-width:440px;text-align:center;"></div>';
+  document.body.appendChild(ov);
+}
+function showLicenseGate(mode, reason) {
+  injectLicenseOverlay();
+  const ov = document.getElementById('license-overlay');
+  const card = document.getElementById('license-card');
+  if (!ov || !card) return;
+  if (mode === 'activate') {
+    card.innerHTML =
+      '<div style="font-size:2.2rem;color:#f59e0b;margin-bottom:0.5rem;"><i class="fa-solid fa-key"></i></div>' +
+      '<h2 style="color:#fff;margin:0 0 0.3rem;font-size:1.3rem;">Kích hoạt phần mềm</h2>' +
+      '<p style="color:#94a3b8;font-size:0.85rem;margin:0 0 1.2rem;">' + (reason ? reason + '. ' : '') + 'Nhập mã kích hoạt (key) để sử dụng.</p>' +
+      '<input id="license-key" placeholder="Nhập key..." style="width:100%;box-sizing:border-box;padding:0.7rem;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.3);color:#fff;margin-bottom:0.8rem;">' +
+      '<div id="license-err" style="display:none;color:#fca5a5;font-size:0.82rem;margin-bottom:0.8rem;"></div>' +
+      '<button id="license-btn" onclick="smActivate()" style="width:100%;padding:0.8rem;border:none;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-weight:600;cursor:pointer;">Kích hoạt</button>' +
+      '<p style="margin-top:1rem;"><a href="#" onclick="signOutApp();return false;" style="color:#64748b;font-size:0.8rem;">Đăng xuất</a></p>';
+  } else {
+    card.innerHTML =
+      '<div style="font-size:2.2rem;color:#ef4444;margin-bottom:0.5rem;"><i class="fa-solid fa-lock"></i></div>' +
+      '<h2 style="color:#fff;margin:0 0 0.3rem;font-size:1.3rem;">Chưa thể truy cập</h2>' +
+      '<p style="color:#94a3b8;font-size:0.9rem;margin:0 0 1.2rem;">' + (reason || 'Công ty chưa kích hoạt hoặc đã hết hạn') + '. Vui lòng liên hệ chủ tài khoản.</p>' +
+      '<button onclick="signOutApp()" style="width:100%;padding:0.8rem;border:none;border-radius:10px;background:#334155;color:#fff;font-weight:600;cursor:pointer;">Đăng xuất</button>';
+  }
+  ov.style.display = 'flex';
+}
+function hideLicenseGate() { const ov = (typeof document !== 'undefined') && document.getElementById('license-overlay'); if (ov) ov.style.display = 'none'; }
+function smActivate() {
+  const key = (document.getElementById('license-key') || {}).value;
+  const err = document.getElementById('license-err');
+  const btn = document.getElementById('license-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Đang kích hoạt...'; }
+  activateLicense(key)
+    .then(() => proceedAfterLicense())
+    .catch(e => { if (err) { err.textContent = e.message || e; err.style.display = 'block'; } })
+    .finally(() => { if (btn) { btn.disabled = false; btn.textContent = 'Kích hoạt'; } });
+}
+if (typeof window !== 'undefined') window.smActivate = smActivate;
 
 // Tra users/{uid} -> tenantId + role + permissions. Lần đầu (chưa có doc) = OWNER, tự bootstrap.
 async function resolveTenantAndRole(user) {
@@ -305,6 +394,13 @@ async function smListMembers() {
 }
 async function smAddSubUser(email, password, permissions) {
   if (!currentUser || currentUser.role !== 'owner') throw new Error('Chỉ chủ tài khoản mới thêm được người dùng.');
+  // Giới hạn số nhân viên theo license
+  const max = currentUser.maxSubUsers || 0;
+  if (max > 0) {
+    const members = await smListMembers();
+    const subCount = members.filter(m => m.role === 'sub').length;
+    if (subCount >= max) throw new Error('Đã đạt giới hạn ' + max + ' nhân viên của gói license. Nâng cấp để thêm.');
+  }
   // Secondary app: tạo tài khoản phụ mà KHÔNG làm văng phiên owner (chạy được trên gói Spark)
   const secondary = firebase.initializeApp(firebaseConfig, 'Secondary-' + Date.now());
   try {

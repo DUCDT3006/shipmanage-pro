@@ -37,7 +37,13 @@ function makeMock() {
   function docRef(collPath, id) {
     const fullDoc = collPath + '/' + id;
     return {
-      set: (data) => { getColl(collPath).set(id, JSON.parse(JSON.stringify(data))); writeCount++; return Promise.resolve(); },
+      set: (data, opts) => {
+        const clone = JSON.parse(JSON.stringify(data));
+        if (opts && opts.merge && getColl(collPath).has(id)) {
+          getColl(collPath).set(id, Object.assign({}, getColl(collPath).get(id), clone));
+        } else { getColl(collPath).set(id, clone); }
+        writeCount++; return Promise.resolve();
+      },
       delete: () => { getColl(collPath).delete(id); writeCount++; return Promise.resolve(); },
       get: () => Promise.resolve({ exists: getColl(collPath).has(id), data: () => getColl(collPath).get(id) }),
       onSnapshot: (cb) => { docCbs[fullDoc] = cb; cb({ exists: getColl(collPath).has(id), data: () => getColl(collPath).get(id) }); return () => {}; },
@@ -136,6 +142,9 @@ function buildSandbox(mock, appdata) {
   console.log('[Group] Migration');
   const mock = makeMock();
   const appdata = makeAppData();
+  // Pre-seed license hợp lệ cho tenant u1 (để qua cổng license, tập trung test sync)
+  mock.store['tenants'] = new Map([['u1', { licenseKey: 'TESTKEY', ownerUid: 'u1' }]]);
+  mock.store['licenses'] = new Map([['TESTKEY', { status: 'active', activatedBy: 'u1', maxSubUsers: 5, expiresAt: '2099-12-31' }]]);
   const sb = buildSandbox(mock, appdata);
   sb.__domReady();            // -> initFirebase -> setupHybridSync -> migration (fire&forget)
   await flush();
@@ -215,6 +224,25 @@ function buildSandbox(mock, appdata) {
     sb.resetLocalIfTenantChanged('u2-khac'); // cùng tenant
     return appdata.AppData.state.transactions.length === 1;
   })());
+
+  // ---------- License (Phase 4) ----------
+  console.log('[Group] License');
+  const lic1 = await sb.checkLicense('u1');
+  check('license hợp lệ cho tenant đã kích hoạt', lic1.valid === true && lic1.maxSubUsers === 5);
+  const lic2 = await sb.checkLicense('tenant-chua-kich-hoat');
+  check('tenant chưa có key -> invalid', lic2.valid === false);
+  mock.store['tenants'].set('expTenant', { licenseKey: 'EXPKEY' });
+  mock.store['licenses'].set('EXPKEY', { status: 'active', activatedBy: 'expTenant', expiresAt: '2000-01-01' });
+  const lic3 = await sb.checkLicense('expTenant');
+  check('license hết hạn -> invalid', lic3.valid === false && /hết hạn/.test(lic3.reason));
+  mock.store['licenses'].set('NEWKEY', { status: 'unused', activatedBy: null, maxSubUsers: 3, expiresAt: '2099-01-01' });
+  await sb.activateLicense('NEWKEY');
+  check('activate gắn key vào tenant hiện tại (u1)', mock.store['licenses'].get('NEWKEY').activatedBy === 'u1');
+  check('tenant lưu licenseKey mới', mock.store['tenants'].get('u1').licenseKey === 'NEWKEY');
+  mock.store['licenses'].set('USEDKEY', { status: 'active', activatedBy: 'someoneelse', expiresAt: '2099-01-01' });
+  let usedBlocked = false;
+  try { await sb.activateLicense('USEDKEY'); } catch (e) { usedBlocked = /tài khoản khác/.test(e.message); }
+  check('key đã dùng cho tenant khác -> chặn kích hoạt', usedBlocked);
 
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();
