@@ -37,13 +37,13 @@
  */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAoAhYpcijQZ0Wgs8ZwtMmcyWX3-pf7jmQ",
-  authDomain: "shipmanagevgt.firebaseapp.com",
-  projectId: "shipmanagevgt",
-  storageBucket: "shipmanagevgt.firebasestorage.app",
-  messagingSenderId: "266936765184",
-  appId: "1:266936765184:web:52abed9b1caa12ffaec1e5",
-  measurementId: "G-P5N1346GZS"
+  apiKey: "AIzaSyAw8DPNj3mLSvNrWh8qEr_qwnfaJ8kfSnM",
+  authDomain: "shipmanage-vgt.firebaseapp.com",
+  projectId: "shipmanage-vgt",
+  storageBucket: "shipmanage-vgt.firebasestorage.app",
+  messagingSenderId: "216198811980",
+  appId: "1:216198811980:web:1d31e2166cf9958179bfe9",
+  measurementId: "G-W23K5B00LV"
 };
 
 // ---- Cấu hình layout Hybrid ----
