@@ -574,8 +574,8 @@ const Views = {
                     </div>
                     <div class="form-group"><label class="form-label">Nội dung chi tiết</label><textarea class="form-control" id="t-content" required></textarea></div>
                     <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Khoản Thu (VND)</label><input type="number" step="any" class="form-control" id="t-thu" value="0"></div>
-                        <div class="form-group"><label class="form-label">Khoản Chi (VND)</label><input type="number" step="any" class="form-control" id="t-chi" value="0"></div>
+                        <div class="form-group"><label class="form-label">Khoản Thu (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="t-thu" value="0"></div>
+                        <div class="form-group"><label class="form-label">Khoản Chi (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="t-chi" value="0"></div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Tài khoản thanh toán</label>
@@ -757,7 +757,7 @@ const Views = {
                         </div>
                         <div class="form-group">
                             <label class="form-label">Đơn giá nhiên liệu tiếp thêm</label>
-                            <input type="number" step="any" class="form-control" id="fv-price" value="${voyage ? voyage.fuelUnitPrice : 20000}" required>
+                            <input type="text" inputmode="numeric" class="form-control money" id="fv-price" value="${voyage ? app.fmtMoney(voyage.fuelUnitPrice) : '20.000'}" required>
                         </div>
                     <div class="grid-3">
                         <div class="form-group">
@@ -905,17 +905,17 @@ const Views = {
                                 </select>
                             </div>
                         </div>
-                        <div class="form-group"><label class="form-label">Lương tổng (VND)</label><input type="number" step="any" class="form-control" id="m-salary" value="${costs.salary || 0}"></div>
-                        <div class="form-group"><label class="form-label">Bảo hiểm (VND)</label><input type="number" step="any" class="form-control" id="m-ins" value="${costs.insurance || 0}"></div>
+                        <div class="form-group"><label class="form-label">Lương tổng (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="m-salary" value="${app.fmtMoney(costs.salary || 0)}"></div>
+                        <div class="form-group"><label class="form-label">Bảo hiểm (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="m-ins" value="${app.fmtMoney(costs.insurance || 0)}"></div>
                         
                         <div class="form-group">
                             <label class="form-label">Tiền ăn uống (VND) <span style="font-size:0.75rem; color:var(--secondary); font-weight:normal;">(Tự động từ Báo cáo Tàu hoặc tự nhập)</span></label>
-                            <input type="number" step="any" class="form-control" id="m-food" value="${costs.food || 0}">
+                            <input type="text" inputmode="numeric" class="form-control money" id="m-food" value="${app.fmtMoney(costs.food || 0)}">
                         </div>
                         
                         <div class="form-group">
                             <label class="form-label">Vật tư, sửa chữa Công ty cấp (VND) <span style="font-size:0.75rem; color:var(--info); font-weight:normal;">(Tự nhập tại đây)</span></label>
-                            <input type="number" step="any" class="form-control" id="m-material-company" value="${costs.materialCompany || 0}">
+                            <input type="text" inputmode="numeric" class="form-control money" id="m-material-company" value="${app.fmtMoney(costs.materialCompany || 0)}">
                         </div>
 
                         <div class="form-group">
@@ -928,7 +928,7 @@ const Views = {
                             <input type="number" step="any" class="form-control" id="m-material-vessel" value="${costs.materialVessel || 0}" readonly style="background:rgba(0,0,0,0.3); color:var(--text-muted);">
                         </div>
                         
-                        <div class="form-group"><label class="form-label">Chi phí khác (VND)</label><input type="number" step="any" class="form-control" id="m-other" value="${costs.other || 0}"></div>
+                        <div class="form-group"><label class="form-label">Chi phí khác (VND)</label><input type="text" inputmode="numeric" class="form-control money" id="m-other" value="${app.fmtMoney(costs.other || 0)}"></div>
                         <button type="submit" class="btn btn-primary" style="width:100%;">Lưu chi phí tháng</button>
                     </form>
                 </div>
@@ -1718,12 +1718,12 @@ const Views = {
                             
                             <h4 style="margin: 1.5rem 0 1rem; color: var(--primary-light);">Số dư đầu kỳ</h4>
                             <div class="grid-2">
-                                <div class="form-group"><label class="form-label">ABbank</label><input type="number" step="any" class="form-control" id="bal-abbank" value="${(c.openingBalances && c.openingBalances['ABbank']) || 0}"></div>
-                                <div class="form-group"><label class="form-label">Viettinbank</label><input type="number" step="any" class="form-control" id="bal-viettin" value="${(c.openingBalances && c.openingBalances['Viettinbank']) || 0}"></div>
+                                <div class="form-group"><label class="form-label">ABbank</label><input type="text" inputmode="numeric" class="form-control money" id="bal-abbank" value="${app.fmtMoney((c.openingBalances && c.openingBalances['ABbank']) || 0)}"></div>
+                                <div class="form-group"><label class="form-label">Viettinbank</label><input type="text" inputmode="numeric" class="form-control money" id="bal-viettin" value="${app.fmtMoney((c.openingBalances && c.openingBalances['Viettinbank']) || 0)}"></div>
                             </div>
                             <div class="grid-2">
-                                <div class="form-group"><label class="form-label">Cá nhân</label><input type="number" step="any" class="form-control" id="bal-ca-nhan" value="${(c.openingBalances && c.openingBalances['Tài khoản cá nhân']) || 0}"></div>
-                                <div class="form-group"><label class="form-label">Tiền mặt</label><input type="number" step="any" class="form-control" id="bal-tien-mat" value="${(c.openingBalances && c.openingBalances['Tiền mặt']) || 0}"></div>
+                                <div class="form-group"><label class="form-label">Cá nhân</label><input type="text" inputmode="numeric" class="form-control money" id="bal-ca-nhan" value="${app.fmtMoney((c.openingBalances && c.openingBalances['Tài khoản cá nhân']) || 0)}"></div>
+                                <div class="form-group"><label class="form-label">Tiền mặt</label><input type="text" inputmode="numeric" class="form-control money" id="bal-tien-mat" value="${app.fmtMoney((c.openingBalances && c.openingBalances['Tiền mặt']) || 0)}"></div>
                             </div>
                             
                             <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Cập nhật hồ sơ & Số dư</button>

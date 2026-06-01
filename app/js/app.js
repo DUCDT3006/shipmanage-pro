@@ -1394,8 +1394,28 @@ const app = {
         XLSX.writeFile(wb, 'Bao_Cao_Chuyen_Hang_' + new Date().toISOString().slice(0,10) + '.xlsx');
     },
 
+    // Đọc số từ input tiền (bỏ dấu chấm phân cách nghìn). Tương thích cả input thường.
+    parseNum(v) {
+        if (v === null || v === undefined) return 0;
+        const n = Number(String(v).replace(/\./g, '').replace(/\s/g, '').replace(',', '.'));
+        return isNaN(n) ? 0 : n;
+    },
+    // Định dạng số nguyên tiền VN: 1000000 -> "1.000.000"
+    fmtMoney(v) {
+        const n = this.parseNum(v);
+        return n ? n.toLocaleString('vi-VN') : (v === 0 || v === '0' ? '0' : '');
+    },
+
     init() {
         this.runAutoBackup();
+        // Tự thêm dấu chấm phân cách nghìn cho mọi input có class "money" khi gõ
+        document.addEventListener('input', (e) => {
+            const el = e.target;
+            if (!el || !el.classList || !el.classList.contains('money')) return;
+            const neg = el.value.trim().startsWith('-');
+            const digits = el.value.replace(/\D/g, '');
+            el.value = (neg ? '-' : '') + (digits ? Number(digits).toLocaleString('vi-VN') : '');
+        });
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -2654,18 +2674,15 @@ const app = {
             contractNo: document.getElementById('t-contract').value,
             partner: document.getElementById('t-partner').value,
             content: document.getElementById('t-content').value,
-            thu: Number(document.getElementById('t-thu').value) || 0,
-            chi: Number(document.getElementById('t-chi').value) || 0,
+            thu: this.parseNum(document.getElementById('t-thu').value),
+            chi: this.parseNum(document.getElementById('t-chi').value),
             account: document.getElementById('t-acc').value
         };
         // --- Validate ---
-        const rawThu = document.getElementById('t-thu').value;
-        const rawChi = document.getElementById('t-chi').value;
         if (!this._isValidDate(t.date)) return this._vErr('Vui lòng nhập Ngày hợp lệ.');
         if (!t.category) return this._vErr('Vui lòng chọn Hạng mục.');
         if (!t.partner || !t.partner.trim()) return this._vErr('Vui lòng nhập Đối tác.');
         if (!t.content || !t.content.trim()) return this._vErr('Vui lòng nhập Nội dung chi tiết.');
-        if ((rawThu && !this._isNumeric(rawThu)) || (rawChi && !this._isNumeric(rawChi))) return this._vErr('Khoản Thu/Chi phải là số.');
         if (t.thu < 0 || t.chi < 0) return this._vErr('Khoản Thu/Chi không được âm.');
         if (t.thu === 0 && t.chi === 0) return this._vErr('Phải nhập ít nhất một khoản Thu hoặc Chi lớn hơn 0.');
         AppData.addTransaction(t);
@@ -2694,8 +2711,8 @@ const app = {
         }
         document.getElementById('t-partner').value = trans.partner;
         document.getElementById('t-content').value = trans.content;
-        document.getElementById('t-thu').value = trans.thu;
-        document.getElementById('t-chi').value = trans.chi;
+        document.getElementById('t-thu').value = this.fmtMoney(trans.thu);
+        document.getElementById('t-chi').value = this.fmtMoney(trans.chi);
         document.getElementById('t-acc').value = trans.account;
         this.openModal('trans-modal');
     },
@@ -2751,7 +2768,7 @@ const app = {
             voyageNo: fvNo,
             cargoType: document.getElementById('fv-cargo').value,
             addedFuel: Number(document.getElementById('fv-added').value) || 0,
-            fuelUnitPrice: Number(document.getElementById('fv-price').value) || 0,
+            fuelUnitPrice: this.parseNum(document.getElementById('fv-price').value),
             fuelDate: document.getElementById('fv-date').value,
             fuelVendor: document.getElementById('fv-vendor').value,
             fuelLocation: document.getElementById('fv-location').value
@@ -2945,13 +2962,13 @@ const app = {
         const month = document.getElementById('m-month').value;
         const vesselId = document.getElementById('m-vessel').value;
         const costs = AppData.getMonthlyCosts(month, vesselId);
-        document.getElementById('m-salary').value = costs.salary || 0;
-        document.getElementById('m-ins').value = costs.insurance || 0;
-        document.getElementById('m-food').value = costs.food || 0;
-        document.getElementById('m-material-company').value = costs.materialCompany || 0;
+        document.getElementById('m-salary').value = this.fmtMoney(costs.salary || 0);
+        document.getElementById('m-ins').value = this.fmtMoney(costs.insurance || 0);
+        document.getElementById('m-food').value = this.fmtMoney(costs.food || 0);
+        document.getElementById('m-material-company').value = this.fmtMoney(costs.materialCompany || 0);
         document.getElementById('m-material-vessel').value = costs.materialVessel || 0;
         document.getElementById('m-loan-interest').value = costs.loanInterest || 0;
-        document.getElementById('m-other').value = costs.other || 0;
+        document.getElementById('m-other').value = this.fmtMoney(costs.other || 0);
     },
     saveMonthlyCosts() {
         const month = document.getElementById('m-month').value;
@@ -2959,13 +2976,13 @@ const app = {
         const data = {
             month,
             vesselId,
-            salary: Number(document.getElementById('m-salary').value) || 0,
-            insurance: Number(document.getElementById('m-ins').value) || 0,
-            food: Number(document.getElementById('m-food').value) || 0,
-            materialCompany: Number(document.getElementById('m-material-company').value) || 0,
+            salary: this.parseNum(document.getElementById('m-salary').value),
+            insurance: this.parseNum(document.getElementById('m-ins').value),
+            food: this.parseNum(document.getElementById('m-food').value),
+            materialCompany: this.parseNum(document.getElementById('m-material-company').value),
             materialVessel: Number(document.getElementById('m-material-vessel').value) || 0,
             loanInterest: Number(document.getElementById('m-loan-interest').value) || 0,
-            other: Number(document.getElementById('m-other').value) || 0
+            other: this.parseNum(document.getElementById('m-other').value)
         };
         AppData.saveMonthlyCosts(data);
         if (window.smLogAudit) window.smLogAudit('Cập nhật chi phí tháng',
@@ -3286,10 +3303,10 @@ const app = {
             taxId: document.getElementById('c-tax').value,
             bankInfo: document.getElementById('c-bank').value,
             openingBalances: {
-                'ABbank': Number(document.getElementById('bal-abbank').value) || 0,
-                'Viettinbank': Number(document.getElementById('bal-viettin').value) || 0,
-                'Tài khoản cá nhân': Number(document.getElementById('bal-ca-nhan').value) || 0,
-                'Tiền mặt': Number(document.getElementById('bal-tien-mat').value) || 0
+                'ABbank': this.parseNum(document.getElementById('bal-abbank').value),
+                'Viettinbank': this.parseNum(document.getElementById('bal-viettin').value),
+                'Tài khoản cá nhân': this.parseNum(document.getElementById('bal-ca-nhan').value),
+                'Tiền mặt': this.parseNum(document.getElementById('bal-tien-mat').value)
             }
         };
         AppData.updateCompany(data);

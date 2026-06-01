@@ -95,4 +95,13 @@ sandbox.confirm = () => true;     // chấp nhận hộp thoại
 app.restoreAutoBackup('2026-04-01');
 check('restore áp dụng đúng dữ liệu ảnh chụp', JSON.parse(ls.getItem('shipManageDB_v2')).transactions[0].id === 'SNAP-OK');
 
+console.log('[Group] Định dạng số tiền');
+check('parseNum bỏ dấu chấm: "1.000.000" -> 1000000', app.parseNum('1.000.000') === 1000000);
+check('parseNum số thường "5000" -> 5000', app.parseNum('5000') === 5000);
+check('parseNum rỗng -> 0', app.parseNum('') === 0);
+check('parseNum số âm "-1.500" -> -1500', app.parseNum('-1.500') === -1500);
+check('fmtMoney 1000000 -> "1.000.000"', app.fmtMoney(1000000) === '1.000.000');
+check('fmtMoney 0 -> "0"', app.fmtMoney(0) === '0');
+check('vòng tròn parseNum(fmtMoney(x)) == x', app.parseNum(app.fmtMoney(2500000)) === 2500000);
+
 console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
