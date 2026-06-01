@@ -81,7 +81,7 @@ const app = {
                     logs.forEach((log, idx) => {
                         const fuelRate = Number(log.fuelRate) || 0;
                         const hours = Number(log.hours) || 0;
-                        const legConsumption = Math.round(hours * fuelRate);
+                        const legConsumption = Calc.legConsumption(hours, fuelRate);
 
                         if (idx === 0) {
                             rows.push([
@@ -399,7 +399,7 @@ const app = {
                     logs.forEach((log, idx) => {
                         const fuelRate = Number(log.fuelRate) || 0;
                         const hours = Number(log.hours) || 0;
-                        const legConsumption = Math.round(hours * fuelRate);
+                        const legConsumption = Calc.legConsumption(hours, fuelRate);
                         if (idx === 0) {
                             fuelRows.push([
                                 voy.id, log.id, v.id, voy.voyageNo, voy.cargoType || '', voy.initialFuel || 0,
@@ -1602,7 +1602,7 @@ const app = {
                 vesselStats[vId] = { name: vId, revenue: 0, cost: 0, profit: 0, fuelDO: 0 };
             }
             const rev = Number(s.revenueReal || 0);
-            const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
             const baseCosts = { ...s.costs };
             delete baseCosts.vat;
             const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
@@ -1700,7 +1700,7 @@ const app = {
                     monthlyStats[m] = { revenue: 0, cost: 0, profit: 0 };
                 }
                 const rev = Number(s.revenueReal || 0);
-                const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+                const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
                 const baseCosts = { ...s.costs };
                 delete baseCosts.vat;
                 const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
@@ -1726,7 +1726,7 @@ const app = {
             trendRevData = sortedVoyages.map(s => Number(s.revenueReal || 0));
             trendProfitData = sortedVoyages.map(s => {
                 const rev = Number(s.revenueReal || 0);
-                const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+                const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
                 const baseCosts = { ...s.costs };
                 delete baseCosts.vat;
                 const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
@@ -1807,7 +1807,7 @@ const app = {
         };
 
         shipments.forEach(s => {
-            const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
             costSums.fuelDO += Number(s.costs?.fuelDO || 0);
             costSums.fuelLO += Number(s.costs?.fuelLO || 0);
             costSums.crewSalary += Number(s.costs?.crewSalary || 0);
@@ -1985,7 +1985,7 @@ const app = {
 
         filteredShipments.forEach(s => {
             totalRevenue += Number(s.revenueReal || 0);
-            const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
             const baseCosts = { ...s.costs };
             delete baseCosts.vat;
             const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
@@ -2029,7 +2029,7 @@ const app = {
                 };
             }
             const rev = Number(s.revenueReal || 0);
-            const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
             const baseCosts = { ...s.costs };
             delete baseCosts.vat;
             const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
@@ -2106,7 +2106,7 @@ const app = {
                 let prevCost = 0;
                 prevMonthShipments.forEach(s => {
                     prevRevenue += Number(s.revenueReal || 0);
-                    const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+                    const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
                     const baseCosts = { ...s.costs };
                     delete baseCosts.vat;
                     const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);

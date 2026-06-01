@@ -28,7 +28,7 @@ const Views = {
 
         filteredShips.forEach(s => {
             totalRevenue += Number(s.revenueReal || 0);
-            const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
             const baseCosts = { ...s.costs };
             delete baseCosts.vat; // Tránh cộng dồn
             const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
@@ -2856,7 +2856,7 @@ const Views = {
                                 ${monthShips.map(s => {
                                     const rev = Number(s.revenueReal || 0);
                                     
-                                    const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+                                    const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
                                     const baseCosts = { ...s.costs };
                                     delete baseCosts.vat; // Tránh cộng dồn
                                     const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
