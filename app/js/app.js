@@ -2512,6 +2512,46 @@ const app = {
     },
 
     // === Nhật ký thay đổi (audit log) — owner ===
+    // Nhãn field + định dạng để hiển thị "đã đổi gì"
+    _AUDIT_FIELD_LABELS: {
+        thu: 'Thu', chi: 'Chi', content: 'Nội dung', partner: 'Đối tác', category: 'Hạng mục', account: 'Tài khoản',
+        vessel: 'Tàu', date: 'Ngày', voyageNo: 'Số chuyến', contractNo: 'Mã HĐ',
+        fuelRate: 'Định mức (L/h)', hours: 'Số giờ', startPos: 'Nơi đi', endPos: 'Nơi đến', startTime: 'TG đi', endTime: 'TG đến',
+        addedFuel: 'Tiếp dầu (L)', fuelUnitPrice: 'Đơn giá dầu', initialFuel: 'Tồn đầu (L)', fuelVendor: 'NCC dầu', fuelLocation: 'Nơi cấp', fuelDate: 'Ngày cấp', cargoType: 'Loại hàng',
+        customer: 'Khách hàng', cargo: 'Hàng', portLoad: 'Cảng đi', portDischarge: 'Cảng đến', qty: 'Khối lượng (tấn)', rate: 'Đơn giá', markup: 'Tiền gửi',
+        revenueReal: 'Doanh thu thực', revenueInvoice: 'Doanh thu HĐ', dateStart: 'Ngày bắt đầu', dateEnd: 'Ngày kết thúc', reportMonth: 'Tháng hạch toán',
+        amount: 'Số tiền', salary: 'Lương', insurance: 'Bảo hiểm', food: 'Tiền ăn', other: 'Khác', loanInterest: 'Lãi vay',
+        fuelDO: 'Dầu DO', fuelLO: 'Dầu LO', crewSalary: 'Lương TV', crewFood: 'Tiền ăn', crewInsurance: 'Bảo hiểm', vat: 'VAT',
+        name: 'Tên', captain: 'Thuyền trưởng', manager: 'Quản lý', capacity: 'Tải trọng', address: 'Địa chỉ', contact: 'SĐT'
+    },
+    _fmtAuditVal(v) {
+        if (v === null || v === undefined || v === '') return '(trống)';
+        if (typeof v === 'number') return v.toLocaleString('vi-VN');
+        if (typeof v === 'object') return JSON.stringify(v);
+        return String(v);
+    },
+    _diffText(before, after) {
+        if (!before || !after) return '';
+        const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+        const skip = new Set(['updatedAt', 'id', '_id', 'fuelVoyageId', 'vesselId']);
+        const parts = [];
+        keys.forEach(k => {
+            if (skip.has(k)) return;
+            const bv = before[k], av = after[k];
+            if ((typeof bv === 'object' && bv) || (typeof av === 'object' && av)) {
+                if (JSON.stringify(bv) !== JSON.stringify(av) && bv && av) {
+                    const sub = this._diffText(bv, av);
+                    if (sub) parts.push(sub);
+                }
+                return;
+            }
+            if (String(bv) !== String(av)) {
+                const label = this._AUDIT_FIELD_LABELS[k] || k;
+                parts.push(`${label}: ${this._fmtAuditVal(bv)} → ${this._fmtAuditVal(av)}`);
+            }
+        });
+        return parts.join(' · ');
+    },
     async loadAudit() {
         const panel = document.getElementById('audit-panel');
         if (!panel || typeof window.smListAudit !== 'function') return;
@@ -2524,7 +2564,15 @@ const app = {
             const fmt = (iso) => { try { return new Date(iso).toLocaleString('vi-VN'); } catch (e) { return iso; } };
             let html = '<div class="table-container"><table class="table"><thead><tr><th>Thời gian</th><th>Người dùng</th><th>Thay đổi</th><th>Thao tác</th></tr></thead><tbody>';
             items.forEach(it => {
-                const text = it.summary || it.detail || it.action || '';
+                let text = it.summary || it.detail || it.action || '';
+                // Với "sửa": hiện rõ field nào đổi (cũ → mới)
+                if (it.action === 'edit' && it.before && it.after) {
+                    const d = this._diffText(it.before, it.after);
+                    if (d) {
+                        const head = (it.summary || 'Sửa').split(':')[0];
+                        text = `<strong>${esc(head)}</strong><br><span style="color:var(--text-muted); font-size:0.78rem;">${esc(d)}</span>`;
+                    } else { text = esc(text); }
+                } else { text = esc(text); }
                 const canUndo = !it.undone && (it.grouped || (it.coll && it.recordId));
                 const undoBtn = it.undone
                     ? '<span style="font-size:0.78rem; color:var(--text-muted);"><i class="fa-solid fa-rotate-left"></i> Đã hoàn tác</span>'
@@ -2532,7 +2580,7 @@ const app = {
                 html += `<tr style="${it.undone ? 'opacity:0.55;' : ''}">
                     <td style="white-space:nowrap; font-size:0.8rem;">${esc(fmt(it.at))}</td>
                     <td style="font-size:0.8rem;">${esc(it.userEmail || '')}</td>
-                    <td style="font-size:0.82rem;">${esc(text)}</td>
+                    <td style="font-size:0.82rem;">${text}</td>
                     <td>${undoBtn}</td>
                 </tr>`;
             });
