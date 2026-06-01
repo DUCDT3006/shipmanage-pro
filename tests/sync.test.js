@@ -269,5 +269,19 @@ function buildSandbox(mock, appdata) {
   if (editE) await sb.smUndo(editE._id);
   check('hoàn tác SỬA -> giá trị khôi phục (thu=100)', appdata.AppData.state.transactions.find(t => t.id === 'TXEDIT').thu === 100);
 
+  // ---------- Phân quyền dữ liệu (task #17) ----------
+  console.log('[Group] Phân quyền dữ liệu theo vai trò');
+  // Simulate currentUser bị thay đổi sang sub
+  vm.runInContext("currentUser = { uid:'sub1', role:'sub', tenantId:'u1', vesselIds:['VG05'] };", sb);
+  check('sub KHÔNG được sync transactions (nhạy cảm)', sb.canSyncCollection('transactions') === false);
+  check('sub KHÔNG được sync timesheets (nhạy cảm)', sb.canSyncCollection('timesheets') === false);
+  check('sub được sync fuelLogs (vận hành, có tàu gán)', sb.canSyncCollection('fuelLogs') === true);
+  check('isFinanceRole=false cho sub', sb.isFinanceRole() === false);
+  vm.runInContext("currentUser = { uid:'acc1', role:'accountant', tenantId:'u1', vesselIds:[] };", sb);
+  check('accountant ĐƯỢC sync transactions', sb.canSyncCollection('transactions') === true);
+  check('isFinanceRole=true cho accountant', sb.isFinanceRole() === true);
+  vm.runInContext("currentUser = { uid:'u1', role:'owner', tenantId:'u1', vesselIds:[] };", sb);
+  check('owner sync tất cả', sb.canSyncCollection('transactions') && sb.canSyncCollection('fuelLogs'));
+
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();

@@ -53,8 +53,36 @@ const SM3 = {
   groupedDocId: 'state',
   // Các collection tăng trưởng -> tách per-record
   perRecord: ['transactions', 'fuelLogs', 'fuelVoyages', 'shipments',
-              'captainReports', 'vesselExpenses', 'timesheets']
+              'captainReports', 'vesselExpenses', 'timesheets'],
+  // ===== Phân loại theo độ nhạy cảm (task #17) =====
+  // Nhạy cảm (tài chính/lương): chỉ owner + accountant được sync
+  sensitivePerRecord: ['transactions', 'timesheets'],
+  // Vận hành: sub được sync nhưng filter theo vesselId
+  operationalPerRecord: ['fuelLogs', 'fuelVoyages', 'shipments', 'captainReports', 'vesselExpenses'],
+  // Grouped: tách thành 2 doc -> public (vessels/vendors/customers/tên cty) ai cũng đọc,
+  // private (employees/monthlyCosts/openingBalances) chỉ owner+accountant
+  groupedPublicKeys: ['vessels', 'vendors', 'customers'],   // company name/address tách riêng
+  groupedPrivateKeys: ['employees', 'monthlyCosts']
 };
+// Doc grouped MỚI (tách theo nhạy cảm)
+function groupedPublicRef() { return tenantRoot().collection('sm3_grouped_public').doc(SM3.groupedDocId); }
+function groupedPrivateRef() { return tenantRoot().collection('sm3_grouped_private').doc(SM3.groupedDocId); }
+// Vai trò có quyền xem dữ liệu nhạy cảm
+function isFinanceRole() {
+  return currentUser && (currentUser.role === 'owner' || currentUser.role === 'accountant');
+}
+function userVesselIds() {
+  if (!currentUser) return [];
+  const arr = currentUser.vesselIds || (currentUser.vesselId ? [currentUser.vesselId] : []);
+  return Array.isArray(arr) ? arr.filter(Boolean) : [];
+}
+// Sub có thể xem collection vận hành cho tàu mình; nhạy cảm thì KHÔNG.
+function canSyncCollection(coll) {
+  if (isFinanceRole()) return true;                         // owner/accountant: tất cả
+  if (SM3.sensitivePerRecord.includes(coll)) return false;  // sub không thấy tài chính/lương
+  if (SM3.operationalPerRecord.includes(coll)) return userVesselIds().length > 0;
+  return true;
+}
 
 let db = null;
 let isFirebaseInitialized = false;
@@ -217,7 +245,7 @@ function setupAuthGate() {
           showLoginError('Tài khoản đã bị khóa. Liên hệ quản trị viên.');
           return;
         }
-        currentUser = { uid: user.uid, email: user.email || '', role: info.role, tenantId: info.tenantId, permissions: info.permissions };
+        currentUser = { uid: user.uid, email: user.email || '', role: info.role, tenantId: info.tenantId, permissions: info.permissions, vesselIds: info.vesselIds || [] };
         if (typeof window !== 'undefined') window.SM_USER = currentUser;
         tenantId = info.tenantId;
         console.log('[Tenant] tenantId =', tenantId, '| role =', info.role);
@@ -341,7 +369,7 @@ async function resolveTenantAndRole(user) {
   if (snap.exists) {
     const d = snap.data() || {};
     if (d.active === false) return { blocked: true };
-    return { tenantId: d.tenantId || user.uid, role: d.role || 'sub', permissions: d.permissions || {} };
+    return { tenantId: d.tenantId || user.uid, role: d.role || 'sub', permissions: d.permissions || {}, vesselIds: d.vesselIds || [] };
   }
   // Bootstrap owner: tenantId = uid, full quyền
   const perms = allPermissions();
@@ -355,7 +383,7 @@ async function resolveTenantAndRole(user) {
       { ownerUid: user.uid, maxSubUsers: 5, createdAt: new Date().toISOString() }, { merge: true });
   } catch (e) { /* không chặn nếu rules chưa cho */ }
   console.log('[Auth] Bootstrap OWNER cho', user.email);
-  return { tenantId: user.uid, role: 'owner', permissions: perms };
+  return { tenantId: user.uid, role: 'owner', permissions: perms, vesselIds: [] };
 }
 
 // ===== Phân quyền theo module: ẩn menu + chặn navigate =====
@@ -401,23 +429,30 @@ async function smListMembers() {
   const snap = await db.collection('users').where('tenantId', '==', currentUser.tenantId).get();
   return snap.docs.map(d => Object.assign({ uid: d.id }, d.data()));
 }
-async function smAddSubUser(email, password, permissions) {
+async function smAddSubUser(email, password, permissions, opts) {
   if (!currentUser || currentUser.role !== 'owner') throw new Error('Chỉ chủ tài khoản mới thêm được người dùng.');
+  opts = opts || {};
+  const role = (opts.role === 'accountant') ? 'accountant' : 'sub';
+  const vesselIds = Array.isArray(opts.vesselIds) ? opts.vesselIds.filter(Boolean) : [];
+  // Sub bắt buộc gán ít nhất 1 tàu (nếu không sẽ không thấy gì)
+  if (role === 'sub' && vesselIds.length === 0) {
+    throw new Error('Vui lòng gán ít nhất 1 tàu cho nhân viên (vai trò Sub).');
+  }
   // Giới hạn số nhân viên theo license
   const max = currentUser.maxSubUsers || 0;
   if (max > 0) {
     const members = await smListMembers();
-    const subCount = members.filter(m => m.role === 'sub').length;
+    const subCount = members.filter(m => m.role !== 'owner').length;
     if (subCount >= max) throw new Error('Đã đạt giới hạn ' + max + ' nhân viên của gói license. Nâng cấp để thêm.');
   }
-  // Secondary app: tạo tài khoản phụ mà KHÔNG làm văng phiên owner (chạy được trên gói Spark)
   const secondary = firebase.initializeApp(firebaseConfig, 'Secondary-' + Date.now());
   try {
     const cred = await secondary.auth().createUserWithEmailAndPassword(email, password);
     const newUid = cred.user.uid;
     await db.collection('users').doc(newUid).set({
-      tenantId: currentUser.tenantId, role: 'sub', email: email,
-      permissions: permissions || {}, active: true, createdAt: new Date().toISOString()
+      tenantId: currentUser.tenantId, role: role, email: email,
+      permissions: permissions || {}, vesselIds: vesselIds,
+      active: true, createdAt: new Date().toISOString()
     });
     await secondary.auth().signOut();
     return newUid;
@@ -652,12 +687,15 @@ async function pushDiff() {
     const pendingLast = [];         // [{coll, id, str}] áp dụng sau khi commit thành công
     const auditEntries = [];        // nhật ký kèm before/after để hoàn tác
 
-    // 1) GROUPED
+    // 1) GROUPED — sub không được động vào grouped private (employees/monthlyCosts)
     const curGrouped = buildGrouped();
+    if (!isFinanceRole()) {
+      SM3.groupedPrivateKeys.forEach(k => { delete curGrouped[k]; });
+    }
     const groupedStr = JSON.stringify(curGrouped);
     let groupedToWrite = null;
     if (groupedStr !== lastSynced.grouped) {
-      groupedToWrite = buildGrouped();
+      groupedToWrite = Object.assign({}, curGrouped);
       groupedToWrite._groupedUpdatedAt = new Date().toISOString();
       changedAnything = true;
       // audit cho thay đổi master data (gộp)
@@ -672,6 +710,8 @@ async function pushDiff() {
 
     // 2) PER-RECORD
     SM3.perRecord.forEach(coll => {
+      // Vai trò không có quyền -> không đẩy gì, không tính delete (vì local không có dữ liệu này)
+      if (!canSyncCollection(coll)) return;
       const arr = AppData.state[coll] || [];
       const last = lastSynced.records[coll] || (lastSynced.records[coll] = new Map());
       const seen = new Set();
@@ -756,14 +796,16 @@ async function pushDiff() {
 // ĐỌC: lắng nghe theo collection, merge theo id
 // ---------------------------------------------------------------
 function attachListeners() {
-  // GROUPED
+  // ===== GROUPED — luôn listen doc gộp cũ (cho tương thích ngược) =====
   groupedDocRef().onSnapshot(doc => {
-    if (!doc.exists) return; // KHÔNG xoá local khi cloud rỗng
+    if (!doc.exists) return;
     const data = doc.data() || {};
     suppressPush = true;
     Object.keys(data).forEach(k => {
       if (k.startsWith('_')) return;
-      if (SM3.perRecord.includes(k)) return; // an toàn: không đụng per-record
+      if (SM3.perRecord.includes(k)) return;
+      // Sub: chỉ áp dụng các key PUBLIC (vessels/vendors/customers/company tên...)
+      if (!isFinanceRole() && SM3.groupedPrivateKeys.includes(k)) return;
       AppData.state[k] = data[k];
     });
     lastSynced.grouped = JSON.stringify(buildGrouped());
@@ -773,19 +815,28 @@ function attachListeners() {
     scheduleRerender();
   }, err => handleSyncError(err, 'grouped.onSnapshot'));
 
-  // PER-RECORD
+  // PER-RECORD — theo vai trò + filter vesselId cho sub
   SM3.perRecord.forEach(coll => {
-    recColl(coll).onSnapshot(snap => {
-      updateServerStatus('online', 'Đã đồng bộ đám mây'); // snapshot fired => đã kết nối
+    if (!canSyncCollection(coll)) {
+      console.log('[Perm] Bỏ qua listener', coll, '(vai trò không có quyền)');
+      return;                                          // KHÔNG đăng ký listener -> dữ liệu KHÔNG về máy
+    }
+    let query = recColl(coll);
+    // Sub: chỉ tải bản ghi thuộc tàu mình
+    if (!isFinanceRole() && SM3.operationalPerRecord.includes(coll)) {
+      const vids = userVesselIds();
+      if (vids.length === 0) return;
+      try { query = recColl(coll).where('vesselId', 'in', vids.slice(0, 10)); }
+      catch (e) { console.warn('[Perm] where vesselId in lỗi:', e); return; }
+    }
+    query.onSnapshot(snap => {
+      updateServerStatus('online', 'Đã đồng bộ đám mây');
       suppressPush = true;
       let touched = false;
       snap.docChanges().forEach(ch => {
         const id = ch.doc.id;
-        if (ch.type === 'removed') {
-          applyRemoteRecord(coll, id, null, true);
-        } else {
-          applyRemoteRecord(coll, id, ch.doc.data(), false);
-        }
+        if (ch.type === 'removed') applyRemoteRecord(coll, id, null, true);
+        else applyRemoteRecord(coll, id, ch.doc.data(), false);
         touched = true;
       });
       if (touched) originalSave();

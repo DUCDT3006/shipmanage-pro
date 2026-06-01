@@ -2457,6 +2457,7 @@ const app = {
             const members = await window.smListMembers();
             const modules = (window.APP_MODULES || []).filter(m => m.key !== 'company');
             const me = window.SM_USER || {};
+            const allVessels = (AppData.state.vessels || []);
             let html = `
                 <div style="background:rgba(0,0,0,0.25); padding:1.2rem; border-radius:var(--radius-md); margin-bottom:1.5rem; border:1px dashed var(--border-color);">
                     <h4 style="margin:0 0 0.75rem;">Thêm nhân viên (user phụ)</h4>
@@ -2465,7 +2466,21 @@ const app = {
                         <input id="mb-pass" class="form-control" type="password" placeholder="Mật khẩu (≥ 6 ký tự)">
                     </div>
                     <div style="margin:0.9rem 0;">
-                        <small style="color:var(--text-muted); font-weight:600;">Cho phép truy cập các phần:</small>
+                        <label style="font-size:0.85rem; font-weight:600;">Vai trò:</label>
+                        <select id="mb-role" class="form-control" style="max-width:300px; margin-top:6px;" onchange="app.onRoleChange()">
+                            <option value="sub">Sub (Thuyền trưởng/nhân viên — chỉ tàu được gán)</option>
+                            <option value="accountant">Kế toán (xem cả tài chính + lương toàn công ty)</option>
+                        </select>
+                    </div>
+                    <div id="mb-vessel-wrap" style="margin:0.9rem 0;">
+                        <small style="color:var(--text-muted); font-weight:600;">Gán tàu (BẮT BUỘC cho vai trò Sub) — tối đa 10:</small>
+                        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;">
+                            ${allVessels.map(v => `<label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer;">
+                                <input type="checkbox" class="mb-vessel" value="${esc(v.id)}"> ${esc(v.name)} (${esc(v.id)})</label>`).join('') || '<span style="font-size:0.8rem; color:var(--text-muted);">(Chưa có tàu nào)</span>'}
+                        </div>
+                    </div>
+                    <div style="margin:0.9rem 0;">
+                        <small style="color:var(--text-muted); font-weight:600;">Cho phép truy cập các phần (giao diện):</small>
                         <div style="display:flex; flex-wrap:wrap; gap:12px; margin-top:8px;">
                             ${modules.map(m => `<label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer;">
                                 <input type="checkbox" class="mb-perm" value="${m.key}"> ${m.label}</label>`).join('')}
@@ -2475,17 +2490,24 @@ const app = {
                     <span id="mb-msg" style="margin-left:12px; font-size:0.85rem;"></span>
                 </div>
                 <div class="table-container"><table class="table">
-                    <thead><tr><th>Email</th><th>Vai trò</th><th>Quyền truy cập</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>`;
-            members.sort((a, b) => (a.role === 'owner' ? -1 : 1)).forEach(mb => {
-                const permList = mb.role === 'owner' ? 'Toàn quyền'
+                    <thead><tr><th>Email</th><th>Vai trò</th><th>Tàu được gán</th><th>Quyền GD</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>`;
+            const roleLabel = (r) => r === 'owner' ? '<span class="badge badge-success">Chủ</span>'
+                : r === 'accountant' ? '<span class="badge badge-info">Kế toán</span>'
+                : '<span class="badge badge-outline">Sub</span>';
+            members.sort((a, b) => (a.role === 'owner' ? -1 : (b.role === 'owner' ? 1 : 0))).forEach(mb => {
+                const permList = mb.role === 'owner' || mb.role === 'accountant' ? 'Toàn quyền'
                     : (modules.filter(m => mb.permissions && mb.permissions[m.key]).map(m => m.label).join(', ') || '—');
+                const vlist = (mb.vesselIds && mb.vesselIds.length)
+                    ? mb.vesselIds.map(esc).join(', ')
+                    : (mb.role === 'sub' ? '<span style="color:var(--accent);">— chưa gán</span>' : '<span style="color:var(--text-muted);">tất cả</span>');
                 const active = mb.active !== false;
                 html += `<tr>
                     <td>${esc(mb.email || '')} ${mb.uid === me.uid ? '<span class="badge badge-outline">Bạn</span>' : ''}</td>
-                    <td>${mb.role === 'owner' ? '<span class="badge badge-success">Chủ</span>' : '<span class="badge badge-outline">Nhân viên</span>'}</td>
-                    <td style="font-size:0.8rem; max-width:300px;">${permList}</td>
+                    <td>${roleLabel(mb.role)}</td>
+                    <td style="font-size:0.78rem;">${vlist}</td>
+                    <td style="font-size:0.78rem; max-width:240px;">${permList}</td>
                     <td>${active ? '<span style="color:var(--secondary)">Hoạt động</span>' : '<span style="color:var(--accent)">Đã khóa</span>'}</td>
-                    <td>${mb.role === 'owner' ? '' : `<button class="btn btn-outline" style="padding:0.2rem 0.6rem; font-size:0.8rem;" onclick="app.toggleMember('${mb.uid}', ${active})">${active ? 'Khóa' : 'Mở khóa'}</button>`}</td>
+                    <td>${mb.role === 'owner' ? '' : `<button class="btn btn-outline" style="padding:0.2rem 0.6rem; font-size:0.78rem;" onclick="app.toggleMember('${mb.uid}', ${active})">${active ? 'Khóa' : 'Mở khóa'}</button>`}</td>
                 </tr>`;
             });
             html += `</tbody></table></div>`;
@@ -2494,16 +2516,24 @@ const app = {
             panel.innerHTML = '<p style="color:var(--accent)">Lỗi tải danh sách: ' + (e.message || e) + '</p>';
         }
     },
+    onRoleChange() {
+        const r = (document.getElementById('mb-role') || {}).value;
+        const wrap = document.getElementById('mb-vessel-wrap');
+        if (wrap) wrap.style.display = (r === 'accountant') ? 'none' : '';
+    },
     addMemberSubmit() {
         const email = (document.getElementById('mb-email') || {}).value;
         const pass = (document.getElementById('mb-pass') || {}).value;
+        const role = (document.getElementById('mb-role') || {}).value || 'sub';
         const msg = document.getElementById('mb-msg');
         const setMsg = (t, c) => { if (msg) { msg.textContent = t; msg.style.color = c; } };
         const perms = {};
         document.querySelectorAll('.mb-perm:checked').forEach(c => perms[c.value] = true);
+        const vesselIds = Array.from(document.querySelectorAll('.mb-vessel:checked')).map(c => c.value);
         if (!email || !pass) return setMsg('Nhập email và mật khẩu.', 'var(--accent)');
         if (pass.length < 6) return setMsg('Mật khẩu phải ≥ 6 ký tự.', 'var(--accent)');
-        if (Object.keys(perms).length === 0) return setMsg('Chọn ít nhất 1 phần được phép truy cập.', 'var(--accent)');
+        if (Object.keys(perms).length === 0) return setMsg('Chọn ít nhất 1 phần được phép truy cập (giao diện).', 'var(--accent)');
+        if (role === 'sub' && vesselIds.length === 0) return setMsg('Vui lòng gán ít nhất 1 tàu cho Sub.', 'var(--accent)');
         setMsg('Đang tạo...', 'var(--text-muted)');
         const mapErr = (e) => {
             switch (e && e.code) {
@@ -2515,7 +2545,7 @@ const app = {
                 default: return 'Lỗi: ' + (e.code || e.message || e);
             }
         };
-        window.smAddSubUser(email, pass, perms)
+        window.smAddSubUser(email, pass, perms, { role, vesselIds })
             .then(() => {
                 setMsg('✓ Đã tạo nhân viên!', 'var(--secondary)');
                 const em = document.getElementById('mb-email'); if (em) em.value = '';
