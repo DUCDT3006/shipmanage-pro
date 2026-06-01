@@ -1395,6 +1395,7 @@ const app = {
     },
 
     init() {
+        this.runAutoBackup();
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -2413,6 +2414,51 @@ const app = {
         document.getElementById('t-id').value = '';
         this.openModal('trans-modal');
     },
+    // === Validation helpers (chống nhập sai dữ liệu tài chính) ===
+    _vErr(msg) { alert('⚠️ ' + msg); return false; },
+    _isNumeric(raw) { return raw !== '' && raw !== null && raw !== undefined && isFinite(Number(raw)); },
+    _isValidDate(v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) && !isNaN(new Date(v).getTime()); },
+
+    // === Auto-backup: giữ tối đa N ảnh chụp gần nhất trong localStorage (mỗi ngày 1 ảnh) ===
+    AUTOBACKUP_KEY: 'shipManageDB_autobackups',
+    AUTOBACKUP_MAX: 3,
+    runAutoBackup() {
+        try {
+            const today = new Date().toISOString().slice(0, 10);
+            let list = this.listAutoBackups();
+            if (list.some(b => b.date === today)) return; // hôm nay đã có ảnh
+            const data = localStorage.getItem('shipManageDB_v2');
+            if (!data) return;
+            list.push({ date: today, at: new Date().toISOString(), data });
+            while (list.length > this.AUTOBACKUP_MAX) list.shift();
+            try {
+                localStorage.setItem(this.AUTOBACKUP_KEY, JSON.stringify(list));
+                console.log('[AutoBackup] Đã tạo ảnh chụp', today, '(' + list.length + '/' + this.AUTOBACKUP_MAX + ')');
+            } catch (e) {
+                // localStorage đầy -> bỏ ảnh cũ nhất rồi thử lại 1 lần
+                list.shift();
+                try { localStorage.setItem(this.AUTOBACKUP_KEY, JSON.stringify(list)); }
+                catch (e2) { console.warn('[AutoBackup] localStorage đầy, bỏ qua.'); }
+            }
+        } catch (e) { console.warn('[AutoBackup] lỗi:', e); }
+    },
+    listAutoBackups() {
+        try { return JSON.parse(localStorage.getItem(this.AUTOBACKUP_KEY)) || []; }
+        catch (e) { return []; }
+    },
+    restoreAutoBackup(date) {
+        const b = this.listAutoBackups().find(x => x.date === date);
+        if (!b) return alert('Không tìm thấy ảnh chụp ngày ' + date);
+        if (!confirm('Khôi phục dữ liệu về ảnh chụp ngày ' + date + '?\n\nDữ liệu hiện tại sẽ bị thay thế. (Nên Tải Backup JSON trước khi khôi phục.)')) return;
+        try {
+            AppData.state = JSON.parse(b.data);
+            localStorage.setItem('shipManageDB_v2', b.data);
+            AppData.save();
+            this.navigate(this.currentView || 'dashboard');
+            alert('✅ Đã khôi phục về ảnh chụp ngày ' + date);
+        } catch (e) { alert('Lỗi khôi phục: ' + e.message); }
+    },
+
     saveTransaction() {
         const tId = document.getElementById('t-id').value;
         const t = {
@@ -2428,6 +2474,16 @@ const app = {
             chi: Number(document.getElementById('t-chi').value) || 0,
             account: document.getElementById('t-acc').value
         };
+        // --- Validate ---
+        const rawThu = document.getElementById('t-thu').value;
+        const rawChi = document.getElementById('t-chi').value;
+        if (!this._isValidDate(t.date)) return this._vErr('Vui lòng nhập Ngày hợp lệ.');
+        if (!t.category) return this._vErr('Vui lòng chọn Hạng mục.');
+        if (!t.partner || !t.partner.trim()) return this._vErr('Vui lòng nhập Đối tác.');
+        if (!t.content || !t.content.trim()) return this._vErr('Vui lòng nhập Nội dung chi tiết.');
+        if ((rawThu && !this._isNumeric(rawThu)) || (rawChi && !this._isNumeric(rawChi))) return this._vErr('Khoản Thu/Chi phải là số.');
+        if (t.thu < 0 || t.chi < 0) return this._vErr('Khoản Thu/Chi không được âm.');
+        if (t.thu === 0 && t.chi === 0) return this._vErr('Phải nhập ít nhất một khoản Thu hoặc Chi lớn hơn 0.');
         AppData.addTransaction(t);
         this.closeModal('trans-modal');
         if (this.currentView === 'debts') {
@@ -2511,6 +2567,11 @@ const app = {
             fuelVendor: document.getElementById('fv-vendor').value,
             fuelLocation: document.getElementById('fv-location').value
         };
+        // --- Validate ---
+        if (!voyage.voyageNo || !voyage.voyageNo.trim()) return this._vErr('Vui lòng nhập Tên chuyến.');
+        if (voyage.addedFuel < 0) return this._vErr('Nhiên liệu tiếp thêm không được âm.');
+        if (voyage.fuelUnitPrice < 0) return this._vErr('Đơn giá nhiên liệu không được âm.');
+        if (voyage.fuelDate && !this._isValidDate(voyage.fuelDate)) return this._vErr('Ngày cấp không hợp lệ.');
         const existing = AppData.getFuelVoyage(id);
         if(existing) {
             voyage.initialFuel = existing.initialFuel;
@@ -2660,6 +2721,11 @@ const app = {
             fuelRate: Number(document.getElementById('f-fuel-rate').value) || 0,
             hours: document.getElementById('f-hours').value
         };
+        // --- Validate ---
+        if (!log.startTime || !log.endTime) return this._vErr('Vui lòng nhập đủ Thời gian đi và Thời gian đến.');
+        if (new Date(log.endTime).getTime() <= new Date(log.startTime).getTime()) return this._vErr('Thời gian đến phải SAU thời gian đi.');
+        if (!log.startPos || !log.startPos.trim() || !log.endPos || !log.endPos.trim()) return this._vErr('Vui lòng nhập Nơi đi và Nơi đến.');
+        if (!(log.fuelRate > 0)) return this._vErr('Định mức (Lít/giờ) phải lớn hơn 0.');
         AppData.addFuelLog(log);
         this.closeModal('fuel-modal');
         this.navigate('fuel', voy.vesselId);

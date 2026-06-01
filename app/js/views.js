@@ -1775,9 +1775,22 @@ const Views = {
                                 </div>
                             </div>
                         </div>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0 0 1rem;">
                             <i class="fa-solid fa-circle-info"></i> Backup JSON sao chép <strong>nguyên vẹn 100%</strong> toàn bộ dữ liệu (không mất mát như Excel). Khuyến nghị tải backup JSON <strong>trước mỗi lần</strong> thử nghiệm hoặc khôi phục dữ liệu.
                         </p>
+                        <div style="border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+                            <label class="form-label" style="font-weight: 600;"><i class="fa-solid fa-clock-rotate-left" style="color: var(--info);"></i> Ảnh chụp tự động (mỗi ngày 1 ảnh, giữ 3 ảnh gần nhất)</label>
+                            ${(() => {
+                                const backups = app.listAutoBackups().slice().reverse();
+                                if (backups.length === 0) return '<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.5rem 0 0;">Chưa có ảnh chụp nào (sẽ tự tạo khi bạn mở app mỗi ngày).</p>';
+                                return '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:0.5rem;">' + backups.map(b => {
+                                    const sizeKB = Math.round((b.data ? b.data.length : 0) / 1024);
+                                    return `<button class="btn btn-outline" style="padding:0.35rem 0.7rem; font-size:0.8rem;" onclick="app.restoreAutoBackup('${b.date}')" title="Khôi phục về ${b.date}">
+                                        <i class="fa-solid fa-rotate-left" style="color:var(--info);"></i> ${b.date} <small style="opacity:0.6;">(${sizeKB} KB)</small>
+                                    </button>`;
+                                }).join('') + '</div>';
+                            })()}
+                        </div>
                     </div>
 
                     <div class="glass-card" style="margin-top: 1.5rem; grid-column: span 2;">
