@@ -136,6 +136,35 @@ const Views = {
                     </div>
                 </div>
 
+                <!-- Cảnh báo đăng kiểm/chứng chỉ sắp hết hạn (task #25) -->
+                ${(() => {
+                    const today = new Date();
+                    const horizon = new Date(today); horizon.setDate(today.getDate() + 30);
+                    const alerts = [];
+                    (AppData.state.vessels || []).forEach(v => {
+                        [['certRegistry','Đăng kiểm'],['certLicense','Cấp phép VT'],['certInsurance','Bảo hiểm']].forEach(([k,label]) => {
+                            const d = v[k]; if (!d) return;
+                            const dt = new Date(d); if (isNaN(dt)) return;
+                            const days = Math.ceil((dt - today) / 86400000);
+                            if (days <= 30) alerts.push({ vessel: v.name, kind: label, date: d, days });
+                        });
+                    });
+                    if (!alerts.length) return '';
+                    alerts.sort((a,b) => a.days - b.days);
+                    return `<div class="glass-card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--warning);">
+                        <h3 style="margin:0 0 0.8rem; font-size:1.05rem;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Sắp hết hạn (trong 30 ngày)</h3>
+                        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                        ${alerts.map(a => {
+                            const color = a.days < 0 ? 'var(--accent)' : (a.days <= 7 ? 'var(--accent)' : 'var(--warning)');
+                            const txt = a.days < 0 ? 'Đã hết hạn ' + Math.abs(a.days) + ' ngày' : (a.days === 0 ? 'Hết hạn HÔM NAY' : 'Còn ' + a.days + ' ngày');
+                            return `<div style="background:rgba(255,255,255,0.04); border:1px solid ${color}; border-radius:8px; padding:0.6rem 0.9rem; min-width:200px;">
+                                <div style="font-size:0.8rem; color:var(--text-muted);">${esc(a.vessel)} · ${esc(a.kind)}</div>
+                                <div style="font-weight:700; color:${color}; font-size:0.95rem;">${txt}</div>
+                                <div style="font-size:0.75rem; color:var(--text-muted);">Ngày: ${esc(a.date)}</div></div>`;
+                        }).join('')}
+                        </div></div>`;
+                })()}
+
                 <!-- Auto Analysis Section -->
                 <div class="glass-card" style="margin-bottom: 2rem; border-left: 4px solid var(--primary-light);">
                     <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
@@ -2513,6 +2542,12 @@ const Views = {
                         <div class="form-group"><label class="form-label">Số điện thoại Quản lý</label><input type="text" class="form-control" id="v-manager-phone" value="${v.managerPhone || ''}" placeholder="Số điện thoại"></div>
                     </div>
                     <div class="form-group"><label class="form-label">Định mức nhiên liệu chung (Lít/giờ)</label><input type="number" class="form-control" id="v-fuel-rate" value="${v.fuelRate || ''}" required placeholder="Định mức tiêu hao"></div>
+                    <h4 style="margin: 1.2rem 0 0.6rem; color: var(--warning); font-size: 0.95rem;"><i class="fa-solid fa-stamp"></i> Đăng kiểm & chứng chỉ (cảnh báo hết hạn)</h4>
+                    <div class="grid-3">
+                        <div class="form-group"><label class="form-label">Hết hạn Đăng kiểm</label><input type="date" class="form-control" id="v-cert-reg" value="${v.certRegistry || ''}"></div>
+                        <div class="form-group"><label class="form-label">Hết hạn Cấp phép vận tải</label><input type="date" class="form-control" id="v-cert-license" value="${v.certLicense || ''}"></div>
+                        <div class="form-group"><label class="form-label">Hết hạn Bảo hiểm</label><input type="date" class="form-control" id="v-cert-insurance" value="${v.certInsurance || ''}"></div>
+                    </div>
                     <div class="modal-footer"><button type="submit" class="btn btn-primary" style="width:100%;">Lưu thay đổi</button></div>
                 </form>
             </div>

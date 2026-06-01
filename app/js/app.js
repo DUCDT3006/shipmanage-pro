@@ -3872,13 +3872,17 @@ const app = {
     },
     saveVessel() {
         const id = document.getElementById('v-id').value;
+        const get = (k) => { const el = document.getElementById(k); return el ? el.value.trim() : ''; };
         const data = {
             capacity: Number(document.getElementById('v-capacity').value) || 0,
-            captain: document.getElementById('v-captain').value.trim(),
-            captainPhone: document.getElementById('v-captain-phone').value.trim(),
-            manager: document.getElementById('v-manager').value.trim(),
-            managerPhone: document.getElementById('v-manager-phone').value.trim(),
-            fuelRate: Number(document.getElementById('v-fuel-rate').value) || 0
+            captain: get('v-captain'),
+            captainPhone: get('v-captain-phone'),
+            manager: get('v-manager'),
+            managerPhone: get('v-manager-phone'),
+            fuelRate: Number(document.getElementById('v-fuel-rate').value) || 0,
+            certRegistry: get('v-cert-reg'),
+            certLicense: get('v-cert-license'),
+            certInsurance: get('v-cert-insurance')
         };
         AppData.updateVessel(id, data);
         this.closeModal('vessel-modal');
