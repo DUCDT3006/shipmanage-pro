@@ -2473,9 +2473,24 @@ const app = {
         if (pass.length < 6) return setMsg('Mật khẩu phải ≥ 6 ký tự.', 'var(--accent)');
         if (Object.keys(perms).length === 0) return setMsg('Chọn ít nhất 1 phần được phép truy cập.', 'var(--accent)');
         setMsg('Đang tạo...', 'var(--text-muted)');
+        const mapErr = (e) => {
+            switch (e && e.code) {
+                case 'auth/email-already-in-use':
+                    return 'Email này đã có tài khoản (có thể đang là chủ/nhân viên nơi khác). Vui lòng dùng một email MỚI chưa từng đăng ký.';
+                case 'auth/invalid-email': return 'Email không hợp lệ.';
+                case 'auth/weak-password': return 'Mật khẩu quá yếu (cần ≥ 6 ký tự).';
+                case 'auth/operation-not-allowed': return 'Chưa bật Email/Password trong Firebase Console.';
+                default: return 'Lỗi: ' + (e.code || e.message || e);
+            }
+        };
         window.smAddSubUser(email, pass, perms)
-            .then(() => { setMsg('✓ Đã tạo nhân viên!', 'var(--secondary)'); this.loadMembers(); })
-            .catch(e => setMsg('Lỗi: ' + (e.code || e.message), 'var(--accent)'));
+            .then(() => {
+                setMsg('✓ Đã tạo nhân viên!', 'var(--secondary)');
+                const em = document.getElementById('mb-email'); if (em) em.value = '';
+                const pw = document.getElementById('mb-pass'); if (pw) pw.value = '';
+                this.loadMembers();
+            })
+            .catch(e => setMsg(mapErr(e), 'var(--accent)'));
     },
     toggleMember(uid, currentlyActive) {
         if (!confirm(currentlyActive ? 'Khóa truy cập của user này?' : 'Mở khóa user này?')) return;
