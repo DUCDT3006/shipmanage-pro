@@ -13,3 +13,24 @@ temp_excel/
 # Office temporary files
 ~$*.xlsx
 ~$*.docx
+
+# Dev/migration cruft (không đưa vào repo)
+*.bak
+*.bak[0-9]
+*.disabled
+*_backup.js
+*.ps1
+inspect_*.py
+inspect_*.js
+extract*.js
+debug.js
+fixAccounts.js
+append_and_import.js
+fuel_js_*.txt
+fuel_data_*.json
+firestore_backup.json
+temp_tx*.json
+extracted_data.txt
+bc_dong_tien_full.txt
+bc_headers.txt
+debts_sheet.txt
