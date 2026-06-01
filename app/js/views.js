@@ -44,7 +44,7 @@ const Views = {
                 <div class="page-header" style="flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
                     <div>
                         <h1 class="page-title">Bảng điều khiển</h1>
-                        <p class="page-subtitle">${company.name}</p>
+                        <p class="page-subtitle">${esc(company.name)}</p>
                     </div>
                     <div style="display: flex; align-items: center; gap: 0.75rem; background: rgba(255,255,255,0.03); padding: 8px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
                         <label style="font-weight: 600; color: var(--text-main); font-size: 0.9rem; margin: 0; display: flex; align-items: center; gap: 6px;">
@@ -425,7 +425,7 @@ const Views = {
                             <select id="filter-fin-vessel" class="form-control" style="font-size: 0.85rem; padding: 6px 12px;" onchange="app.updateFinancialsFilters()">
                                 <option value="">-- Tất cả tàu --</option>
                                 <option value="VP" ${selectedVessel === 'VP' ? 'selected' : ''}>VP (Văn phòng)</option>
-                                ${AppData.state.vessels.map(v => `<option value="${v.id}" ${v.id === selectedVessel ? 'selected' : ''}>Tàu ${v.name}</option>`).join('')}
+                                ${AppData.state.vessels.map(v => `<option value="${v.id}" ${v.id === selectedVessel ? 'selected' : ''}>Tàu ${esc(v.name)}</option>`).join('')}
                             </select>
                         </div>
                         <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
@@ -610,7 +610,7 @@ const Views = {
                 <div class="page-header">
                     <div>
                         <h1 class="page-title">Quản lý Nhiên liệu</h1>
-                        <p class="page-subtitle">Theo dõi theo từng Chuyến hàng (C1, C2...) cho tàu ${selectedVessel.name}</p>
+                        <p class="page-subtitle">Theo dõi theo từng Chuyến hàng (C1, C2...) cho tàu ${esc(selectedVessel.name)}</p>
                     </div>
                     
                     ${(() => {
@@ -664,15 +664,15 @@ const Views = {
                                 <div class="glass-card" style="margin-bottom:2rem;">
                                     <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border-color); padding-bottom:1rem; margin-bottom:1rem;">
                                         <div>
-                                            <h3 style="color:var(--primary-light);">Chuyến: ${voy.voyageNo}</h3>
+                                            <h3 style="color:var(--primary-light);">Chuyến: ${esc(voy.voyageNo)}</h3>
                                             <p style="font-size:0.9rem; opacity:0.8;">Loại hàng: ${voy.cargoType || '---'}</p>
                                         </div>
                                         <div style="text-align:right;">
                                             <div style="font-size:0.8rem; margin-bottom:0.5rem;">
                                                 Tiếp dầu: <strong>${Math.round(voy.addedFuel || 0).toLocaleString()} L</strong> 
                                                 ${voy.fuelDate ? ` | Ngày: <strong>${voy.fuelDate}</strong>` : ''}
-                                                ${voy.fuelVendor ? ` | NCC: <strong>${voy.fuelVendor}</strong>` : ''}
-                                                ${voy.fuelLocation ? ` | Tại: <strong>${voy.fuelLocation}</strong>` : ''}
+                                                ${voy.fuelVendor ? ` | NCC: <strong>${esc(voy.fuelVendor)}</strong>` : ''}
+                                                ${voy.fuelLocation ? ` | Tại: <strong>${esc(voy.fuelLocation)}</strong>` : ''}
                                             </div>
                                             <div style="margin-bottom:0.5rem;"><small>Đơn giá: <strong>${AppData.formatCurrency(voy.fuelUnitPrice)}</strong></small></div>
                                             <button class="btn btn-outline" style="padding:0.3rem 0.6rem; font-size:0.8rem;" onclick="app.openFuelVoyageModal('${selectedVesselId}', '${voy.id}')">
@@ -705,9 +705,9 @@ const Views = {
                                         <tbody>
                                             ${logs.map(l => `
                                                 <tr>
-                                                    <td>${l.startPos}</td>
+                                                    <td>${esc(l.startPos)}</td>
                                                     <td><small>${l.startTime.replace('T', ' ')}</small></td>
-                                                    <td>${l.endPos}</td>
+                                                    <td>${esc(l.endPos)}</td>
                                                     <td><small>${l.endTime.replace('T', ' ')}</small></td>
                                                     <td>${Math.round(l.fuelRate)} L/h</td>
                                                     <td><strong>${l.hours}h</strong></td>
@@ -768,7 +768,7 @@ const Views = {
                             <label class="form-label">Nhà cung cấp</label>
                             <input type="text" class="form-control" id="fv-vendor" value="${voyage ? (voyage.fuelVendor || '') : ''}" list="fuel-vendor-list" placeholder="Chọn hoặc nhập...">
                             <datalist id="fuel-vendor-list">
-                                ${AppData.getVendors().map(v => `<option value="${v.name}"></option>`).join('')}
+                                ${AppData.getVendors().map(v => `<option value="${esc(v.name)}"></option>`).join('')}
                             </datalist>
                         </div>
                         <div class="form-group">
@@ -1127,7 +1127,7 @@ const Views = {
                                             <td><strong>${s.contractNo || '---'}</strong></td>
                                             <td><span class="badge badge-outline">${s.voyageNo || '---'}</span></td>
                                             <td><span class="text-info">${s.customer || '---'}</span></td>
-                                            <td><span class="badge badge-success">${s.vesselId}</span></td>
+                                            <td><span class="badge badge-success">${esc(s.vesselId)}</span></td>
                                             <td><small>${s.dateStart} → ${s.dateEnd}</small></td>
                                             <td>${AppData.formatCurrency(s.revenueReal)}</td>
                                             <td>${AppData.formatCurrency(s.revenueInvoice)}</td>
@@ -1158,13 +1158,13 @@ const Views = {
                     <div class="grid-3">
                         <div class="form-group"><label class="form-label">Mã Hợp đồng</label><input type="text" class="form-control" id="s-contract-no" required></div>
                         <div class="form-group"><label class="form-label">Chuyến số (Ví dụ: C1)</label><input type="text" class="form-control" id="s-voy-no" required oninput="app.syncShipmentFuel()"></div>
-                        <div class="form-group"><label class="form-label">Tàu</label><select class="form-control" id="s-vessel-id" onchange="app.handleShipmentVesselChange()">${AppData.getVessels().map(v => `<option value="${v.id}">${v.name}</option>`).join('')}</select></div>
+                        <div class="form-group"><label class="form-label">Tàu</label><select class="form-control" id="s-vessel-id" onchange="app.handleShipmentVesselChange()">${AppData.getVessels().map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join('')}</select></div>
                     </div>
                     <div class="grid-3">
                         <div class="form-group"><label class="form-label">Tên khách hàng</label>
                             <input type="text" class="form-control" id="s-customer" list="customer-list" placeholder="Chọn hoặc nhập..." required>
                             <datalist id="customer-list">
-                                ${AppData.getCustomers().map(c => `<option value="${c.name}"></option>`).join('')}
+                                ${AppData.getCustomers().map(c => `<option value="${esc(c.name)}"></option>`).join('')}
                             </datalist>
                         </div>
                         <div class="form-group"><label class="form-label">Tên hàng</label>
@@ -1254,7 +1254,7 @@ const Views = {
         const tabs = [
             { id: 'all', name: 'Tất cả' },
             { id: 'VP', name: 'Khối Quản lý' },
-            ...vessels.map(v => ({ id: v.id, name: `Tàu ${v.name}` }))
+            ...vessels.map(v => ({ id: v.id, name: `Tàu ${esc(v.name)}` }))
         ];
 
         return `
@@ -1272,7 +1272,7 @@ const Views = {
                 <div class="tabs" style="display:flex; gap:10px; margin-bottom: 20px; overflow-x: auto;">
                     ${tabs.map(t => `
                         <button class="btn ${activeTab === t.id ? 'btn-primary' : 'btn-outline'}" onclick="app.hrTab = '${t.id}'; app.navigate('hr')">
-                            ${t.name}
+                            ${esc(t.name)}
                         </button>
                     `).join('')}
                 </div>
@@ -1301,7 +1301,7 @@ const Views = {
                                 ${employees.map(e => `
                                     <tr>
                                         <td>
-                                            <strong>${e.name}</strong><br>
+                                            <strong>${esc(e.name)}</strong><br>
                                             <small style="color:var(--text-muted)">
                                                 ${e.joinDate ? 'Vào: ' + e.joinDate.split('-').reverse().join('/') : ''} 
                                                 ${e.leaveDate ? `<span style="color:var(--rose-light)">Nghỉ: ${e.leaveDate.split('-').reverse().join('/')}</span>` : ''}
@@ -1352,7 +1352,7 @@ const Views = {
                             <label class="form-label">Bộ phận / Tàu</label>
                             <select class="form-control" id="emp-department">
                                 <option value="VP" ${e.department === 'VP' ? 'selected' : ''}>Quản lý (VP)</option>
-                                ${vessels.map(v => `<option value="${v.id}" ${e.department === v.id ? 'selected' : ''}>Tàu ${v.name}</option>`).join('')}
+                                ${vessels.map(v => `<option value="${v.id}" ${e.department === v.id ? 'selected' : ''}>Tàu ${esc(v.name)}</option>`).join('')}
                             </select>
                         </div>
                     </div>
@@ -1440,7 +1440,7 @@ const Views = {
                         <label class="form-label">Chọn Tàu / Bộ phận</label>
                         <select class="form-control" id="sal-department" onchange="app.loadSalaryView()">
                             <option value="VP" ${department === 'VP' ? 'selected' : ''}>Quản lý (VP)</option>
-                            ${vessels.map(v => `<option value="${v.id}" ${department === v.id ? 'selected' : ''}>Tàu ${v.name}</option>`).join('')}
+                            ${vessels.map(v => `<option value="${v.id}" ${department === v.id ? 'selected' : ''}>Tàu ${esc(v.name)}</option>`).join('')}
                         </select>
                     </div>
                     ${activeTab === 'chungtu' ? `
@@ -1516,7 +1516,7 @@ const Views = {
                 return `
                     <tr>
                         <td style="position: sticky; left: 0; z-index: 1; background: var(--bg-card);">
-                            <strong>${e.name}</strong><br>
+                            <strong>${esc(e.name)}</strong><br>
                             <small style="color:var(--text-muted)">${e.role || ''}</small>
                         </td>
                         ${daysCells}
@@ -1656,7 +1656,7 @@ const Views = {
                 docTableHTML += `
                     <tr>
                         <td style="position: sticky; left: 0; z-index: 2; background: var(--bg-card);">${idx + 1}</td>
-                        <td style="position: sticky; left: 50px; z-index: 2; background: var(--bg-card);"><strong>${e.name}</strong></td>
+                        <td style="position: sticky; left: 50px; z-index: 2; background: var(--bg-card);"><strong>${esc(e.name)}</strong></td>
                         <td style="position: sticky; left: 200px; z-index: 2; background: var(--bg-card);">${e.role || ''}</td>
                         <td style="text-align:right;">${AppData.formatCurrency(basic)}</td>
                         <td style="text-align:right;">${AppData.formatCurrency(meal)}</td>
@@ -1711,8 +1711,8 @@ const Views = {
                     <div class="glass-card">
                         <h3>Thông tin Công ty</h3>
                         <form onsubmit="event.preventDefault(); app.saveCompany();" style="margin-top:1rem;">
-                            <div class="form-group"><label class="form-label">Tên công ty</label><input type="text" class="form-control" id="c-name" value="${c.name}"></div>
-                            <div class="form-group"><label class="form-label">Địa chỉ</label><input type="text" class="form-control" id="c-addr" value="${c.address}"></div>
+                            <div class="form-group"><label class="form-label">Tên công ty</label><input type="text" class="form-control" id="c-name" value="${esc(c.name)}"></div>
+                            <div class="form-group"><label class="form-label">Địa chỉ</label><input type="text" class="form-control" id="c-addr" value="${esc(c.address)}"></div>
                             <div class="form-group"><label class="form-label">Mã số thuế</label><input type="text" class="form-control" id="c-tax" value="${c.taxId}"></div>
                             <div class="form-group"><label class="form-label">Ngân hàng</label><textarea class="form-control" id="c-bank">${c.bankInfo}</textarea></div>
                             
@@ -2060,10 +2060,10 @@ const Views = {
                             
                             return `
                                 <div class="glass-card ${isSelected ? 'active-card' : ''}" 
-                                     onclick="app.changeDebtCustomer('${cust.name}')" 
+                                     onclick="app.changeDebtCustomer('${esc(cust.name)}')" 
                                      style="cursor: pointer; position: relative; border: ${isSelected ? '2px solid var(--primary-light)' : '1px solid rgba(255,255,255,0.05)'}; padding: 1.2rem; transition: all 0.2s;">
                                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
-                                        <h4 style="margin: 0; font-size: 1.1rem; color: ${isSelected ? 'var(--primary-light)' : 'var(--text-main)'};">${cust.name}</h4>
+                                        <h4 style="margin: 0; font-size: 1.1rem; color: ${isSelected ? 'var(--primary-light)' : 'var(--text-main)'};">${esc(cust.name)}</h4>
                                         <span class="badge ${badgeClass}" style="font-size: 0.7rem; padding: 2px 6px;">${debtStatusText}</span>
                                     </div>
                                     <div style="font-size: 0.85rem; color: var(--text-muted); display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
@@ -2130,7 +2130,7 @@ const Views = {
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1.2rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
                             <div>
                                 <span style="font-size: 0.8rem; text-transform: uppercase; color: var(--primary-light); font-weight: 700; letter-spacing: 0.05em;">Chi tiết đối tác</span>
-                                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-main);">${selectedData.name}</h2>
+                                <h2 style="margin: 0; font-size: 1.6rem; color: var(--text-main);">${esc(selectedData.name)}</h2>
                                 
                                 <!-- Opening Debt Input Field -->
                                 <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.03); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
@@ -2142,7 +2142,7 @@ const Views = {
                                            style="width: 140px; font-size: 0.8rem; padding: 2px 6px; height: 26px; text-align: right; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main); font-weight: 600;"
                                            placeholder="0">
                                     <span style="font-size: 0.8rem; color: var(--text-muted);">đ</span>
-                                    <button onclick="app.updateCustomerOpeningDebt('${selectedData.name}')" 
+                                    <button onclick="app.updateCustomerOpeningDebt('${esc(selectedData.name)}')" 
                                             class="btn" 
                                             style="padding: 2px 10px; font-size: 0.75rem; height: 26px; line-height: 22px; display: inline-flex; align-items: center; gap: 4px; background: var(--primary); border: none; color: white; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
                                         <i class="fa-solid fa-floppy-disk"></i> Lưu
@@ -2277,7 +2277,7 @@ const Views = {
                                                 return `
                                                     <tr onclick="app.editShipment('${s.id}')" title="Click để nhập liệu/chỉnh sửa chuyến hàng" style="cursor: pointer;">
                                                         <td>${idx + 1}</td>
-                                                        <td><strong>${vessel ? vessel.name : s.vesselId}</strong> <span class="badge badge-outline">Chuyến ${s.voyageNo}</span></td>
+                                                        <td><strong>${vessel ? vessel.name : s.vesselId}</strong> <span class="badge badge-outline">Chuyến ${esc(s.voyageNo)}</span></td>
                                                         <td><code style="font-size: 1.1rem; font-weight: bold; padding: 4px 8px; color: var(--primary-light); background: rgba(255,255,255,0.08); border-radius: 4px;">${s.contractNo || '---'}</code></td>
                                                         <td style="font-size: 0.8rem; color:var(--text-muted);">${s.dateStart.split('-').reverse().join('/')} - ${s.dateEnd.split('-').reverse().join('/')}</td>
                                                         <td style="text-align: right; font-weight: 500;">${s.qty ? s.qty.toLocaleString('vi-VN') : 0}</td>
@@ -2332,7 +2332,7 @@ const Views = {
                                                 ${selectedData.transactions.filter(t => t.category === 'CVC').map(t => `
                                                     <tr onclick="app.editTransaction('${t.id}')" title="Click để xem chi tiết / chỉnh sửa giao dịch" style="cursor: pointer;">
                                                         <td>${t.date.split('-').reverse().join('/')}</td>
-                                                        <td>${t.content}</td>
+                                                        <td>${esc(t.content)}</td>
                                                         <td><span class="badge badge-outline" style="font-size: 0.7rem;">${t.account}</span></td>
                                                         <td style="text-align: right; color: var(--secondary); font-weight: bold;">
                                                             ${t.thu > 0 ? '+' + AppData.formatCurrency(t.thu) : '---'}
@@ -2456,7 +2456,7 @@ const Views = {
                             <tbody>
                                 ${supplierDebts.map(s => `
                                     <tr>
-                                        <td><strong>${s.name}</strong></td>
+                                        <td><strong>${esc(s.name)}</strong></td>
                                         <td style="text-align: right; color: var(--info);">${AppData.formatCurrency(s.totalPurchased)}</td>
                                         <td style="text-align: right; color: var(--secondary);">${AppData.formatCurrency(s.totalPaid)}</td>
                                         <td style="text-align: right; font-weight: bold; color: var(--accent);">${AppData.formatCurrency(s.debt)}</td>
@@ -2496,12 +2496,12 @@ const Views = {
         const v = AppData.getVessel(id);
         if (!v) return '';
         return `
-            <div class="modal-header"><h3>Cập nhật thông tin Tàu ${v.name}</h3><button class="modal-close" onclick="app.closeModal('vessel-modal')">&times;</button></div>
+            <div class="modal-header"><h3>Cập nhật thông tin Tàu ${esc(v.name)}</h3><button class="modal-close" onclick="app.closeModal('vessel-modal')">&times;</button></div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault(); app.saveVessel();">
                     <input type="hidden" id="v-id" value="${v.id}">
                     <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Tên tàu</label><input type="text" class="form-control" id="v-name" value="${v.name}" disabled style="background:rgba(0,0,0,0.3); font-weight:bold; color:var(--success);"></div>
+                        <div class="form-group"><label class="form-label">Tên tàu</label><input type="text" class="form-control" id="v-name" value="${esc(v.name)}" disabled style="background:rgba(0,0,0,0.3); font-weight:bold; color:var(--success);"></div>
                         <div class="form-group"><label class="form-label">Tải trọng (Tấn)</label><input type="number" class="form-control" id="v-capacity" value="${v.capacity || ''}" required placeholder="Ví dụ: 3500"></div>
                     </div>
                     <div class="grid-2">
@@ -2537,13 +2537,13 @@ const Views = {
             <div class="report-container glass-panel" style="padding: 2rem; color: var(--text-main); font-family: 'Inter', sans-serif;">
                 <div style="text-align: center; border-bottom: 2px solid var(--primary-light); padding-bottom: 1rem; margin-bottom: 2rem;">
                     <h2 style="color: var(--primary-light); text-transform: uppercase;">Báo cáo Kết quả Kinh doanh Chuyến hàng</h2>
-                    <p>Mã chuyến: <strong>${s.voyageNo}</strong> | Tàu: <strong>${vessel ? vessel.name : s.vesselId}</strong></p>
+                    <p>Mã chuyến: <strong>${esc(s.voyageNo)}</strong> | Tàu: <strong>${vessel ? vessel.name : s.vesselId}</strong></p>
                 </div>
 
                 <div class="grid-2" style="margin-bottom: 2rem; font-size: 0.9rem;">
                     <div>
                         <p>Thời gian: <strong>${s.dateStart}</strong> đến <strong>${s.dateEnd}</strong></p>
-                        <p>Hàng hóa: <strong>${s.cargo}</strong></p>
+                        <p>Hàng hóa: <strong>${esc(s.cargo)}</strong></p>
                     </div>
                     <div style="text-align: right;">
                         <p>Khối lượng: <strong>${s.qty.toLocaleString()} tấn</strong></p>
@@ -2628,7 +2628,7 @@ const Views = {
                         <div class="form-group">
                             <label class="form-label">Chọn Tàu</label>
                             <select class="form-control" id="ve-m-vessel" onchange="app.updateVesselExpenseModalVoyages()" required>
-                                ${vessels.map(v => `<option value="${v.id}" ${v.id === firstVesselId ? 'selected' : ''}>${v.name}</option>`).join('')}
+                                ${vessels.map(v => `<option value="${v.id}" ${v.id === firstVesselId ? 'selected' : ''}>${esc(v.name)}</option>`).join('')}
                             </select>
                         </div>
                         <div class="form-group">
@@ -2648,7 +2648,7 @@ const Views = {
                             <label class="form-label">Liên kết Chuyến</label>
                             <select class="form-control" id="ve-m-voyage">
                                 <option value="">--- Không liên kết ---</option>
-                                ${shipments.map(s => `<option value="${s.voyageNo}" ${e.voyageNo === s.voyageNo ? 'selected' : ''}>Chuyến ${s.voyageNo} (${s.cargo})</option>`).join('')}
+                                ${shipments.map(s => `<option value="${esc(s.voyageNo)}" ${e.voyageNo === s.voyageNo ? 'selected' : ''}>Chuyến ${esc(s.voyageNo)} (${esc(s.cargo)})</option>`).join('')}
                             </select>
                         </div>
                     </div>
@@ -2879,9 +2879,9 @@ const Views = {
                                         <tr>
                                             <td><strong>${s.contractNo || '---'}</strong></td>
                                             <td><span class="badge badge-outline">${s.voyageNo || '---'}</span></td>
-                                            <td><span class="badge badge-success">${s.vesselId}</span></td>
-                                            <td>${s.cargo}</td>
-                                            <td>${s.customer}</td>
+                                            <td><span class="badge badge-success">${esc(s.vesselId)}</span></td>
+                                            <td>${esc(s.cargo)}</td>
+                                            <td>${esc(s.customer)}</td>
                                             <td style="text-align: right; color: var(--secondary);">${AppData.formatCurrency(rev)}</td>
                                             <td style="text-align: right; color: var(--rose-light);">${AppData.formatCurrency(costSum)}</td>
                                             <td style="text-align: right;" class="${profit >= 0 ? 'value-positive' : 'value-negative'}"><strong>${AppData.formatCurrency(profit)}</strong></td>
