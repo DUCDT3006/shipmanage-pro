@@ -63,6 +63,7 @@ let originalSave = null;             // bản save() gốc (chỉ ghi localStora
 let rerenderTimer = null;
 let auth = null;                     // Firebase Auth
 let authStarted = false;             // đã start hybrid sync sau đăng nhập chưa
+let tenantId = null;                  // ID khách thuê (Phase 2): mỗi khách = 1 tenant
 
 // Bộ nhớ "đã đồng bộ" để tính diff (tránh đẩy lại dữ liệu không đổi)
 const lastSynced = {
@@ -142,7 +143,13 @@ function handleSyncError(err, action) {
 // ---------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------
-function recordsColl(collection) { return SM3.prefix + collection; }
+function recordsColl(collection) { return SM3.prefix + collection; }  // tên collection (dùng làm nhãn)
+
+// === Tham chiếu Firestore theo TENANT (Phase 2) ===
+// Mọi dữ liệu nằm dưới tenants/{tenantId}/... -> cách ly hoàn toàn giữa các khách.
+function tenantRoot() { return db.collection('tenants').doc(tenantId); }
+function recColl(name) { return tenantRoot().collection(SM3.prefix + name); }      // tenants/{tid}/sm3_<name>
+function groupedDocRef() { return tenantRoot().collection(SM3.groupedCollection).doc(SM3.groupedDocId); } // .../sm3_grouped/state
 
 // Mọi key cấp cao KHÔNG thuộc per-record => thuộc nhóm grouped (động, không bỏ sót).
 function groupedKeys() {
@@ -177,6 +184,10 @@ function setupAuthGate() {
       hideLoginOverlay();
       const badge = document.getElementById('auth-user-badge');
       if (badge) badge.textContent = user.email || 'Đã đăng nhập';
+      // Phase 2: tenantId = uid của owner (1 khách = 1 tenant).
+      // (Phase 3 sẽ tra users/{uid}.tenantId để user phụ trỏ về tenant của owner.)
+      tenantId = user.uid;
+      console.log('[Tenant] tenantId =', tenantId);
       if (!authStarted) {
         authStarted = true;
         setupHybridSync();          // chỉ đồng bộ cloud SAU khi đăng nhập
@@ -351,13 +362,12 @@ async function pushDiff() {
 
     // 3) Commit lên Firestore
     if (groupedToWrite) {
-      await db.collection(SM3.groupedCollection).doc(SM3.groupedDocId)
-              .set(groupedToWrite, { merge: true });
+      await groupedDocRef().set(groupedToWrite, { merge: true });
     }
     for (let i = 0; i < ops.length; i += 450) {
       const batch = db.batch();
       ops.slice(i, i + 450).forEach(op => {
-        const ref = db.collection(recordsColl(op.coll)).doc(op.id);
+        const ref = recColl(op.coll).doc(op.id);
         if (op.type === 'set') batch.set(ref, op.data);
         else batch.delete(ref);
       });
@@ -383,7 +393,7 @@ async function pushDiff() {
 // ---------------------------------------------------------------
 function attachListeners() {
   // GROUPED
-  db.collection(SM3.groupedCollection).doc(SM3.groupedDocId).onSnapshot(doc => {
+  groupedDocRef().onSnapshot(doc => {
     if (!doc.exists) return; // KHÔNG xoá local khi cloud rỗng
     const data = doc.data() || {};
     suppressPush = true;
@@ -401,7 +411,7 @@ function attachListeners() {
 
   // PER-RECORD
   SM3.perRecord.forEach(coll => {
-    db.collection(recordsColl(coll)).onSnapshot(snap => {
+    recColl(coll).onSnapshot(snap => {
       updateServerStatus('online', 'Đã đồng bộ đám mây'); // snapshot fired => đã kết nối
       suppressPush = true;
       let touched = false;
@@ -451,7 +461,7 @@ function applyRemoteRecord(coll, id, data, removed) {
 // ---------------------------------------------------------------
 async function runMigrationIfNeeded() {
   try {
-    const ref = db.collection(SM3.groupedCollection).doc(SM3.groupedDocId);
+    const ref = groupedDocRef();
     const snap = await ref.get();
     if (snap.exists) {
       console.log('[Sync V3] Layout v3 đã tồn tại trên cloud — bỏ qua migration.');
@@ -482,7 +492,7 @@ async function runMigrationIfNeeded() {
           // Đóng dấu updatedAt NGAY TRÊN record local để state == lastSynced,
           // tránh lần save() đầu tiên hiểu nhầm "đã đổi" và đẩy lại toàn bộ.
           if (!rec.updatedAt) rec.updatedAt = nowIso;
-          batch.set(db.collection(recordsColl(coll)).doc(String(rec.id)), Object.assign({}, rec));
+          batch.set(recColl(coll).doc(String(rec.id)), Object.assign({}, rec));
           last.set(String(rec.id), JSON.stringify(rec));
           total++;
         });
