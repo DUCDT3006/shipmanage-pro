@@ -806,6 +806,23 @@ a:hover {
 
     /* Card chiếm 2 cột -> về 1 cột trên mobile */
     .glass-card[style*="span 2"] { grid-column: auto !important; }
-    /* Bảng rộng vẫn cuộn ngang gọn trong khung (table-container đã overflow-x:auto) */
     .table th, .table td { padding: 0.7rem 0.8rem; font-size: 0.85rem; }
+
+    /* CARD-VIEW: bảng có class .table-card-mobile -> chuyển sang dạng thẻ trên mobile.
+       Mỗi <td> cần data-label="Tên cột" để hiển thị nhãn. */
+    .table-card-mobile thead { display: none; }
+    .table-card-mobile, .table-card-mobile tbody, .table-card-mobile tr, .table-card-mobile td { display: block; width: 100%; }
+    .table-card-mobile tr {
+        background: rgba(255,255,255,0.03); border: 1px solid var(--border-color);
+        border-radius: 10px; padding: 0.6rem 0.8rem; margin-bottom: 0.6rem;
+    }
+    .table-card-mobile td {
+        padding: 0.35rem 0; border: none; display: flex; justify-content: space-between; gap: 12px;
+        font-size: 0.82rem; align-items: center;
+    }
+    .table-card-mobile td::before {
+        content: attr(data-label); font-weight: 600; color: var(--text-muted);
+        flex: 0 0 40%; font-size: 0.75rem; text-transform: uppercase;
+    }
+    .table-card-mobile td:empty { display: none; }
 }

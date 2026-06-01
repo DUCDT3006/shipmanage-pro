@@ -459,7 +459,7 @@ const Views = {
                     </div>
 
                     <div class="table-container">
-                        <table class="table">
+                        <table class="table table-card-mobile">
                             <thead>
                                 <tr>
                                     <th>Ngày</th>
@@ -493,15 +493,15 @@ const Views = {
                                     }
                                     return filtered.map(t => `
                                         <tr style="${t.category === 'Luân chuyển' ? 'opacity: 0.6; font-style: italic;' : ''}">
-                                            <td>${esc(t.date)}</td>
-                                            <td><span class="badge badge-outline">${esc(t.vessel)}</span></td>
-                                            <td>${esc(t.category)}</td>
-                                            <td>${esc(t.content)}</td>
-                                            <td>${esc(t.partner)}</td>
-                                            <td><small>${esc(t.account)}</small></td>
-                                            <td class="value-positive">${t.thu > 0 ? AppData.formatCurrency(t.thu) : '-'}</td>
-                                            <td class="value-negative">${t.chi > 0 ? AppData.formatCurrency(t.chi) : '-'}</td>
-                                            <td>
+                                            <td data-label="Ngày">${esc(t.date)}</td>
+                                            <td data-label="Tàu"><span class="badge badge-outline">${esc(t.vessel)}</span></td>
+                                            <td data-label="Hạng mục">${esc(t.category)}</td>
+                                            <td data-label="Nội dung">${esc(t.content)}</td>
+                                            <td data-label="Đối tác">${esc(t.partner)}</td>
+                                            <td data-label="Nguồn tiền"><small>${esc(t.account)}</small></td>
+                                            <td data-label="Thu" class="value-positive">${t.thu > 0 ? AppData.formatCurrency(t.thu) : '-'}</td>
+                                            <td data-label="Chi" class="value-negative">${t.chi > 0 ? AppData.formatCurrency(t.chi) : '-'}</td>
+                                            <td data-label="Thao tác">
                                                 <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.editTransaction('${t.id}')"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
                                                 <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.deleteTransaction('${t.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
                                             </td>

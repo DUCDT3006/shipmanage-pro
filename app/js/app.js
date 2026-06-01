@@ -609,6 +609,20 @@ const app = {
         XLSX.writeFile(wb, filename);
     },
 
+    // Tìm cột Excel bền: ưu tiên theo tên (chuẩn hóa lowercase, bỏ dấu cách thừa);
+    // nếu không thấy, dùng vị trí cố định (fallback) để KHÔNG ghi sai dữ liệu khi user đổi tên cột.
+    _resolveColIdx(headers, primaryName, fallbackIdx) {
+        if (!Array.isArray(headers)) return fallbackIdx;
+        const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        const want = norm(primaryName);
+        for (let i = 0; i < headers.length; i++) if (norm(headers[i]) === want) return i;
+        // không thấy -> fallback
+        if (typeof fallbackIdx === 'number') {
+            console.warn('[Import] Không tìm thấy cột "' + primaryName + '" theo tên, dùng cột số ' + (fallbackIdx + 1));
+            return fallbackIdx;
+        }
+        return -1;
+    },
     importSystemBackupExcel(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -823,19 +837,19 @@ const app = {
                     if (rows.length >= 3) {
                         const headers = rows[2];
                         const dataRows = rows.slice(3);
-                        const colIdx = (name) => headers.indexOf(name);
-                        
-                        const idIdx = colIdx('ID Giao Dịch');
-                        const dateIdx = colIdx('Ngày');
-                        const vesselIdx = colIdx('Tàu / Bộ Phận');
-                        const categoryIdx = colIdx('Hạng Mục');
-                        const voyageNoIdx = colIdx('Chuyến Số');
-                        const contractNoIdx = colIdx('Số Hợp Đồng');
-                        const partnerIdx = colIdx('Đối Tác');
-                        const contentIdx = colIdx('Nội Dung');
-                        const thuIdx = colIdx('Thu Vào (VNĐ)');
-                        const chiIdx = colIdx('Chi Ra (VNĐ)');
-                        const accountIdx = colIdx('Tài Khoản');
+                        const ci = (name, idx) => this._resolveColIdx(headers, name, idx);
+
+                        const idIdx = ci('ID Giao Dịch', 0);
+                        const dateIdx = ci('Ngày', 1);
+                        const vesselIdx = ci('Tàu / Bộ Phận', 2);
+                        const categoryIdx = ci('Hạng Mục', 3);
+                        const voyageNoIdx = ci('Chuyến Số', 4);
+                        const contractNoIdx = ci('Số Hợp Đồng', 5);
+                        const partnerIdx = ci('Đối Tác', 6);
+                        const contentIdx = ci('Nội Dung', 7);
+                        const thuIdx = ci('Thu Vào (VNĐ)', 8);
+                        const chiIdx = ci('Chi Ra (VNĐ)', 9);
+                        const accountIdx = ci('Tài Khoản', 10);
                         
                         dataRows.forEach(row => {
                             if (row.length === 0 || !row[dateIdx]) return;
