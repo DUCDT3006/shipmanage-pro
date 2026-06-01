@@ -438,31 +438,78 @@ if (typeof window !== 'undefined') {
   window.smUpdateMemberPermissions = smUpdateMemberPermissions;
 }
 
-// ===== Audit log (nhật ký thay đổi tài chính) =====
-// Ghi vào tenants/{tid}/auditLog (append-only, tách khỏi state đồng bộ).
-function smLogAudit(action, detail) {
-  if (!db || !tenantId || !currentUser) return;
-  const id = 'AL' + Date.now() + Math.random().toString(36).slice(2, 7);
-  tenantRoot().collection('auditLog').doc(id).set({
-    action: action,
-    detail: detail || '',
-    userEmail: currentUser.email || '',
-    uid: currentUser.uid,
-    at: new Date().toISOString()
-  }).catch(e => console.warn('[Audit] lỗi ghi log:', e));
+// ===== Audit log (nhật ký MỌI thay đổi) + Hoàn tác =====
+// Ghi vào tenants/{tid}/auditLog kèm before/after để có thể hoàn tác.
+const AUDIT_COLL_LABELS = {
+  transactions: 'Giao dịch', fuelLogs: 'Chặng dầu', fuelVoyages: 'Chuyến dầu',
+  shipments: 'Chuyến hàng', captainReports: 'Báo cáo thuyền trưởng',
+  vesselExpenses: 'Chi phí tàu', timesheets: 'Bảng công'
+};
+const GROUPED_LABELS = {
+  company: 'Thông tin công ty', vessels: 'Đội tàu', vendors: 'Nhà cung cấp',
+  customers: 'Khách hàng', employees: 'Nhân viên', monthlyCosts: 'Chi phí tháng'
+};
+function auditSummary(coll, rec) {
+  if (!rec) return '';
+  switch (coll) {
+    case 'transactions': return `${rec.content || ''} · ${rec.partner || ''} · Thu ${rec.thu || 0}/Chi ${rec.chi || 0}`;
+    case 'fuelLogs': return `${rec.startPos || ''}→${rec.endPos || ''} · ĐM ${rec.fuelRate || 0}L/h · ${rec.hours || 0}h`;
+    case 'fuelVoyages': return `Chuyến ${rec.voyageNo || ''} · Tiếp ${rec.addedFuel || 0}L · ĐG ${rec.fuelUnitPrice || 0}`;
+    case 'shipments': return `${rec.voyageNo || ''} · ${rec.customer || ''} · ${rec.cargo || ''}`;
+    case 'captainReports': return `${rec.vesselId || ''} ${rec.month || ''}`;
+    case 'vesselExpenses': return `${rec.category || rec.content || ''} · ${rec.amount || 0}`;
+    default: return rec.id || '';
+  }
+}
+// Ghi 1 mảng audit entries vào auditLog (gọi trong pushDiff sau khi commit dữ liệu)
+async function writeAuditEntries(entries) {
+  if (!db || !tenantId || !currentUser || !entries.length) return;
+  const meta = { userEmail: currentUser.email || '', uid: currentUser.uid, at: new Date().toISOString() };
+  for (let i = 0; i < entries.length; i += 400) {
+    const batch = db.batch();
+    entries.slice(i, i + 400).forEach((e, k) => {
+      const id = 'AL' + Date.now() + '_' + (i + k) + Math.random().toString(36).slice(2, 6);
+      batch.set(tenantRoot().collection('auditLog').doc(id), Object.assign({}, e, meta));
+    });
+    await batch.commit();
+  }
+}
+// Hoàn tác 1 thay đổi: khôi phục "before"
+async function smUndo(auditId) {
+  if (!db || !tenantId) throw new Error('Chưa kết nối.');
+  const ref = tenantRoot().collection('auditLog').doc(auditId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error('Không tìm thấy mục nhật ký.');
+  const e = snap.data();
+  if (e.undone) throw new Error('Mục này đã được hoàn tác.');
+  if (e.grouped) {
+    const before = e.before || {};
+    Object.keys(before).forEach(k => {
+      if (!k.startsWith('_') && !SM3.perRecord.includes(k)) AppData.state[k] = before[k];
+    });
+  } else if (e.coll && e.recordId) {
+    const arr = AppData.state[e.coll] || (AppData.state[e.coll] = []);
+    const idx = arr.findIndex(x => x && String(x.id) === String(e.recordId));
+    if (e.before) { if (idx >= 0) arr[idx] = e.before; else arr.push(e.before); }
+    else { if (idx >= 0) arr.splice(idx, 1); }   // before null = vốn là "thêm mới" -> hoàn tác = xóa
+  } else {
+    throw new Error('Mục này không hỗ trợ hoàn tác.');
+  }
+  AppData.save();                                  // đồng bộ thay đổi (sẽ tự ghi 1 audit mới cho lần hoàn tác)
+  await ref.set({ undone: true, undoneAt: new Date().toISOString() }, { merge: true });
 }
 async function smListAudit(max) {
   if (!db || !tenantId) return [];
   try {
     const snap = await tenantRoot().collection('auditLog').get();
-    const items = snap.docs.map(d => d.data());
+    const items = snap.docs.map(d => Object.assign({ _id: d.id }, d.data()));
     items.sort((a, b) => (b.at || '').localeCompare(a.at || ''));
     return items.slice(0, max || 50);
   } catch (e) { return []; }
 }
 if (typeof window !== 'undefined') {
-  window.smLogAudit = smLogAudit;
   window.smListAudit = smListAudit;
+  window.smUndo = smUndo;
 }
 
 // State trắng cho khách mới (không phải dữ liệu mẫu Vũ Gia) -> khách tự nhập công ty
@@ -603,14 +650,24 @@ async function pushDiff() {
     let changedAnything = false;
     const ops = [];                 // {type:'set'|'delete', coll, id, data}
     const pendingLast = [];         // [{coll, id, str}] áp dụng sau khi commit thành công
+    const auditEntries = [];        // nhật ký kèm before/after để hoàn tác
 
     // 1) GROUPED
-    const groupedStr = JSON.stringify(buildGrouped());
+    const curGrouped = buildGrouped();
+    const groupedStr = JSON.stringify(curGrouped);
     let groupedToWrite = null;
     if (groupedStr !== lastSynced.grouped) {
       groupedToWrite = buildGrouped();
       groupedToWrite._groupedUpdatedAt = new Date().toISOString();
       changedAnything = true;
+      // audit cho thay đổi master data (gộp)
+      let gBefore = null; try { gBefore = lastSynced.grouped ? JSON.parse(lastSynced.grouped) : null; } catch (e) {}
+      const changedKeys = Object.keys(curGrouped).filter(k =>
+        JSON.stringify(curGrouped[k]) !== JSON.stringify(gBefore ? gBefore[k] : undefined));
+      auditEntries.push({
+        grouped: true, action: 'edit', before: gBefore,
+        summary: 'Cập nhật ' + (changedKeys.map(k => GROUPED_LABELS[k] || k).join(', ') || 'thông tin chung')
+      });
     }
 
     // 2) PER-RECORD
@@ -623,23 +680,35 @@ async function pushDiff() {
         if (!rec || rec.id == null) return;
         const id = String(rec.id);
         seen.add(id);
+        const prevStr = last.get(id);
         const cur = JSON.stringify(rec);
-        if (last.get(id) !== cur) {
+        if (prevStr !== cur) {
+          const before = prevStr ? JSON.parse(prevStr) : null;
           // có thay đổi -> đóng dấu updatedAt rồi ghi
           rec.updatedAt = new Date().toISOString();
           const data = Object.assign({}, rec);
           ops.push({ type: 'set', coll, id, data });
           pendingLast.push({ coll, id, str: JSON.stringify(rec) });
           changedAnything = true;
+          auditEntries.push({
+            coll: coll, recordId: id, action: before ? 'edit' : 'add',
+            before: before, after: Object.assign({}, rec),
+            summary: (before ? 'Sửa ' : 'Thêm ') + (AUDIT_COLL_LABELS[coll] || coll) + ': ' + auditSummary(coll, rec)
+          });
         }
       });
 
       // bản ghi bị xoá local -> xoá trên cloud
       for (const id of Array.from(last.keys())) {
         if (!seen.has(id)) {
+          const before = (() => { try { return JSON.parse(last.get(id)); } catch (e) { return null; } })();
           ops.push({ type: 'delete', coll, id });
           pendingLast.push({ coll, id, str: null });
           changedAnything = true;
+          auditEntries.push({
+            coll: coll, recordId: id, action: 'delete', before: before, after: null,
+            summary: 'Xóa ' + (AUDIT_COLL_LABELS[coll] || coll) + ': ' + auditSummary(coll, before)
+          });
         }
       }
     });
@@ -673,6 +742,9 @@ async function pushDiff() {
       if (p.str === null) last.delete(p.id);
       else last.set(p.id, p.str);
     });
+
+    // 5) Ghi nhật ký (sau khi dữ liệu đã commit). Không chặn nếu lỗi.
+    try { await writeAuditEntries(auditEntries); } catch (e) { console.warn('[Audit] lỗi ghi nhật ký:', e); }
 
     updateServerStatus('online', 'Đã đồng bộ đám mây');
   } catch (err) {

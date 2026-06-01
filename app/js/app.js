@@ -2522,20 +2522,32 @@ const app = {
                 return;
             }
             const fmt = (iso) => { try { return new Date(iso).toLocaleString('vi-VN'); } catch (e) { return iso; } };
-            let html = '<div class="table-container"><table class="table"><thead><tr><th>Thời gian</th><th>Người dùng</th><th>Hành động</th><th>Chi tiết</th></tr></thead><tbody>';
+            let html = '<div class="table-container"><table class="table"><thead><tr><th>Thời gian</th><th>Người dùng</th><th>Thay đổi</th><th>Thao tác</th></tr></thead><tbody>';
             items.forEach(it => {
-                html += `<tr>
-                    <td style="white-space:nowrap; font-size:0.82rem;">${esc(fmt(it.at))}</td>
-                    <td style="font-size:0.82rem;">${esc(it.userEmail || '')}</td>
-                    <td><span class="badge badge-outline">${esc(it.action || '')}</span></td>
-                    <td style="font-size:0.82rem;">${esc(it.detail || '')}</td>
+                const text = it.summary || it.detail || it.action || '';
+                const canUndo = !it.undone && (it.grouped || (it.coll && it.recordId));
+                const undoBtn = it.undone
+                    ? '<span style="font-size:0.78rem; color:var(--text-muted);"><i class="fa-solid fa-rotate-left"></i> Đã hoàn tác</span>'
+                    : (canUndo ? `<button class="btn btn-outline" style="padding:0.2rem 0.6rem; font-size:0.78rem;" onclick="app.undoAudit('${it._id}')"><i class="fa-solid fa-rotate-left"></i> Hoàn tác</button>` : '');
+                html += `<tr style="${it.undone ? 'opacity:0.55;' : ''}">
+                    <td style="white-space:nowrap; font-size:0.8rem;">${esc(fmt(it.at))}</td>
+                    <td style="font-size:0.8rem;">${esc(it.userEmail || '')}</td>
+                    <td style="font-size:0.82rem;">${esc(text)}</td>
+                    <td>${undoBtn}</td>
                 </tr>`;
             });
-            html += '</tbody></table></div><p style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">Hiển thị tối đa 50 thay đổi gần nhất.</p>';
+            html += '</tbody></table></div><p style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">Hiển thị tối đa 50 thay đổi gần nhất. "Hoàn tác" khôi phục dữ liệu về trước thay đổi đó.</p>';
             panel.innerHTML = html;
         } catch (e) {
             panel.innerHTML = '<p style="color:var(--accent)">Lỗi tải nhật ký: ' + (e.message || e) + '</p>';
         }
+    },
+    undoAudit(auditId) {
+        if (!confirm('Hoàn tác thay đổi này? Dữ liệu sẽ được khôi phục về trạng thái trước đó.')) return;
+        if (typeof window.smUndo !== 'function') return alert('Chức năng hoàn tác chưa sẵn sàng.');
+        window.smUndo(auditId)
+            .then(() => { this.navigate(this.currentView || 'company'); alert('✅ Đã hoàn tác.'); setTimeout(() => this.loadAudit(), 300); })
+            .catch(e => alert('Không thể hoàn tác: ' + (e.message || e)));
     },
 
     // === Validation helpers (chống nhập sai dữ liệu tài chính) ===

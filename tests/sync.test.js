@@ -42,9 +42,10 @@ function makeMock() {
         if (opts && opts.merge && getColl(collPath).has(id)) {
           getColl(collPath).set(id, Object.assign({}, getColl(collPath).get(id), clone));
         } else { getColl(collPath).set(id, clone); }
-        writeCount++; return Promise.resolve();
+        if (!collPath.includes('auditLog')) writeCount++;   // không tính write nhật ký
+        return Promise.resolve();
       },
-      delete: () => { getColl(collPath).delete(id); writeCount++; return Promise.resolve(); },
+      delete: () => { getColl(collPath).delete(id); if (!collPath.includes('auditLog')) writeCount++; return Promise.resolve(); },
       get: () => Promise.resolve({ exists: getColl(collPath).has(id), data: () => getColl(collPath).get(id) }),
       onSnapshot: (cb) => { docCbs[fullDoc] = cb; cb({ exists: getColl(collPath).has(id), data: () => getColl(collPath).get(id) }); return () => {}; },
       collection: (sub) => collectionRef(fullDoc + '/' + sub)   // hỗ trợ subcollection (multi-tenant)
@@ -53,7 +54,9 @@ function makeMock() {
   function collectionRef(path) {
     return {
       doc: (id) => docRef(path, id),
-      onSnapshot: (cb) => { collCbs[path] = cb; cb({ docChanges: () => [] }); return () => {}; }
+      onSnapshot: (cb) => { collCbs[path] = cb; cb({ docChanges: () => [] }); return () => {}; },
+      get: () => Promise.resolve({ docs: Array.from(getColl(path).entries()).map(([id, v]) => ({ id, data: () => v })) }),
+      where: () => collectionRef(path)   // đơn giản hoá cho test (bỏ qua filter)
     };
   }
   const db = {
@@ -243,6 +246,28 @@ function buildSandbox(mock, appdata) {
   let usedBlocked = false;
   try { await sb.activateLicense('USEDKEY'); } catch (e) { usedBlocked = /tài khoản khác/.test(e.message); }
   check('key đã dùng cho tenant khác -> chặn kích hoạt', usedBlocked);
+
+  // ---------- Audit log + Hoàn tác ----------
+  console.log('[Group] Audit + Hoàn tác');
+  await sb.pushDiff();                                   // đồng bộ để lastSynced khớp state hiện tại
+  // Thêm record mới -> kiểm tra audit "add" rồi hoàn tác
+  appdata.AppData.state.transactions.push({ id: 'TXUNDO', thu: 5, chi: 0, content: 'undo-add' });
+  await sb.pushDiff();
+  const addE = (await sb.smListAudit(100)).find(a => a.recordId === 'TXUNDO' && a.action === 'add');
+  check('audit ghi nhận THÊM record (kèm summary)', !!addE && /Thêm Giao dịch/.test(addE.summary || ''));
+  if (addE) await sb.smUndo(addE._id);
+  check('hoàn tác THÊM -> record bị xóa khỏi state', !appdata.AppData.state.transactions.some(t => t.id === 'TXUNDO'));
+
+  // Sửa record -> kiểm tra audit "edit" rồi hoàn tác (khôi phục giá trị cũ)
+  appdata.AppData.state.transactions.push({ id: 'TXEDIT', thu: 100, chi: 0, content: 'goc' });
+  await sb.pushDiff();
+  const txe = appdata.AppData.state.transactions.find(t => t.id === 'TXEDIT');
+  txe.thu = 999999;
+  await sb.pushDiff();
+  const editE = (await sb.smListAudit(100)).find(a => a.recordId === 'TXEDIT' && a.action === 'edit' && !a.undone);
+  check('audit ghi nhận SỬA record', !!editE && editE.before && editE.before.thu === 100);
+  if (editE) await sb.smUndo(editE._id);
+  check('hoàn tác SỬA -> giá trị khôi phục (thu=100)', appdata.AppData.state.transactions.find(t => t.id === 'TXEDIT').thu === 100);
 
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();
