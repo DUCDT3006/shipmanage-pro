@@ -64,6 +64,25 @@ let rerenderTimer = null;
 let auth = null;                     // Firebase Auth
 let authStarted = false;             // đã start hybrid sync sau đăng nhập chưa
 let tenantId = null;                  // ID khách thuê (Phase 2): mỗi khách = 1 tenant
+let currentUser = null;               // {uid, email, role, tenantId, permissions} (Phase 3)
+
+// Danh sách module để phân quyền (key = tên view trong app)
+const APP_MODULES = [
+  { key: 'dashboard',       label: 'Bảng điều khiển' },
+  { key: 'financials',      label: 'Theo dõi Tài chính' },
+  { key: 'debts',           label: 'Báo cáo Công nợ' },
+  { key: 'fuel',            label: 'Quản lý Nhiên liệu' },
+  { key: 'shipments',       label: 'Quản lý Chuyến hàng' },
+  { key: 'partners',        label: 'NCC - Khách hàng' },
+  { key: 'vessel-expenses', label: 'Quản lý Chi phí Tàu' },
+  { key: 'monthly-costs',   label: 'Chi phí theo Tháng' },
+  { key: 'hr',              label: 'Nhân sự' },
+  { key: 'salary',          label: 'Tính lương' },
+  { key: 'reports',         label: 'Báo cáo' },
+  { key: 'company',         label: 'Master Data / Thiết lập' }
+];
+function allPermissions() { const p = {}; APP_MODULES.forEach(m => p[m.key] = true); return p; }
+if (typeof window !== 'undefined') window.APP_MODULES = APP_MODULES;
 
 // Bộ nhớ "đã đồng bộ" để tính diff (tránh đẩy lại dữ liệu không đổi)
 const lastSynced = {
@@ -179,27 +198,139 @@ function scheduleRerender() {
 function setupAuthGate() {
   injectLoginOverlay();
   updateServerStatus('connecting', 'Đang kiểm tra đăng nhập...');
-  auth.onAuthStateChanged(user => {
+  auth.onAuthStateChanged(async (user) => {
     if (user) {
-      hideLoginOverlay();
-      const badge = document.getElementById('auth-user-badge');
-      if (badge) badge.textContent = user.email || 'Đã đăng nhập';
-      // Phase 2: tenantId = uid của owner (1 khách = 1 tenant).
-      // (Phase 3 sẽ tra users/{uid}.tenantId để user phụ trỏ về tenant của owner.)
-      tenantId = user.uid;
-      console.log('[Tenant] tenantId =', tenantId);
-      // Đổi user/tenant trên cùng trình duyệt -> reset local về TRẮNG
-      // (tránh dữ liệu khách này lẫn sang khách khác qua localStorage).
-      resetLocalIfTenantChanged(tenantId);
-      if (!authStarted) {
-        authStarted = true;
-        setupHybridSync();          // chỉ đồng bộ cloud SAU khi đăng nhập
+      try {
+        const info = await resolveTenantAndRole(user);
+        if (info.blocked) {                 // tài khoản bị khóa
+          await auth.signOut();
+          showLoginOverlay();
+          showLoginError('Tài khoản đã bị khóa. Liên hệ quản trị viên.');
+          return;
+        }
+        currentUser = { uid: user.uid, email: user.email || '', role: info.role, tenantId: info.tenantId, permissions: info.permissions };
+        if (typeof window !== 'undefined') window.SM_USER = currentUser;
+        tenantId = info.tenantId;
+        console.log('[Tenant] tenantId =', tenantId, '| role =', info.role);
+
+        hideLoginOverlay();
+        const badge = document.getElementById('auth-user-badge');
+        if (badge) badge.textContent = (user.email || '') + (info.role === 'sub' ? ' (NV)' : '');
+
+        resetLocalIfTenantChanged(tenantId);
+        applyPermissionGating();
+        if (!authStarted) {
+          authStarted = true;
+          setupHybridSync();          // chỉ đồng bộ cloud SAU khi đăng nhập
+        } else {
+          scheduleRerender();
+        }
+      } catch (e) {
+        console.error('[Auth] resolveTenantAndRole error:', e);
+        updateServerStatus('error', 'Lỗi tải hồ sơ người dùng');
       }
     } else {
       showLoginOverlay();
       updateServerStatus('offline', 'Chưa đăng nhập');
     }
   });
+}
+
+// Tra users/{uid} -> tenantId + role + permissions. Lần đầu (chưa có doc) = OWNER, tự bootstrap.
+async function resolveTenantAndRole(user) {
+  const uref = db.collection('users').doc(user.uid);
+  const snap = await uref.get();
+  if (snap.exists) {
+    const d = snap.data() || {};
+    if (d.active === false) return { blocked: true };
+    return { tenantId: d.tenantId || user.uid, role: d.role || 'sub', permissions: d.permissions || {} };
+  }
+  // Bootstrap owner: tenantId = uid, full quyền
+  const perms = allPermissions();
+  await uref.set({
+    tenantId: user.uid, role: 'owner', email: user.email || '',
+    permissions: perms, active: true, createdAt: new Date().toISOString()
+  });
+  // tạo doc tenant (metadata + giới hạn user phụ - Phase 4 sẽ dùng license)
+  try {
+    await db.collection('tenants').doc(user.uid).set(
+      { ownerUid: user.uid, maxSubUsers: 5, createdAt: new Date().toISOString() }, { merge: true });
+  } catch (e) { /* không chặn nếu rules chưa cho */ }
+  console.log('[Auth] Bootstrap OWNER cho', user.email);
+  return { tenantId: user.uid, role: 'owner', permissions: perms };
+}
+
+// ===== Phân quyền theo module: ẩn menu + chặn navigate =====
+function isViewAllowed(view) {
+  if (!currentUser) return true;
+  if (currentUser.role === 'owner') return true;
+  if (!APP_MODULES.some(m => m.key === view)) return true; // view ngoài danh sách module -> không chặn
+  return currentUser.permissions && currentUser.permissions[view] === true;
+}
+function firstAllowedView() {
+  if (!currentUser || currentUser.role === 'owner') return 'dashboard';
+  const m = APP_MODULES.find(x => currentUser.permissions && currentUser.permissions[x.key] === true);
+  return m ? m.key : 'dashboard';
+}
+function applyPermissionGating() {
+  if (typeof document === 'undefined') return;
+  const owner = currentUser && currentUser.role === 'owner';
+  document.querySelectorAll('.nav-item[data-view]').forEach(el => {
+    const v = el.getAttribute('data-view');
+    el.style.display = (owner || isViewAllowed(v)) ? '' : 'none';
+  });
+  // Chặn navigate tới view không có quyền (patch 1 lần)
+  if (typeof app !== 'undefined' && !app.__permPatched) {
+    const origNav = app.navigate.bind(app);
+    app.navigate = function (view, ...args) {
+      if (view && !isViewAllowed(view)) {
+        console.warn('[Perm] Không có quyền vào "' + view + '" -> chuyển hướng.');
+        view = firstAllowedView();
+      }
+      return origNav(view, ...args);
+    };
+    app.__permPatched = true;
+  }
+  // Nếu đang ở view không được phép -> chuyển về view đầu tiên hợp lệ
+  if (typeof app !== 'undefined' && app.currentView && !isViewAllowed(app.currentView)) {
+    app.navigate(firstAllowedView());
+  }
+}
+
+// ===== Quản lý thành viên (owner) =====
+async function smListMembers() {
+  if (!currentUser) return [];
+  const snap = await db.collection('users').where('tenantId', '==', currentUser.tenantId).get();
+  return snap.docs.map(d => Object.assign({ uid: d.id }, d.data()));
+}
+async function smAddSubUser(email, password, permissions) {
+  if (!currentUser || currentUser.role !== 'owner') throw new Error('Chỉ chủ tài khoản mới thêm được người dùng.');
+  // Secondary app: tạo tài khoản phụ mà KHÔNG làm văng phiên owner (chạy được trên gói Spark)
+  const secondary = firebase.initializeApp(firebaseConfig, 'Secondary-' + Date.now());
+  try {
+    const cred = await secondary.auth().createUserWithEmailAndPassword(email, password);
+    const newUid = cred.user.uid;
+    await db.collection('users').doc(newUid).set({
+      tenantId: currentUser.tenantId, role: 'sub', email: email,
+      permissions: permissions || {}, active: true, createdAt: new Date().toISOString()
+    });
+    await secondary.auth().signOut();
+    return newUid;
+  } finally {
+    try { await secondary.delete(); } catch (e) { /* ignore */ }
+  }
+}
+async function smSetMemberActive(uid, active) {
+  await db.collection('users').doc(uid).update({ active: !!active });
+}
+async function smUpdateMemberPermissions(uid, permissions) {
+  await db.collection('users').doc(uid).update({ permissions: permissions });
+}
+if (typeof window !== 'undefined') {
+  window.smListMembers = smListMembers;
+  window.smAddSubUser = smAddSubUser;
+  window.smSetMemberActive = smSetMemberActive;
+  window.smUpdateMemberPermissions = smUpdateMemberPermissions;
 }
 
 // State trắng cho khách mới (không phải dữ liệu mẫu Vũ Gia) -> khách tự nhập công ty

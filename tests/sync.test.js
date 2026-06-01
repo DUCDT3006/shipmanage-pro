@@ -115,6 +115,7 @@ function buildSandbox(mock, appdata) {
       addEventListener: (ev, cb) => { if (ev === 'DOMContentLoaded') domReady = cb; },
       querySelector: () => null,
       getElementById: () => null,
+      querySelectorAll: () => [],
       createElement: () => ({ style: {} }),
       head: { appendChild: () => {} },
       body: { appendChild: () => {} }

@@ -1433,6 +1433,9 @@ const app = {
         if (viewName === 'vessel-expenses') {
             this.loadVesselExpenses();
         }
+        if (viewName === 'company') {
+            this.loadMembers();
+        }
     },
 
     changeDebtCustomer(custName) {
@@ -2414,6 +2417,73 @@ const app = {
         document.getElementById('t-id').value = '';
         this.openModal('trans-modal');
     },
+    // === Quản lý người dùng / phân quyền (Phase 3, owner) ===
+    async loadMembers() {
+        const panel = document.getElementById('members-panel');
+        if (!panel || typeof window.smListMembers !== 'function') return;
+        try {
+            const members = await window.smListMembers();
+            const modules = (window.APP_MODULES || []).filter(m => m.key !== 'company');
+            const me = window.SM_USER || {};
+            let html = `
+                <div style="background:rgba(0,0,0,0.25); padding:1.2rem; border-radius:var(--radius-md); margin-bottom:1.5rem; border:1px dashed var(--border-color);">
+                    <h4 style="margin:0 0 0.75rem;">Thêm nhân viên (user phụ)</h4>
+                    <div class="grid-2">
+                        <input id="mb-email" class="form-control" type="email" placeholder="Email nhân viên">
+                        <input id="mb-pass" class="form-control" type="password" placeholder="Mật khẩu (≥ 6 ký tự)">
+                    </div>
+                    <div style="margin:0.9rem 0;">
+                        <small style="color:var(--text-muted); font-weight:600;">Cho phép truy cập các phần:</small>
+                        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-top:8px;">
+                            ${modules.map(m => `<label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer;">
+                                <input type="checkbox" class="mb-perm" value="${m.key}"> ${m.label}</label>`).join('')}
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="app.addMemberSubmit()"><i class="fa-solid fa-user-plus"></i> Tạo nhân viên</button>
+                    <span id="mb-msg" style="margin-left:12px; font-size:0.85rem;"></span>
+                </div>
+                <div class="table-container"><table class="table">
+                    <thead><tr><th>Email</th><th>Vai trò</th><th>Quyền truy cập</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>`;
+            members.sort((a, b) => (a.role === 'owner' ? -1 : 1)).forEach(mb => {
+                const permList = mb.role === 'owner' ? 'Toàn quyền'
+                    : (modules.filter(m => mb.permissions && mb.permissions[m.key]).map(m => m.label).join(', ') || '—');
+                const active = mb.active !== false;
+                html += `<tr>
+                    <td>${mb.email || ''} ${mb.uid === me.uid ? '<span class="badge badge-outline">Bạn</span>' : ''}</td>
+                    <td>${mb.role === 'owner' ? '<span class="badge badge-success">Chủ</span>' : '<span class="badge badge-outline">Nhân viên</span>'}</td>
+                    <td style="font-size:0.8rem; max-width:300px;">${permList}</td>
+                    <td>${active ? '<span style="color:var(--secondary)">Hoạt động</span>' : '<span style="color:var(--accent)">Đã khóa</span>'}</td>
+                    <td>${mb.role === 'owner' ? '' : `<button class="btn btn-outline" style="padding:0.2rem 0.6rem; font-size:0.8rem;" onclick="app.toggleMember('${mb.uid}', ${active})">${active ? 'Khóa' : 'Mở khóa'}</button>`}</td>
+                </tr>`;
+            });
+            html += `</tbody></table></div>`;
+            panel.innerHTML = html;
+        } catch (e) {
+            panel.innerHTML = '<p style="color:var(--accent)">Lỗi tải danh sách: ' + (e.message || e) + '</p>';
+        }
+    },
+    addMemberSubmit() {
+        const email = (document.getElementById('mb-email') || {}).value;
+        const pass = (document.getElementById('mb-pass') || {}).value;
+        const msg = document.getElementById('mb-msg');
+        const setMsg = (t, c) => { if (msg) { msg.textContent = t; msg.style.color = c; } };
+        const perms = {};
+        document.querySelectorAll('.mb-perm:checked').forEach(c => perms[c.value] = true);
+        if (!email || !pass) return setMsg('Nhập email và mật khẩu.', 'var(--accent)');
+        if (pass.length < 6) return setMsg('Mật khẩu phải ≥ 6 ký tự.', 'var(--accent)');
+        if (Object.keys(perms).length === 0) return setMsg('Chọn ít nhất 1 phần được phép truy cập.', 'var(--accent)');
+        setMsg('Đang tạo...', 'var(--text-muted)');
+        window.smAddSubUser(email, pass, perms)
+            .then(() => { setMsg('✓ Đã tạo nhân viên!', 'var(--secondary)'); this.loadMembers(); })
+            .catch(e => setMsg('Lỗi: ' + (e.code || e.message), 'var(--accent)'));
+    },
+    toggleMember(uid, currentlyActive) {
+        if (!confirm(currentlyActive ? 'Khóa truy cập của user này?' : 'Mở khóa user này?')) return;
+        window.smSetMemberActive(uid, !currentlyActive)
+            .then(() => this.loadMembers())
+            .catch(e => alert('Lỗi: ' + (e.message || e)));
+    },
+
     // === Validation helpers (chống nhập sai dữ liệu tài chính) ===
     _vErr(msg) { alert('⚠️ ' + msg); return false; },
     _isNumeric(raw) { return raw !== '' && raw !== null && raw !== undefined && isFinite(Number(raw)); },
