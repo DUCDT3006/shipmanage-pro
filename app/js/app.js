@@ -2706,6 +2706,8 @@ const app = {
             voyage.initialFuel = existing.initialFuel;
         }
         AppData.addFuelVoyage(voyage);
+        if (window.smLogAudit) window.smLogAudit(id ? 'Sửa chuyến dầu' : 'Thêm chuyến dầu',
+            `Chuyến ${voyage.voyageNo} · Tiếp ${voyage.addedFuel || 0}L · Đơn giá ${voyage.fuelUnitPrice || 0} · ${voyage.fuelVendor || ''}`);
         this.closeModal('fuel-voyage-modal');
         this.navigate('fuel', vesselId);
     },
@@ -2714,6 +2716,7 @@ const app = {
         if (voy) {
             voy.initialFuel = Number(value) || 0;
             AppData.save();
+            if (window.smLogAudit) window.smLogAudit('Sửa tồn dầu đầu', `Chuyến ${voy.voyageNo} · Tồn đầu ${voy.initialFuel}L`);
             this.navigate('fuel', voy.vesselId);
         }
     },
@@ -2721,6 +2724,7 @@ const app = {
         const v = AppData.getFuelVoyage(id);
         if (confirm(`Bạn có chắc muốn xóa chuyến ${v.voyageNo} và toàn bộ các chặng thuộc chuyến này?`)) {
             const vesselId = v.vesselId;
+            if (window.smLogAudit) window.smLogAudit('Xóa chuyến dầu', `Chuyến ${v.voyageNo}`);
             AppData.deleteFuelVoyage(id);
             this.navigate('fuel', vesselId);
         }
@@ -2856,6 +2860,8 @@ const app = {
         if (!log.startPos || !log.startPos.trim() || !log.endPos || !log.endPos.trim()) return this._vErr('Vui lòng nhập Nơi đi và Nơi đến.');
         if (!(log.fuelRate > 0)) return this._vErr('Định mức (Lít/giờ) phải lớn hơn 0.');
         AppData.addFuelLog(log);
+        if (window.smLogAudit) window.smLogAudit(fId ? 'Sửa chặng dầu' : 'Thêm chặng dầu',
+            `Chuyến ${voy ? voy.voyageNo : ''} · ${log.startPos}→${log.endPos} · Định mức ${log.fuelRate} L/h · ${log.hours}h`);
         this.closeModal('fuel-modal');
         this.navigate('fuel', voy.vesselId);
     },
@@ -2867,6 +2873,8 @@ const app = {
         if(!log) return;
         const voy = AppData.getFuelVoyage(log.fuelVoyageId);
         if (confirm('Bạn có chắc muốn xóa chặng này?')) {
+            if (window.smLogAudit) window.smLogAudit('Xóa chặng dầu',
+                `Chuyến ${voy ? voy.voyageNo : ''} · ${log.startPos}→${log.endPos} · Định mức ${log.fuelRate} L/h`);
             AppData.deleteFuelLog(id);
             this.navigate('fuel', voy.vesselId);
         }
@@ -2900,6 +2908,8 @@ const app = {
             other: Number(document.getElementById('m-other').value) || 0
         };
         AppData.saveMonthlyCosts(data);
+        if (window.smLogAudit) window.smLogAudit('Cập nhật chi phí tháng',
+            `Tàu ${vesselId} · ${month} · Lương ${data.salary} · BH ${data.insurance} · Khác ${data.other}`);
         // Recalculate daily allocations to voyages
         AppData.recalculateAllShipmentAllocations(vesselId, month);
         alert('Đã lưu chi phí tháng ' + data.month + ' cho tàu ' + data.vesselId + ' và tự động phân bổ lại cho các chuyến đi!');
@@ -3141,6 +3151,8 @@ const app = {
             }
         };
         AppData.addShipment(s);
+        if (window.smLogAudit) window.smLogAudit(sId ? 'Sửa chuyến hàng' : 'Thêm chuyến hàng',
+            `${s.voyageNo || ''} · Tàu ${s.vesselId || ''} · KH ${s.customer || ''} · ${s.cargo || ''} · ${s.qty || 0} tấn`);
         this.closeModal('ship-modal');
         if (this.currentView === 'debts') {
             this.navigate('debts', this.currentDebtTab || 'customer');
@@ -3189,6 +3201,8 @@ const app = {
     },
     deleteShipment(id) {
         if (confirm('Bạn có chắc muốn xóa chuyến hàng này?')) {
+            const sh = AppData.state.shipments.find(x => x.id === id);
+            if (sh && window.smLogAudit) window.smLogAudit('Xóa chuyến hàng', `${sh.voyageNo || ''} · Tàu ${sh.vesselId || ''} · KH ${sh.customer || ''}`);
             AppData.deleteShipment(id);
             if (this.currentView === 'debts') {
                 this.navigate('debts', this.currentDebtTab || 'customer');
