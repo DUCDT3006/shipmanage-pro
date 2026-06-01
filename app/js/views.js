@@ -814,30 +814,30 @@ const Views = {
             <div class="view-section">
                 <div class="page-header">
                     <div>
-                        <h1 class="page-title">Nha cung cap - Khach hang</h1>
-                        <p class="page-subtitle">Quan ly mang luoi doi tac kinh doanh</p>
+                        <h1 class="page-title">Nhà cung cấp - Khách hàng</h1>
+                        <p class="page-subtitle">Quản lý mạng lưới đối tác kinh doanh</p>
                     </div>
                     <button class="btn btn-primary" onclick="app.openPartnerModal('${activeTab}')">
                         <i class="fa-solid fa-plus"></i>
-                        ${activeTab === 'vendor' ? 'Them NCC' : 'Them Khach hang'}
+                        ${activeTab === 'vendor' ? 'Thêm NCC' : 'Thêm Khách hàng'}
                     </button>
                 </div>
                 <div class="glass-card">
                     <div style="display:flex; gap:1rem; border-bottom:1px solid var(--border-color); margin-bottom:1.5rem;">
-                        <button class="btn btn-outline" style="border:none; border-bottom:2px solid ${activeTab === 'vendor' ? 'var(--primary-light)' : 'transparent'}; border-radius:0;" onclick="app.navigate('partners', 'vendor')">Nha cung cap</button>
-                        <button class="btn btn-outline" style="border:none; border-bottom:2px solid ${activeTab === 'customer' ? 'var(--primary-light)' : 'transparent'}; border-radius:0;" onclick="app.navigate('partners', 'customer')">Khach hang</button>
+                        <button class="btn btn-outline" style="border:none; border-bottom:2px solid ${activeTab === 'vendor' ? 'var(--primary-light)' : 'transparent'}; border-radius:0;" onclick="app.navigate('partners', 'vendor')">Nhà cung cấp</button>
+                        <button class="btn btn-outline" style="border:none; border-bottom:2px solid ${activeTab === 'customer' ? 'var(--primary-light)' : 'transparent'}; border-radius:0;" onclick="app.navigate('partners', 'customer')">Khách hàng</button>
                     </div>
                     <div class="table-container">
                         <table class="table">
-                            <thead><tr><th>Ten doi tac</th><th>Dia chi</th><th>So dien thoai</th><th>Thao tac</th></tr></thead>
+                            <thead><tr><th>Tên đối tác</th><th>Địa chỉ</th><th>Số điện thoại</th><th>Thao tác</th></tr></thead>
                             <tbody>
                                 ${activeTab === 'vendor' ? 
-                                    (AppData.getVendors().length === 0 ? '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Chua co nha cung cap nao. Nhan "Them NCC" de bat dau.</td></tr>' :
+                                    (AppData.getVendors().length === 0 ? '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Chưa có nhà cung cấp nào. Nhấn "Thêm NCC" để bắt đầu.</td></tr>' :
                                     AppData.getVendors().map(v => `<tr><td><strong>${esc(v.name)}</strong> <span class="badge badge-outline">NCC</span></td><td>${esc(v.address) || '---'}</td><td>${esc(v.contact) || '---'}</td><td>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.editVendor('${v.id}')"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.deleteVendor('${v.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
                                     </td></tr>`).join('')) :
-                                    (AppData.getCustomers().length === 0 ? '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Chua co khach hang nao. Nhan "Them Khach hang" de bat dau.</td></tr>' :
+                                    (AppData.getCustomers().length === 0 ? '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Chưa có khách hàng nào. Nhấn "Thêm Khách hàng" để bắt đầu.</td></tr>' :
                                     AppData.getCustomers().map(c => `<tr><td><strong>${esc(c.name)}</strong> <span class="badge badge-outline">KH</span></td><td>${esc(c.address) || '---'}</td><td>${esc(c.contact) || '---'}</td><td>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.editCustomer('${c.id}')"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.deleteCustomer('${c.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
@@ -853,7 +853,7 @@ const Views = {
 
     partnerModal: (type, partner = null) => {
         const isVendor = type === 'vendor';
-        const title = partner ? (isVendor ? 'Sua Nha Cung Cap' : 'Sua Khach Hang') : (isVendor ? 'Them Nha Cung Cap Moi' : 'Them Khach Hang Moi');
+        const title = partner ? (isVendor ? 'Sửa Nhà Cung Cấp' : 'Sửa Khách Hàng') : (isVendor ? 'Thêm Nhà Cung Cấp Mới' : 'Thêm Khách Hàng Mới');
         return `
             <div class="modal-header">
                 <h3><i class="fa-solid fa-${isVendor ? 'truck' : 'user-tie'}"></i> ${title}</h3>
@@ -864,22 +864,22 @@ const Views = {
                     <input type="hidden" id="p-id" value="${partner ? partner.id : ''}">
                     <input type="hidden" id="p-type" value="${type}">
                     <div class="form-group">
-                        <label class="form-label">Ten ${isVendor ? 'Nha cung cap' : 'Khach hang'} <span style="color:var(--accent)">*</span></label>
-                        <input type="text" class="form-control" id="p-name" value="${partner ? partner.name : ''}" required placeholder="Nhap ten doi tac..." autofocus>
+                        <label class="form-label">Tên ${isVendor ? 'Nhà cung cấp' : 'Khách hàng'} <span style="color:var(--accent)">*</span></label>
+                        <input type="text" class="form-control" id="p-name" value="${partner ? esc(partner.name) : ''}" required placeholder="Nhập tên đối tác..." autofocus>
                     </div>
                     <div class="grid-2">
                         <div class="form-group">
-                            <label class="form-label">So dien thoai</label>
+                            <label class="form-label">Số điện thoại</label>
                             <input type="text" class="form-control" id="p-contact" value="${partner ? (partner.contact || '') : ''}" placeholder="VD: 0987654321">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Dia chi</label>
-                            <input type="text" class="form-control" id="p-address" value="${partner ? (partner.address || '') : ''}" placeholder="Tinh/Thanh pho...">
+                            <label class="form-label">Địa chỉ</label>
+                            <input type="text" class="form-control" id="p-address" value="${partner ? esc(partner.address || '') : ''}" placeholder="Tỉnh/Thành phố...">
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline" onclick="app.closeModal('partner-modal')">Huy</button>
-                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Luu</button>
+                        <button type="button" class="btn btn-outline" onclick="app.closeModal('partner-modal')">Hủy</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Lưu</button>
                     </div>
                 </form>
             </div>

@@ -3736,7 +3736,7 @@ const app = {
             contact: document.getElementById('p-contact').value.trim(),
             address: document.getElementById('p-address').value.trim()
         };
-        if (!partner.name) { alert('Vui long nhap ten doi tac!'); return; }
+        if (!partner.name) { alert('Vui lòng nhập tên đối tác!'); return; }
         if (type === 'vendor') {
             AppData.addVendor(partner);
             this.closeModal('partner-modal');
