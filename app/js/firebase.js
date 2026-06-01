@@ -281,12 +281,14 @@ function attachListeners() {
     lastSynced.grouped = JSON.stringify(buildGrouped());
     originalSave();
     suppressPush = false;
+    updateServerStatus('online', 'Đã đồng bộ đám mây');
     scheduleRerender();
   }, err => handleSyncError(err, 'grouped.onSnapshot'));
 
   // PER-RECORD
   SM3.perRecord.forEach(coll => {
     db.collection(recordsColl(coll)).onSnapshot(snap => {
+      updateServerStatus('online', 'Đã đồng bộ đám mây'); // snapshot fired => đã kết nối
       suppressPush = true;
       let touched = false;
       snap.docChanges().forEach(ch => {
@@ -339,6 +341,7 @@ async function runMigrationIfNeeded() {
     const snap = await ref.get();
     if (snap.exists) {
       console.log('[Sync V3] Layout v3 đã tồn tại trên cloud — bỏ qua migration.');
+      updateServerStatus('online', 'Đã đồng bộ đám mây');
       return;
     }
 
