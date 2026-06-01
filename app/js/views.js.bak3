@@ -3,157 +3,51 @@
  */
 
 const Views = {
-    dashboard: (filterMonth = '') => {
+    dashboard: () => {
         const company = AppData.getCompany();
-        const allShips = AppData.getShipments();
-        
-        // Thu thập danh sách các tháng có dữ liệu chuyến hàng
-        const monthsSet = new Set();
-        allShips.forEach(s => {
-            const m = s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : '');
-            if (m) monthsSet.add(m);
+        const shipments = AppData.getShipments();
+        let revenue = 0, costs = 0;
+        shipments.forEach(s => {
+            revenue += s.revenueReal || 0;
+            const costSum = Object.values(s.costs || {}).reduce((sum, v) => sum + (Number(v) || 0), 0);
+            costs += costSum;
         });
-        const availableMonths = Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
-
-        let filteredShips = allShips;
-        if (filterMonth) {
-            filteredShips = allShips.filter(s => {
-                const m = s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : '');
-                return m === filterMonth;
-            });
-        }
-        
-        let totalRevenue = 0;
-        let totalCost = 0;
-
-        filteredShips.forEach(s => {
-            totalRevenue += Number(s.revenueReal || 0);
-            const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
-            const baseCosts = { ...s.costs };
-            delete baseCosts.vat; // Tránh cộng dồn
-            const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
-            totalCost += costSum;
-        });
-
-        const totalProfit = totalRevenue - totalCost;
-        const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0;
 
         return `
             <div class="view-section">
-                <!-- Page Header & Filter -->
-                <div class="page-header" style="flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+                <div class="page-header">
                     <div>
                         <h1 class="page-title">Bảng điều khiển</h1>
                         <p class="page-subtitle">${company.name}</p>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.75rem; background: rgba(255,255,255,0.03); padding: 8px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-                        <label style="font-weight: 600; color: var(--text-main); font-size: 0.9rem; margin: 0; display: flex; align-items: center; gap: 6px;">
-                            <i class="fa-solid fa-filter" style="color:var(--primary-light);"></i> Lọc tháng hạch toán:
-                        </label>
-                        <select class="form-control" style="width: 180px; height: 32px; padding: 4px 8px; font-size: 0.85rem;" onchange="app.navigate('dashboard', this.value)">
-                            <option value="">-- Tất cả các tháng --</option>
-                            ${availableMonths.map(m => `<option value="${m}" ${m === filterMonth ? 'selected' : ''}>Tháng ${m.split('-')[1]}/${m.split('-')[0]}</option>`).join('')}
-                        </select>
+                </div>
+                <div class="grid-4">
+                    <div class="glass-card stat-card">
+                        <span class="stat-label">Doanh thu thực tế</span>
+                        <div class="stat-value">${AppData.formatCurrency(revenue)}</div>
+                        <div class="stat-icon icon-blue"><i class="fa-solid fa-money-bill-trend-up"></i></div>
+                    </div>
+                    <div class="glass-card stat-card">
+                        <span class="stat-label">Tổng chi phí chuyến</span>
+                        <div class="stat-value">${AppData.formatCurrency(costs)}</div>
+                        <div class="stat-icon icon-rose"><i class="fa-solid fa-file-invoice"></i></div>
+                    </div>
+                    <div class="glass-card stat-card">
+                        <span class="stat-label">Lợi nhuận gộp</span>
+                        <div class="stat-value">${AppData.formatCurrency(revenue - costs)}</div>
+                        <div class="stat-icon icon-green"><i class="fa-solid fa-vault"></i></div>
+                    </div>
+                    <div class="glass-card stat-card">
+                        <span class="stat-label">Số chuyến hoạt động</span>
+                        <div class="stat-value">${shipments.length}</div>
+                        <div class="stat-icon icon-purple"><i class="fa-solid fa-ship"></i></div>
                     </div>
                 </div>
-
-                <!-- KPI Section -->
-                <div class="kpi-grid" style="margin-bottom: 2rem;">
-                    <div class="kpi-card kpi-primary">
-                        <div class="kpi-details">
-                            <span class="kpi-title">Doanh thu Thực tế</span>
-                            <span class="kpi-value" style="color: var(--info);">${AppData.formatCurrency(totalRevenue)}</span>
-                        </div>
-                        <div class="kpi-icon-wrapper">
-                            <i class="fa-solid fa-money-bill-trend-up"></i>
-                        </div>
-                    </div>
-                    <div class="kpi-card kpi-danger">
-                        <div class="kpi-details">
-                            <span class="kpi-title">Tổng Chi phí Chuyến</span>
-                            <span class="kpi-value" style="color: var(--accent);">${AppData.formatCurrency(totalCost)}</span>
-                        </div>
-                        <div class="kpi-icon-wrapper">
-                            <i class="fa-solid fa-file-invoice-dollar"></i>
-                        </div>
-                    </div>
-                    <div class="kpi-card kpi-success">
-                        <div class="kpi-details">
-                            <span class="kpi-title">Lợi nhuận Ròng</span>
-                            <span class="kpi-value" style="color: var(--secondary);">${AppData.formatCurrency(totalProfit)}</span>
-                        </div>
-                        <div class="kpi-icon-wrapper">
-                            <i class="fa-solid fa-scale-balanced"></i>
-                        </div>
-                    </div>
-                    <div class="kpi-card kpi-info">
-                        <div class="kpi-details">
-                            <span class="kpi-title">Hiệu suất Lợi nhuận</span>
-                            <span class="kpi-value" style="color: var(--warning);">${profitMargin}%</span>
-                        </div>
-                        <div class="kpi-icon-wrapper">
-                            <i class="fa-solid fa-percent"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Charts Layout -->
-                <div class="charts-grid" style="margin-bottom: 2rem;">
-                    <div class="chart-card-wrapper">
-                        <div class="chart-card-header">
-                            <span class="chart-card-title"><i class="fa-solid fa-ship" style="color: var(--info);"></i> Hiệu quả kinh doanh theo Tàu</span>
-                        </div>
-                        <div class="chart-card-body">
-                            <canvas id="repVesselChart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="chart-card-wrapper">
-                        <div class="chart-card-header">
-                            <span class="chart-card-title"><i class="fa-solid fa-chart-line" style="color: var(--primary-light);"></i> ${filterMonth ? 'Phân tích Doanh thu & Lợi nhuận từng Chuyến' : 'Xu hướng Doanh thu & Lợi nhuận'}</span>
-                        </div>
-                        <div class="chart-card-body">
-                            <canvas id="repTrendChart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="chart-card-wrapper">
-                        <div class="chart-card-header">
-                            <span class="chart-card-title"><i class="fa-solid fa-chart-pie" style="color: var(--secondary);"></i> Phân tích Cơ cấu Chi phí</span>
-                        </div>
-                        <div class="chart-card-body">
-                            <canvas id="repCostChart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="chart-card-wrapper">
-                        <div class="chart-card-header">
-                            <span class="chart-card-title"><i class="fa-solid fa-gas-pump" style="color: var(--warning);"></i> Tiêu hao Nhiên liệu DO theo Tàu (VNĐ)</span>
-                        </div>
-                        <div class="chart-card-body">
-                            <canvas id="repFuelChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Auto Analysis Section -->
-                <div class="glass-card" style="margin-bottom: 2rem; border-left: 4px solid var(--primary-light);">
-                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
-                        <i class="fa-solid fa-brain" style="color: var(--primary-light); font-size: 1.5rem;"></i>
-                        <h3 style="margin: 0; font-size: 1.25rem;">Báo cáo Phân tích & Nhận xét Kinh doanh</h3>
-                    </div>
-                    <div id="reports-analysis-content" style="line-height: 1.7; font-size: 0.95rem;">
-                        <p style="color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i>Đang phân tích số liệu...</p>
-                    </div>
-                </div>
-
-                <!-- Bottom Fleet & Transactions Grid -->
-                <div class="grid-2">
+                
+                <div class="grid-2" style="margin-top:2rem;">
                     <div class="glass-card">
-                        <h3 style="display: flex; align-items: center; gap: 8px; font-size: 1.15rem; margin-bottom: 1rem;">
-                            <i class="fa-solid fa-ship" style="color: var(--primary-light);"></i> Đội tàu & Thuyền trưởng
-                        </h3>
-                        <div class="table-container">
+                        <h3>Đội tàu & Thuyền trưởng</h3>
+                        <div class="table-container" style="margin-top:1rem;">
                             <table class="table">
                                 <thead><tr><th>Tàu</th><th>Thuyền trưởng</th><th>Trạng thái</th></tr></thead>
                                 <tbody>
@@ -169,16 +63,14 @@ const Views = {
                         </div>
                     </div>
                     <div class="glass-card">
-                        <h3 style="display: flex; align-items: center; gap: 8px; font-size: 1.15rem; margin-bottom: 1rem;">
-                            <i class="fa-solid fa-clock-rotate-left" style="color: var(--secondary);"></i> Giao dịch gần đây
-                        </h3>
-                        <div class="table-container">
+                        <h3>Giao dịch gần đây</h3>
+                        <div class="table-container" style="margin-top:1rem;">
                             <table class="table">
                                 <thead><tr><th>Ngày</th><th>Nội dung</th><th>Số tiền</th></tr></thead>
                                 <tbody>
                                     ${AppData.getTransactions().slice(0,5).map(t => `
                                         <tr>
-                                            <td>${t.date ? t.date.split('-').reverse().join('/') : ''}</td>
+                                            <td>${t.date}</td>
                                             <td>${t.content}</td>
                                             <td class="${t.thu > 0 ? 'value-positive' : 'value-negative'}">
                                                 ${AppData.formatCurrency(t.thu > 0 ? t.thu : -t.chi)}
@@ -194,7 +86,7 @@ const Views = {
         `;
     },
 
-    financials: (selectedMonth = '', selectedVessel = '', selectedCategory = '', selectedPartner = '') => {
+    financials: (selectedMonth = '') => {
         const trans = AppData.getTransactions();
         return `
             <div class="view-section">
@@ -401,18 +293,13 @@ const Views = {
                     <p style="margin-top: 1rem; font-size: 0.8rem; opacity: 0.6; text-align: right;">* Đơn vị tính: Triệu đồng (M)</p>
                 </div>
                 <div class="glass-card" style="margin-bottom: 2rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <i class="fa-solid fa-list" style="color: var(--primary-light); font-size: 1.2rem;"></i>
                             <h3 style="margin: 0;">Danh sách Giao dịch</h3>
                         </div>
-                    </div>
-                    
-                    <!-- Sleek Filter Bar -->
-                    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 1.5rem; padding: 1.2rem; background: rgba(0,0,0,0.25); border-radius: var(--radius-md); border: 1px solid var(--border-color); align-items: flex-end;">
-                        <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
-                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--text-muted); font-weight: 500;">Tháng hạch toán</label>
-                            <select id="filter-fin-month" class="form-control" style="font-size: 0.85rem; padding: 6px 12px;" onchange="app.updateFinancialsFilters()">
+                        <div>
+                            <select class="form-control" style="width: auto; padding: 0.4rem 0.8rem;" onchange="app.filterFinancials(this.value)">
                                 <option value="">-- Tất cả các tháng --</option>
                                 ${(() => {
                                     const months = [...new Set(trans.filter(t => t.date).map(t => t.date.substring(0, 7)))].sort().reverse();
@@ -420,44 +307,7 @@ const Views = {
                                 })()}
                             </select>
                         </div>
-                        <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
-                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--text-muted); font-weight: 500;">Tàu / Bộ phận</label>
-                            <select id="filter-fin-vessel" class="form-control" style="font-size: 0.85rem; padding: 6px 12px;" onchange="app.updateFinancialsFilters()">
-                                <option value="">-- Tất cả tàu --</option>
-                                <option value="VP" ${selectedVessel === 'VP' ? 'selected' : ''}>VP (Văn phòng)</option>
-                                ${AppData.state.vessels.map(v => `<option value="${v.id}" ${v.id === selectedVessel ? 'selected' : ''}>Tàu ${v.name}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
-                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--text-muted); font-weight: 500;">Hạng mục</label>
-                            <select id="filter-fin-category" class="form-control" style="font-size: 0.85rem; padding: 6px 12px;" onchange="app.updateFinancialsFilters()">
-                                <option value="">-- Tất cả hạng mục --</option>
-                                ${(() => {
-                                    const categories = [...new Set(trans.map(t => t.category).filter(Boolean))].sort();
-                                    return categories.map(c => `<option value="${c}" ${c === selectedCategory ? 'selected' : ''}>${c}</option>`).join('');
-                                })()}
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
-                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--text-muted); font-weight: 500;">Đối tác / NCC</label>
-                            <select id="filter-fin-partner" class="form-control" style="font-size: 0.85rem; padding: 6px 12px;" onchange="app.updateFinancialsFilters()">
-                                <option value="">-- Tất cả đối tác --</option>
-                                ${(() => {
-                                    const partners = [...new Set(trans.map(t => t.partner).filter(Boolean))].sort();
-                                    return partners.map(p => `<option value="${p}" ${p === selectedPartner ? 'selected' : ''}>${p}</option>`).join('');
-                                })()}
-                            </select>
-                        </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-outline" onclick="app.resetFinancialsFilters()" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; height: 35px;" title="Reset bộ lọc">
-                                <i class="fa-solid fa-arrows-rotate"></i> Reset
-                            </button>
-                            <button class="btn btn-outline" onclick="app.exportFinancialReport('${selectedMonth}', '${selectedVessel}', '${selectedCategory}', '${selectedPartner}')" style="padding: 0.4rem 1rem; font-size: 0.85rem; height: 35px; white-space: nowrap;">
-                                <i class="fa-solid fa-file-excel" style="color: var(--secondary); margin-right: 4px;"></i> Xuất Excel
-                            </button>
-                        </div>
                     </div>
-
                     <div class="table-container">
                         <table class="table">
                             <thead>
@@ -474,40 +324,22 @@ const Views = {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${(() => {
-                                    let filtered = trans;
-                                    if (selectedMonth) {
-                                        filtered = filtered.filter(t => t.date && t.date.substring(0, 7) === selectedMonth);
-                                    }
-                                    if (selectedVessel) {
-                                        filtered = filtered.filter(t => t.vessel === selectedVessel);
-                                    }
-                                    if (selectedCategory) {
-                                        filtered = filtered.filter(t => t.category === selectedCategory);
-                                    }
-                                    if (selectedPartner) {
-                                        filtered = filtered.filter(t => t.partner === selectedPartner);
-                                    }
-                                    if (filtered.length === 0) {
-                                        return `<tr><td colspan="9" style="text-align:center; padding: 3rem; color: var(--text-muted); font-style: italic;">Không tìm thấy giao dịch nào khớp với bộ lọc.</td></tr>`;
-                                    }
-                                    return filtered.map(t => `
-                                        <tr style="${t.category === 'Luân chuyển' ? 'opacity: 0.6; font-style: italic;' : ''}">
-                                            <td>${t.date}</td>
-                                            <td><span class="badge badge-outline">${t.vessel}</span></td>
-                                            <td>${t.category}</td>
-                                            <td>${t.content}</td>
-                                            <td>${t.partner}</td>
-                                            <td><small>${t.account}</small></td>
-                                            <td class="value-positive">${t.thu > 0 ? AppData.formatCurrency(t.thu) : '-'}</td>
-                                            <td class="value-negative">${t.chi > 0 ? AppData.formatCurrency(t.chi) : '-'}</td>
-                                            <td>
-                                                <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.editTransaction('${t.id}')"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
-                                                <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.deleteTransaction('${t.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
-                                            </td>
-                                        </tr>
-                                    `).join('');
-                                })()}
+                                ${(selectedMonth ? trans.filter(t => t.date && t.date.substring(0, 7) === selectedMonth) : trans).map(t => `
+                                    <tr style="${t.category === 'Luân chuyển' ? 'opacity: 0.6; font-style: italic;' : ''}">
+                                        <td>${t.date}</td>
+                                        <td><span class="badge badge-outline">${t.vessel}</span></td>
+                                        <td>${t.category}</td>
+                                        <td>${t.content}</td>
+                                        <td>${t.partner}</td>
+                                        <td><small>${t.account}</small></td>
+                                        <td class="value-positive">${t.thu > 0 ? AppData.formatCurrency(t.thu) : '-'}</td>
+                                        <td class="value-negative">${t.chi > 0 ? AppData.formatCurrency(t.chi) : '-'}</td>
+                                        <td>
+                                            <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.editTransaction('${t.id}')"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
+                                            <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.deleteTransaction('${t.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -542,7 +374,6 @@ const Views = {
     <option value="9.Vật Tư">9. Vật Tư</option>
     <option value="3.Lương">3. Lương</option>
     <option value="6.Lãi Vay">6. Lãi Vay</option>
-    <option value="Trả gốc vay">Trả gốc vay</option>
     <option value="7.Bảo Hiểm">7. Bảo Hiểm</option>
     <option value="5.Dầu LO">5. Dầu LO</option>
     <option value="Luân chuyển">Luân chuyển</option>
@@ -910,11 +741,6 @@ const Views = {
                             <label class="form-label">Vật tư, sửa chữa Công ty cấp (VND) <span style="font-size:0.75rem; color:var(--info); font-weight:normal;">(Tự nhập tại đây)</span></label>
                             <input type="number" step="any" class="form-control" id="m-material-company" value="${costs.materialCompany || 0}">
                         </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Lãi vay (VND) <span style="font-size:0.75rem; color:var(--info); font-weight:normal;">(Tự động tính từ Giao dịch)</span></label>
-                            <input type="number" step="any" class="form-control" id="m-loan-interest" value="${costs.loanInterest || 0}" readonly style="background:rgba(0,0,0,0.3); color:var(--text-muted);">
-                        </div>
                         
                         <div class="form-group">
                             <label class="form-label">Vật tư, sửa chữa Tàu chi (VND) <span style="font-size:0.75rem; color:var(--warning); font-weight:normal;">(Tự động lấy từ Báo cáo Tàu)</span></label>
@@ -1235,466 +1061,6 @@ const Views = {
         `;
     },
 
-    hr: (activeTab = 'all') => {
-        let employees = AppData.getEmployees();
-        const vessels = AppData.getVessels();
-        
-        // Filter by tab
-        if (activeTab !== 'all') {
-            employees = employees.filter(e => e.department === activeTab);
-        }
-
-        const tabs = [
-            { id: 'all', name: 'Tất cả' },
-            { id: 'VP', name: 'Khối Quản lý' },
-            ...vessels.map(v => ({ id: v.id, name: `Tàu ${v.name}` }))
-        ];
-
-        return `
-            <div class="view-section">
-                <div class="page-header">
-                    <div>
-                        <h1 class="page-title">Quản lý Nhân sự</h1>
-                        <p class="page-subtitle">Hồ sơ nhân viên & thuyền viên</p>
-                    </div>
-                    <button class="btn btn-primary" onclick="app.openEmployeeModal()">
-                        <i class="fa-solid fa-plus"></i> Thêm Nhân sự
-                    </button>
-                </div>
-                
-                <div class="tabs" style="display:flex; gap:10px; margin-bottom: 20px; overflow-x: auto;">
-                    ${tabs.map(t => `
-                        <button class="btn ${activeTab === t.id ? 'btn-primary' : 'btn-outline'}" onclick="app.hrTab = '${t.id}'; app.navigate('hr')">
-                            ${t.name}
-                        </button>
-                    `).join('')}
-                </div>
-
-                <div class="glass-card">
-                    <div class="table-container">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Họ và Tên</th>
-                                    <th>Chức vụ</th>
-                                    ${activeTab === 'all' ? '<th>Bộ phận/Tàu</th>' : ''}
-                                    <th>Lương cơ bản</th>
-                                    <th>PC Giao nhận</th>
-                                    <th>Thưởng HT CV</th>
-                                    <th>Tiền ăn ca</th>
-                                    <th>Điện thoại</th>
-                                    <th>Trang phục</th>
-                                    <th>Xăng xe</th>
-                                    <th>Giảm trừ bản thân</th>
-                                    <th>NPT</th>
-                                    <th>Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${employees.map(e => `
-                                    <tr>
-                                        <td>
-                                            <strong>${e.name}</strong><br>
-                                            <small style="color:var(--text-muted)">
-                                                ${e.joinDate ? 'Vào: ' + e.joinDate.split('-').reverse().join('/') : ''} 
-                                                ${e.leaveDate ? `<span style="color:var(--rose-light)">Nghỉ: ${e.leaveDate.split('-').reverse().join('/')}</span>` : ''}
-                                            </small>
-                                        </td>
-                                        <td>${e.role || ''}</td>
-                                        ${activeTab === 'all' ? `<td><span class="badge badge-outline">${e.department || 'VP'}</span></td>` : ''}
-                                        <td>${AppData.formatCurrency(e.basicSalary || 0)}</td>
-                                        <td>${AppData.formatCurrency(e.deliveryAllowance || 0)}</td>
-                                        <td>${AppData.formatCurrency(e.completionBonus || 0)}</td>
-                                        <td>${AppData.formatCurrency(e.mealAllowance || 0)}</td>
-                                        <td>${AppData.formatCurrency(e.phoneAllowance || 0)}</td>
-                                        <td>${AppData.formatCurrency(e.clothingAllowance || 0)}</td>
-                                        <td>${AppData.formatCurrency(e.transportAllowance || 0)}</td>
-                                        <td>${AppData.formatCurrency(e.personalDeduction || 0)}</td>
-                                        <td style="text-align:center;">${e.dependents || 0}</td>
-                                        <td>
-                                            <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.editEmployee('${e.id}')"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
-                                            <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.deleteEmployee('${e.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                                ${employees.length === 0 ? `<tr><td colspan="${activeTab === 'all' ? 13 : 12}" style="text-align:center;">Chưa có dữ liệu nhân sự</td></tr>` : ''}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        `;
-    },
-
-    employeeModal: (e = {}) => {
-        const vessels = AppData.getVessels();
-        return `
-            <div class="modal-header">
-                <h3>${e.id ? 'Cập nhật Nhân sự' : 'Thêm Nhân sự'}</h3>
-                <button class="modal-close" onclick="app.closeModal('employee-modal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form onsubmit="event.preventDefault(); app.saveEmployee('${e.id || ''}');">
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Họ và Tên</label><input type="text" class="form-control" id="emp-name" value="${e.name || ''}" required></div>
-                        <div class="form-group"><label class="form-label">Điện thoại</label><input type="text" class="form-control" id="emp-phone" value="${e.phone || ''}"></div>
-                    </div>
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Chức vụ</label><input type="text" class="form-control" id="emp-role" value="${e.role || ''}" required></div>
-                        <div class="form-group">
-                            <label class="form-label">Bộ phận / Tàu</label>
-                            <select class="form-control" id="emp-department">
-                                <option value="VP" ${e.department === 'VP' ? 'selected' : ''}>Quản lý (VP)</option>
-                                ${vessels.map(v => `<option value="${v.id}" ${e.department === v.id ? 'selected' : ''}>Tàu ${v.name}</option>`).join('')}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Lương cơ bản (VND)</label><input type="number" step="any" class="form-control" id="emp-basic-salary" value="${e.basicSalary || ''}"></div>
-                        <div class="form-group"><label class="form-label">Mức lương thực tế (VND)</label><input type="number" step="any" class="form-control" id="emp-actual-salary" value="${e.actualSalary || ''}"></div>
-                    </div>
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Tiền ăn ca (VND)</label><input type="number" step="any" class="form-control" id="emp-meal-allowance" value="${e.mealAllowance || ''}"></div>
-                        <div class="form-group"><label class="form-label">Điện thoại (VND)</label><input type="number" step="any" class="form-control" id="emp-phone-allowance" value="${e.phoneAllowance || ''}"></div>
-                    </div>
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Phụ cấp trang phục (VND)</label><input type="number" step="any" class="form-control" id="emp-clothing-allowance" value="${e.clothingAllowance || ''}"></div>
-                        <div class="form-group"><label class="form-label">Xăng xe, đi lại (VND)</label><input type="number" step="any" class="form-control" id="emp-transport-allowance" value="${e.transportAllowance || ''}"></div>
-                    </div>
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Giảm trừ bản thân (VND)</label><input type="number" step="any" class="form-control" id="emp-personal-deduction" value="${e.personalDeduction || 15500000}"></div>
-                        <div class="form-group"><label class="form-label">Số lượng NPT</label><input type="number" class="form-control" id="emp-dependents" value="${e.dependents || 0}"></div>
-                    </div>
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Tiền bảo hiểm (VND)</label><input type="number" step="any" class="form-control" id="emp-insurance" value="${e.insurance || 0}"></div>
-                        <div class="form-group"></div>
-                    </div>
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Phụ cấp giao nhận (VND)</label><input type="number" step="any" class="form-control" id="emp-delivery-allowance" value="${e.deliveryAllowance || 0}"></div>
-                        <div class="form-group"><label class="form-label">Thưởng hoàn thành CV (VND)</label><input type="number" step="any" class="form-control" id="emp-completion-bonus" value="${e.completionBonus || 0}"></div>
-                    </div>
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Ngày vào làm / Nhập tàu</label><input type="date" class="form-control" id="emp-join" value="${e.joinDate || ''}"></div>
-                        <div class="form-group"><label class="form-label">Ngày nghỉ (Nếu có)</label><input type="date" class="form-control" id="emp-leave" value="${e.leaveDate || ''}"></div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Ghi chú</label>
-                        <textarea class="form-control" id="emp-notes" rows="2">${e.notes || ''}</textarea>
-                    </div>
-                    <div class="modal-footer"><button type="submit" class="btn btn-primary" style="width:100%;">${e.id ? 'Lưu Thay Đổi' : 'Thêm Nhân Sự'}</button></div>
-                </form>
-            </div>
-        `;
-    },
-
-    salary: (month, department, activeTab = 'thucte') => {
-        // Defaults
-        if (!month) month = new Date().toISOString().substring(0, 7);
-        if (!department) department = 'VP';
-
-        const vessels = AppData.getVessels();
-        let employees = AppData.getEmployees().filter(e => e.department === department);
-        
-        // Get or initialize timesheet for this month & department
-        let timesheet = AppData.getTimesheet(month, department);
-        if (!timesheet) {
-            timesheet = {
-                month: month,
-                department: department,
-                attendance: {},
-                voyageCount: 0
-            };
-        }
-
-        // Get days in month
-        const [yyyy, mm] = month.split('-');
-        const daysInMonth = new Date(yyyy, mm, 0).getDate();
-
-        let headerHTML = `
-            <div class="view-section">
-                <div class="page-header">
-                    <div>
-                        <h1 class="page-title">Chấm công & Tính lương</h1>
-                        <p class="page-subtitle">Quản lý ngày công và tính lương thực lĩnh hàng tháng</p>
-                    </div>
-                </div>
-
-                <div class="tabs" style="display:flex; gap:10px; margin-bottom: 20px;">
-                    <button class="btn ${activeTab === 'thucte' ? 'btn-primary' : 'btn-outline'}" onclick="app.salaryTab = 'thucte'; app.loadSalaryView()">Lương Thực Tế</button>
-                    <button class="btn ${activeTab === 'chungtu' ? 'btn-primary' : 'btn-outline'}" onclick="app.salaryTab = 'chungtu'; app.loadSalaryView()">Lương Chứng Từ</button>
-                </div>
-
-                <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                    <div class="form-group" style="margin: 0; min-width: 200px;">
-                        <label class="form-label">Chọn tháng</label>
-                        <input type="month" class="form-control" id="sal-month" value="${month}" onchange="app.loadSalaryView()">
-                    </div>
-                    <div class="form-group" style="margin: 0; min-width: 200px;">
-                        <label class="form-label">Chọn Tàu / Bộ phận</label>
-                        <select class="form-control" id="sal-department" onchange="app.loadSalaryView()">
-                            <option value="VP" ${department === 'VP' ? 'selected' : ''}>Quản lý (VP)</option>
-                            ${vessels.map(v => `<option value="${v.id}" ${department === v.id ? 'selected' : ''}>Tàu ${v.name}</option>`).join('')}
-                        </select>
-                    </div>
-                    ${activeTab === 'chungtu' ? `
-                    <div class="form-group" style="margin: 0; min-width: 150px;">
-                        <label class="form-label">Số chuyến trong tháng</label>
-                        <input type="number" class="form-control" id="sal-voyage-count" value="${timesheet.voyageCount || 0}" onchange="app.updateVoyageCount()">
-                    </div>
-                    ` : ''}
-                </div>
-        `;
-
-        if (activeTab === 'thucte') {
-            // Calculate columns for days
-            let daysHeader = '';
-            for (let i = 1; i <= daysInMonth; i++) {
-                daysHeader += `<th style="width:25px; padding:0.25rem; text-align:center; font-size:0.75rem;">${i}</th>`;
-            }
-
-            let totalActual = 0;
-            let totalInsurance = 0;
-            let totalPayment = 0;
-
-            let tableHTML = `
-                <div class="glass-card" style="overflow-x: auto;">
-                    <div class="table-container">
-                        <table class="table" style="min-width: 1200px;">
-                            <thead>
-                                <tr>
-                                    <th style="min-width: 150px; position: sticky; left: 0; z-index: 2; background: var(--bg-card);">Nhân sự</th>
-                                    ${daysHeader}
-                                    <th style="text-align:center;">Số công</th>
-                                    <th style="text-align:right;">Mức lương thực tế</th>
-                                    <th style="text-align:right;">Bảo hiểm</th>
-                                    <th style="text-align:right; color:var(--success);">Thực lĩnh</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-
-            tableHTML += employees.map(e => {
-                // Make sure attendance array exists for employee
-                if (!timesheet.attendance[e.id]) {
-                    // Default: all days ticked
-                    timesheet.attendance[e.id] = Array(daysInMonth).fill(true);
-                } else {
-                    // Adjust array length if month changes (e.g. 30 vs 31 days)
-                    while(timesheet.attendance[e.id].length < daysInMonth) timesheet.attendance[e.id].push(true);
-                    if (timesheet.attendance[e.id].length > daysInMonth) timesheet.attendance[e.id] = timesheet.attendance[e.id].slice(0, daysInMonth);
-                }
-
-                const att = timesheet.attendance[e.id];
-                const workingDays = att.filter(Boolean).length;
-                const actual = Number(e.actualSalary) || 0;
-                const insurance = Number(e.insurance) || 0;
-                
-                // Calculate formula
-                const payment = Math.round((actual / daysInMonth) * workingDays - insurance);
-
-                totalActual += actual;
-                totalInsurance += insurance;
-                totalPayment += payment;
-
-                let daysCells = '';
-                for (let i = 0; i < daysInMonth; i++) {
-                    const isChecked = att[i] ? 'checked' : '';
-                    daysCells += `
-                        <td style="padding:0.25rem; text-align:center;">
-                            <input type="checkbox" ${isChecked} style="cursor:pointer;" onchange="app.toggleAttendanceDay('${e.id}', ${i}, this.checked)">
-                        </td>
-                    `;
-                }
-
-                return `
-                    <tr>
-                        <td style="position: sticky; left: 0; z-index: 1; background: var(--bg-card);">
-                            <strong>${e.name}</strong><br>
-                            <small style="color:var(--text-muted)">${e.role || ''}</small>
-                        </td>
-                        ${daysCells}
-                        <td style="text-align:center; font-weight:600; color:var(--info);">${workingDays}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(actual)}</td>
-                        <td style="text-align:right; color:var(--rose-light);">${AppData.formatCurrency(insurance)}</td>
-                        <td style="text-align:right; font-weight:700; color:var(--success);">${AppData.formatCurrency(payment)}</td>
-                    </tr>
-                `;
-            }).join('');
-
-            if (employees.length > 0) {
-                tableHTML += `
-                                <tr>
-                                    <td style="position: sticky; left: 0; z-index: 1; background: var(--bg-card); font-weight: 700; text-transform: uppercase;">Tổng cộng</td>
-                                    <td colspan="${daysInMonth + 1}" style="background: rgba(255, 255, 255, 0.03);"></td>
-                                    <td style="text-align:right; font-weight:700; color:var(--info); background: rgba(255, 255, 255, 0.03);">${AppData.formatCurrency(totalActual)}</td>
-                                    <td style="text-align:right; font-weight:700; color:var(--rose-light); background: rgba(255, 255, 255, 0.03);">${AppData.formatCurrency(totalInsurance)}</td>
-                                    <td style="text-align:right; font-weight:700; color:var(--success); background: rgba(255, 255, 255, 0.03);">${AppData.formatCurrency(totalPayment)}</td>
-                                </tr>
-                `;
-            } else {
-                tableHTML += `<tr><td colspan="${daysInMonth + 5}" style="text-align:center; padding: 2rem;">Không có nhân sự nào trong bộ phận này</td></tr>`;
-            }
-
-            tableHTML += `
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            `;
-            
-            return headerHTML + tableHTML;
-        } else {
-            // Render Documented Salary Table
-            const calcTax = (income) => {
-                if (income <= 0) return 0;
-                if (income <= 5000000) return income * 0.05;
-                if (income <= 10000000) return (5000000 * 0.05) + ((income - 5000000) * 0.1);
-                if (income <= 18000000) return (5000000 * 0.05) + (5000000 * 0.1) + ((income - 10000000) * 0.15);
-                if (income <= 32000000) return (5000000 * 0.05) + (5000000 * 0.1) + (8000000 * 0.15) + ((income - 18000000) * 0.2);
-                if (income <= 52000000) return (5000000 * 0.05) + (5000000 * 0.1) + (8000000 * 0.15) + (14000000 * 0.2) + ((income - 32000000) * 0.25);
-                if (income <= 80000000) return (5000000 * 0.05) + (5000000 * 0.1) + (8000000 * 0.15) + (14000000 * 0.2) + (20000000 * 0.25) + ((income - 52000000) * 0.3);
-                return (5000000 * 0.05) + (5000000 * 0.1) + (8000000 * 0.15) + (14000000 * 0.2) + (20000000 * 0.25) + (28000000 * 0.3) + ((income - 80000000) * 0.35);
-            };
-
-            const voyageCount = Number(timesheet.voyageCount) || 0;
-
-            let docTableHTML = `
-                <div class="glass-card" style="overflow-x: auto;">
-                    <div class="table-container">
-                        <table class="table" style="min-width: 2500px; font-size: 0.8rem;">
-                            <thead>
-                                <tr>
-                                    <th rowspan="2" style="position: sticky; left: 0; z-index: 3; background: var(--bg-card); min-width: 50px;">STT</th>
-                                    <th rowspan="2" style="position: sticky; left: 50px; z-index: 3; background: var(--bg-card); min-width: 150px;">Họ và tên</th>
-                                    <th rowspan="2" style="position: sticky; left: 200px; z-index: 3; background: var(--bg-card); min-width: 100px;">Chức vụ</th>
-                                    <th rowspan="2">Lương cơ bản</th>
-                                    <th colspan="4" style="text-align: center;">Hỗ trợ</th>
-                                    <th rowspan="2">Phụ cấp giao nhận</th>
-                                    <th rowspan="2">Thưởng HT CV</th>
-                                    <th rowspan="2" style="color:var(--info);">Tổng lương thực tế</th>
-                                    <th rowspan="2">Thu nhập chịu thuế</th>
-                                    <th rowspan="2">Giảm trừ bản thân</th>
-                                    <th rowspan="2">Số NPT</th>
-                                    <th rowspan="2">Giảm trừ NPT</th>
-                                    <th rowspan="2">Mức lương đóng BHXH</th>
-                                    <th colspan="4" style="text-align: center;">Trích vào CP DN</th>
-                                    <th colspan="4" style="text-align: center;">Trích vào lương NV</th>
-                                    <th rowspan="2">Thu nhập tính thuế</th>
-                                    <th rowspan="2">Thuế TNCN phải nộp</th>
-                                    <th rowspan="2" style="color:var(--success);">Lương còn lại</th>
-                                </tr>
-                                <tr>
-                                    <th>Tiền ăn ca</th>
-                                    <th>Điện thoại</th>
-                                    <th>Trang phục</th>
-                                    <th>Xăng xe, đi lại</th>
-                                    <th>BHXH (17.5%)</th>
-                                    <th>BHYT (3%)</th>
-                                    <th>BHTN (1%)</th>
-                                    <th>Cộng</th>
-                                    <th>BHXH (8%)</th>
-                                    <th>BHYT (1.5%)</th>
-                                    <th>BHTN (1%)</th>
-                                    <th>Cộng</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-
-            let sumActualTotal = 0;
-            let sumRemaining = 0;
-
-            employees.forEach((e, idx) => {
-                const basic = Number(e.basicSalary) || 0;
-                const meal = Number(e.mealAllowance) || 0;
-                const phone = Number(e.phoneAllowance) || 0;
-                const clothing = Number(e.clothingAllowance) || 0;
-                const transport = Number(e.transportAllowance) || 0;
-                const delivery = (Number(e.deliveryAllowance) || 0) * voyageCount;
-                const bonus = (Number(e.completionBonus) || 0) * voyageCount;
-
-                const actualTotal = basic + meal + phone + clothing + transport + delivery + bonus;
-                // Income subject to tax: actual total - non-taxable allowances (transport is NOT deducted here per business rule)
-                const taxableIncome = Math.max(0, actualTotal - meal - phone - clothing);
-                
-                const personalDeduction = Number(e.personalDeduction) || 15500000;
-                const dependents = Number(e.dependents) || 0;
-                const dependentDeduction = dependents * 6200000;
-
-                const insuranceBase = Number(e.insurance) || 0;
-
-                // DN
-                const dnBhxh = insuranceBase * 0.175;
-                const dnBhyt = insuranceBase * 0.03;
-                const dnBhtn = insuranceBase * 0.01;
-                const dnTotal = dnBhxh + dnBhyt + dnBhtn;
-
-                // NV
-                const nvBhxh = insuranceBase * 0.08;
-                const nvBhyt = insuranceBase * 0.015;
-                const nvBhtn = insuranceBase * 0.01;
-                const nvTotal = nvBhxh + nvBhyt + nvBhtn;
-
-                // Tax calculation
-                const assessableIncome = Math.max(0, taxableIncome - personalDeduction - dependentDeduction - nvTotal);
-                const tax = calcTax(assessableIncome);
-
-                // Remaining
-                const remaining = actualTotal - nvTotal - tax;
-
-                sumActualTotal += actualTotal;
-                sumRemaining += remaining;
-
-                docTableHTML += `
-                    <tr>
-                        <td style="position: sticky; left: 0; z-index: 2; background: var(--bg-card);">${idx + 1}</td>
-                        <td style="position: sticky; left: 50px; z-index: 2; background: var(--bg-card);"><strong>${e.name}</strong></td>
-                        <td style="position: sticky; left: 200px; z-index: 2; background: var(--bg-card);">${e.role || ''}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(basic)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(meal)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(phone)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(clothing)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(transport)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(delivery)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(bonus)}</td>
-                        <td style="text-align:right; font-weight:700; color:var(--info);">${AppData.formatCurrency(actualTotal)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(taxableIncome)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(personalDeduction)}</td>
-                        <td style="text-align:center;">${dependents}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(dependentDeduction)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(insuranceBase)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(dnBhxh)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(dnBhyt)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(dnBhtn)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(dnTotal)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(nvBhxh)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(nvBhyt)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(nvBhtn)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(nvTotal)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(assessableIncome)}</td>
-                        <td style="text-align:right;">${AppData.formatCurrency(tax)}</td>
-                        <td style="text-align:right; font-weight:700; color:var(--success);">${AppData.formatCurrency(remaining)}</td>
-                    </tr>
-                `;
-            });
-
-            if (employees.length === 0) {
-                docTableHTML += `<tr><td colspan="27" style="text-align:center; padding: 2rem;">Không có nhân sự nào trong bộ phận này</td></tr>`;
-            }
-
-            docTableHTML += `
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            `;
-
-            return headerHTML + docTableHTML;
-        }
-    },
-
     company: () => {
         const c = AppData.getCompany();
         return `
@@ -1757,44 +1123,6 @@ const Views = {
                                     `).join('')}
                                 </tbody>
                             </table>
-                        </div>
-                    </div>
-
-                    <div class="glass-card" style="margin-top: 1.5rem; grid-column: span 2;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
-                            <h3 style="margin: 0;">Sao lưu & Khôi phục Dữ liệu (Excel)</h3>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <button class="btn btn-primary" onclick="app.exportSystemBackup()" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
-                                    <i class="fa-solid fa-cloud-arrow-down"></i> Tải File Backup (Tất cả)
-                                </button>
-                                <div style="position: relative; overflow: hidden; display: inline-block;">
-                                    <button class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
-                                        <i class="fa-solid fa-cloud-arrow-up"></i> Khôi phục Toàn bộ
-                                    </button>
-                                    <input type="file" accept=".xlsx, .xls" onchange="app.importSystemBackupExcel(event)" style="position: absolute; font-size: 100px; opacity: 0; right: 0; top: 0; cursor: pointer;">
-                                </div>
-                            </div>
-                        </div>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
-                            Hệ thống hỗ trợ tải xuống toàn bộ dữ liệu chỉ trong 1 file Excel (gồm nhiều sheet). Bạn có thể khôi phục nhanh bằng cách tải lại file backup này hoặc từng phần riêng biệt bên dưới.
-                        </p>
-                        <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
-                            <div style="flex: 1; min-width: 200px; background: rgba(255,255,255,0.02); padding: 1.2rem; border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
-                                <label class="form-label" style="font-weight: bold; color: var(--info);"><i class="fa-solid fa-file-import"></i> Khôi phục Chuyến Hàng</label>
-                                <input type="file" id="import-shipments-file" accept=".xlsx, .xls" class="form-control" style="font-size: 0.8rem; padding: 6px;" onchange="app.importShipmentsExcel(event)">
-                            </div>
-                            <div style="flex: 1; min-width: 200px; background: rgba(255,255,255,0.02); padding: 1.2rem; border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
-                                <label class="form-label" style="font-weight: bold; color: var(--warning);"><i class="fa-solid fa-file-import"></i> Khôi phục Báo Cáo Dầu</label>
-                                <input type="file" id="import-fuel-file" accept=".xlsx, .xls" class="form-control" style="font-size: 0.8rem; padding: 6px;" onchange="app.importFuelExcel(event)">
-                            </div>
-                            <div style="flex: 1; min-width: 200px; background: rgba(255,255,255,0.02); padding: 1.2rem; border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
-                                <label class="form-label" style="font-weight: bold; color: var(--secondary);"><i class="fa-solid fa-file-import"></i> Khôi phục Giao dịch Thu/Chi</label>
-                                <input type="file" id="import-transactions-file" accept=".xlsx, .xls" class="form-control" style="font-size: 0.8rem; padding: 6px;" onchange="app.importTransactionsExcel(event)">
-                            </div>
-                            <div style="flex: 1; min-width: 200px; background: rgba(255,255,255,0.02); padding: 1.2rem; border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
-                                <label class="form-label" style="font-weight: bold; color: var(--accent);"><i class="fa-solid fa-file-import"></i> Khôi phục Chi phí Tàu</label>
-                                <input type="file" id="import-vessel-expenses-file" accept=".xlsx, .xls" class="form-control" style="font-size: 0.8rem; padding: 6px;" onchange="app.importVesselExpensesExcel(event)">
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -1969,20 +1297,20 @@ const Views = {
                         <div class="stat-value" style="font-size: 1.6rem; color: var(--info);">${AppData.formatCurrency(sysTotalInvoice)}</div>
                         <div class="stat-label" style="font-size: 0.8rem; margin-top: 4px;">Tổng phát sinh hoá đơn</div>
                     </div>
+                    <div class="glass-card stat-card" style="border-left: 4px solid var(--secondary);">
+                        <span class="stat-label">Tổng Thực Tế Phải Thu</span>
+                        <div class="stat-value" style="font-size: 1.6rem; color: var(--secondary);">${AppData.formatCurrency(sysTotalReal)}</div>
+                        <div class="stat-label" style="font-size: 0.8rem; margin-top: 4px;">Doanh thu thực tế của cty</div>
+                    </div>
                     <div class="glass-card stat-card" style="border-left: 4px solid #f59e0b;">
                         <span class="stat-label">Tổng Khách Hàng Đã Trả</span>
                         <div class="stat-value" style="font-size: 1.6rem; color: #f59e0b;">${AppData.formatCurrency(sysTotalPaid)}</div>
-                        <div class="stat-label" style="font-size: 0.8rem; margin-top: 4px;">Đã trả lại ĐT (Chi): ${AppData.formatCurrency(sysTotalReturned)}</div>
+                        <div class="stat-label" style="font-size: 0.8rem; margin-top: 4px;">Đã trả lại: ${AppData.formatCurrency(sysTotalReturned)}</div>
                     </div>
                     <div class="glass-card stat-card" style="border-left: 4px solid var(--accent);">
-                        <span class="stat-label">Tổng Công Nợ Phải Thu</span>
-                        <div class="stat-value" style="font-size: 1.6rem; color: var(--accent);">${AppData.formatCurrency(sysInvoiceDebt)}</div>
+                        <span class="stat-label">Tổng Công Nợ Còn Lại</span>
+                        <div class="stat-value" style="font-size: 1.6rem; color: var(--accent);">${AppData.formatCurrency(sysActualDebt)}</div>
                         <div class="stat-label" style="font-size: 0.8rem; margin-top: 4px;">Đầu kỳ: ${AppData.formatCurrency(sysTotalOpeningDebt)}</div>
-                    </div>
-                    <div class="glass-card stat-card" style="border-left: 4px solid var(--warning);">
-                        <span class="stat-label">Quỹ Tiền Gửi Còn Lại</span>
-                        <div class="stat-value" style="font-size: 1.6rem; color: var(--warning);">${AppData.formatCurrency(sysUnpaidRefund)}</div>
-                        <div class="stat-label" style="font-size: 0.8rem; margin-top: 4px;">Tổng TG phát sinh: ${AppData.formatCurrency(sysTotalRefund)}</div>
                     </div>
                 </div>
 
@@ -2014,57 +1342,18 @@ const Views = {
                                         <div>Số chuyến:</div>
                                         <div style="text-align: right; font-weight: bold; color: var(--text-main);">${cust.shipmentsCount}</div>
                                         
-                                        <div>DT thực tế:</div>
-                                        <div style="text-align: right; font-weight: 600; color: var(--text-muted);">${(cust.totalRealRevenue / 1e6).toFixed(1)}M</div>
-
-                                        <div>Đã trả (Thu):</div>
-                                        <div style="text-align: right; font-weight: 600; color: var(--secondary);">${(cust.totalPaid / 1e6).toFixed(1)}M</div>
+                                        <div>Thực tế:</div>
+                                        <div style="text-align: right; font-weight: 600;">${(cust.totalRealRevenue / 1e6).toFixed(1)}M</div>
                                         
-                                        <div>Tiền gửi dư:</div>
-                                        <div style="text-align: right; font-weight: 600; color: var(--warning);">${(cust.unpaidRefund / 1e6).toFixed(1)}M</div>
+                                        <div>Đã trả ròng:</div>
+                                        <div style="text-align: right; font-weight: 600; color: var(--secondary);">${(cust.netReceived / 1e6).toFixed(1)}M</div>
 
-                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 4px; padding-top: 4px; font-weight: bold;">Công nợ:</div>
-                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 4px; padding-top: 4px; text-align: right; font-weight: bold; color: var(--accent);">${(cust.invoiceDebt / 1e6).toFixed(1)}M</div>
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 4px; padding-top: 4px; font-weight: bold;">Còn lại:</div>
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 4px; padding-top: 4px; text-align: right; font-weight: bold; color: var(--accent);">${(cust.actualDebt / 1e6).toFixed(1)}M</div>
                                     </div>
                                 </div>
                             `;
                         }).join('')}
-                        ${(() => {
-                            const hq = customersDebtData.find(c => c.name.toLowerCase().includes('hoàng quyên'));
-                            const na = customersDebtData.find(c => c.name.toLowerCase().includes('ngọc anh'));
-                            if (hq || na) {
-                                const combinedCount = (hq?.shipmentsCount || 0) + (na?.shipmentsCount || 0);
-                                const combinedPaid = (hq?.totalPaid || 0) + (na?.totalPaid || 0);
-                                const combinedRefund = (hq?.unpaidRefund || 0) + (na?.unpaidRefund || 0);
-                                const combinedDebt = (hq?.invoiceDebt || 0) + (na?.invoiceDebt || 0);
-                                const combinedRealRev = (hq?.totalRealRevenue || 0) + (na?.totalRealRevenue || 0);
-                                return `
-                                    <div class="glass-card" style="grid-column: span 2; border: 2px dashed rgba(255, 255, 255, 0.2); padding: 1.2rem; background: rgba(14, 165, 233, 0.05);">
-                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
-                                            <h4 style="margin: 0; font-size: 1.1rem; color: var(--info);">Tổng hợp Ngọc Anh + Hoàng Quyên</h4>
-                                            <span class="badge badge-info" style="font-size: 0.7rem; padding: 2px 6px;">Tổng hợp chung</span>
-                                        </div>
-                                        <div style="font-size: 0.85rem; color: var(--text-muted); display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; align-items: center;">
-                                            <div>Số chuyến:</div>
-                                            <div style="font-weight: bold; color: var(--text-main); font-size: 1rem;">${combinedCount}</div>
-                                            
-                                            <div style="text-align: right;">DT thực tế:</div>
-                                            <div style="text-align: right; font-weight: 600; color: var(--text-muted); font-size: 1rem;">${(combinedRealRev / 1e6).toFixed(1)}M</div>
-
-                                            <div>Đã trả (Thu):</div>
-                                            <div style="font-weight: 600; color: var(--secondary); font-size: 1rem;">${(combinedPaid / 1e6).toFixed(1)}M</div>
-                                            
-                                            <div style="text-align: right;">Tiền gửi dư:</div>
-                                            <div style="text-align: right; font-weight: 600; color: var(--warning); font-size: 1rem;">${(combinedRefund / 1e6).toFixed(1)}M</div>
-
-                                            <div style="grid-column: span 3; text-align: right; font-weight: bold; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 4px; padding-top: 8px;">Tổng Công nợ:</div>
-                                            <div style="text-align: right; font-weight: bold; color: var(--accent); font-size: 1rem; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 4px; padding-top: 8px;">${(combinedDebt / 1e6).toFixed(1)}M</div>
-                                        </div>
-                                    </div>
-                                `;
-                            }
-                            return '';
-                        })()}
                     </div>
                 </div>
 
@@ -2099,20 +1388,16 @@ const Views = {
                                     <div style="font-weight: 700; color: #f59e0b;">${AppData.formatCurrency(selectedData.openingDebt)}</div>
                                 </div>
                                 <div style="border-left: 1px solid var(--border-color); padding-left: 1.5rem;">
-                                    <small class="stat-label">Tổng Hóa Đơn</small>
-                                    <div style="font-weight: 700; color: var(--text-main);">${AppData.formatCurrency(selectedData.totalInvoiceRevenue)}</div>
+                                    <small class="stat-label">Tổng Thực Tế</small>
+                                    <div style="font-weight: 700; color: var(--text-main);">${AppData.formatCurrency(selectedData.totalRealRevenue)}</div>
                                 </div>
                                 <div style="border-left: 1px solid var(--border-color); padding-left: 1.5rem;">
-                                    <small class="stat-label">Đã Trả (Thu)</small>
-                                    <div style="font-weight: 700; color: var(--secondary);">${AppData.formatCurrency(selectedData.totalPaid)}</div>
+                                    <small class="stat-label">Đã Trả (Ròng)</small>
+                                    <div style="font-weight: 700; color: var(--secondary);">${AppData.formatCurrency(selectedData.netReceived)}</div>
                                 </div>
                                 <div style="border-left: 1px solid var(--border-color); padding-left: 1.5rem;">
                                     <small class="stat-label">Công Nợ Còn Lại</small>
-                                    <div style="font-weight: 700; color: var(--accent);">${AppData.formatCurrency(selectedData.invoiceDebt)}</div>
-                                </div>
-                                <div style="border-left: 1px solid var(--border-color); padding-left: 1.5rem;">
-                                    <small class="stat-label">Tiền Gửi (Còn lại)</small>
-                                    <div style="font-weight: 700; color: var(--warning);">${AppData.formatCurrency(selectedData.unpaidRefund)}</div>
+                                    <div style="font-weight: 700; color: var(--accent);">${AppData.formatCurrency(selectedData.actualDebt)}</div>
                                 </div>
                             </div>
                         </div>
@@ -2122,7 +1407,6 @@ const Views = {
                             <!-- 1. Voyage ledger -->
                             <h3 style="font-size: 1.2rem; margin-bottom: 1rem;"><i class="fa-solid fa-ship" style="color:var(--primary-light); margin-right: 0.5rem;"></i>1. Phát sinh Doanh thu từng chuyến</h3>
                             <div class="table-container" style="margin-bottom: 2.5rem;">
-                                ${console.log('DEBUG DATA', selectedData.transactions, selectedData.shipments) || ''}
                                 <table class="table">
                                     <thead>
                                         <tr>
@@ -2132,106 +1416,36 @@ const Views = {
                                             <th>Thời gian</th>
                                             <th style="text-align: right;">Sản lượng (Tấn)</th>
                                             <th style="text-align: right;">Đơn giá</th>
+                                            <th style="text-align: right;">Doanh thu thực tế</th>
                                             <th style="text-align: right;">Doanh thu hóa đơn</th>
-                                            <th style="text-align: right; color: var(--text-muted);">Doanh thu thực tế</th>
-                                            <th style="text-align: right; color: var(--secondary);">Số tiền đã trả</th>
-                                            <th style="text-align: right; color: var(--accent);">Công nợ còn lại</th>
-                                            <th style="text-align: right;">Tiền gửi phát sinh</th>
-                                            <th style="text-align: right; color: var(--warning);">Tiền gửi còn lại</th>
+                                            <th style="text-align: right;">Đã thanh toán</th>
+                                            <th style="text-align: right;">Tiền trả lại (Tiền gửi)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         ${(() => {
-                                            const sortedShipments = [...selectedData.shipments].sort((a, b) => {
-                                                const dateA = a.dateStart || '';
-                                                const dateB = b.dateStart || '';
-                                                if (dateA !== dateB) return dateA.localeCompare(dateB);
-                                                return (a.contractNo || '').localeCompare(b.contractNo || '', undefined, {numeric: true, sensitivity: 'base'});
-                                            });
-                                            
-                                            const explicitPaidMap = {};
-                                            const explicitReturnedMap = {};
-                                            let unallocatedPaid = 0;
-                                            let unallocatedReturned = 0;
-                                            
-                                            selectedData.transactions.forEach(t => {
-                                                if (t.category === 'CVC') {
-                                                    const matchedShipment = sortedShipments.find(s => s.contractNo && s.contractNo === t.contractNo);
-                                                    if (matchedShipment) {
-                                                        const sid = matchedShipment.id;
-                                                        explicitPaidMap[sid] = (explicitPaidMap[sid] || 0) + (Number(t.thu) || 0);
-                                                        explicitReturnedMap[sid] = (explicitReturnedMap[sid] || 0) + (Number(t.chi) || 0);
-                                                    } else {
-                                                        unallocatedPaid += (Number(t.thu) || 0);
-                                                        unallocatedReturned += (Number(t.chi) || 0);
-                                                    }
-                                                }
-                                            });
-
-                                            let remainingPaid = unallocatedPaid;
-                                            remainingPaid -= selectedData.openingDebt;
-                                            if (remainingPaid < 0) remainingPaid = 0;
-                                        
-                                            let remainingReturned = unallocatedReturned;
-                                        
-                                            let totalRemainingDebt = 0;
-                                            let totalRemainingRefund = 0;
-                                            let totalPaidForThis = 0;
+                                            const sortedShipments = [...selectedData.shipments].sort((a, b) => (a.contractNo || '').localeCompare(b.contractNo || '', undefined, {numeric: true, sensitivity: 'base'}));
+                                            let totalPaidForShipments = 0;
                                             
                                             const rows = sortedShipments.map((s, idx) => {
                                                 const vessel = AppData.getVessel(s.vesselId);
-                                                
-                                                let invoiceAmt = Number(s.revenueInvoice) || 0;
-                                                let explicitPaid = explicitPaidMap[s.id] || 0;
-                                                let paidForThis = explicitPaid;
-                                                
-                                                if (remainingPaid > 0) {
-                                                    if (idx === sortedShipments.length - 1) {
-                                                        paidForThis += remainingPaid;
-                                                        remainingPaid = 0;
-                                                    } else if (invoiceAmt > paidForThis) {
-                                                        let gap = invoiceAmt - paidForThis;
-                                                        let add = Math.min(remainingPaid, gap);
-                                                        paidForThis += add;
-                                                        remainingPaid -= add;
-                                                    }
-                                                }
-                                                let remainingDebt = invoiceAmt - paidForThis;
-                                                totalRemainingDebt += remainingDebt;
-                                                totalPaidForThis += paidForThis;
-                                                
-                                                let refundAmt = Number(s.refundAmount) || 0;
-                                                let explicitReturned = explicitReturnedMap[s.id] || 0;
-                                                let returnedForThis = explicitReturned;
-                                                
-                                                if (remainingReturned > 0) {
-                                                    if (idx === sortedShipments.length - 1) {
-                                                        returnedForThis += remainingReturned;
-                                                        remainingReturned = 0;
-                                                    } else if (refundAmt > returnedForThis) {
-                                                        let gap = refundAmt - returnedForThis;
-                                                        let add = Math.min(remainingReturned, gap);
-                                                        returnedForThis += add;
-                                                        remainingReturned -= add;
-                                                    }
-                                                }
-                                                let remainingRefund = refundAmt - returnedForThis;
-                                                totalRemainingRefund += remainingRefund;
+                                                const paidAmount = selectedData.transactions
+                                                    .filter(t => t.category === 'CVC' && t.contractNo === s.contractNo && s.contractNo)
+                                                    .reduce((sum, t) => sum + (Number(t.thu) || 0) - (Number(t.chi) || 0), 0);
+                                                totalPaidForShipments += paidAmount;
                                                 
                                                 return `
-                                                    <tr onclick="app.editShipment('${s.id}')" title="Click để nhập liệu/chỉnh sửa chuyến hàng" style="cursor: pointer;">
+                                                    <tr>
                                                         <td>${idx + 1}</td>
                                                         <td><strong>${vessel ? vessel.name : s.vesselId}</strong> <span class="badge badge-outline">Chuyến ${s.voyageNo}</span></td>
-                                                        <td><code style="font-size: 1.1rem; font-weight: bold; padding: 4px 8px; color: var(--primary-light); background: rgba(255,255,255,0.08); border-radius: 4px;">${s.contractNo || '---'}</code></td>
+                                                        <td><code>${s.contractNo || '---'}</code></td>
                                                         <td style="font-size: 0.8rem; color:var(--text-muted);">${s.dateStart.split('-').reverse().join('/')} - ${s.dateEnd.split('-').reverse().join('/')}</td>
                                                         <td style="text-align: right; font-weight: 500;">${s.qty ? s.qty.toLocaleString('vi-VN') : 0}</td>
-                                                        <td style="text-align: right;">${s.rate ? s.rate.toLocaleString('vi-VN') : '0'}</td>
-                                                        <td style="text-align: right; font-weight: 600; color: var(--info);">${AppData.formatCurrency(invoiceAmt)}</td>
-                                                        <td style="text-align: right; font-size: 0.85rem; color: var(--text-muted);">${AppData.formatCurrency(s.revenueReal)}</td>
-                                                        <td style="text-align: right; font-weight: 600; color: var(--secondary);">${AppData.formatCurrency(paidForThis)}</td>
-                                                        <td style="text-align: right; font-weight: 700; color: ${remainingDebt > 0 ? 'var(--accent)' : 'var(--text-muted)'};">${AppData.formatCurrency(remainingDebt)}</td>
-                                                        <td style="text-align: right; font-weight: 500;">${AppData.formatCurrency(refundAmt)}</td>
-                                                        <td style="text-align: right; font-weight: 700; color: ${remainingRefund > 0 ? 'var(--warning)' : 'var(--text-muted)'};">${AppData.formatCurrency(remainingRefund)}</td>
+                                                        <td style="text-align: right; color:var(--text-muted);">${s.rate ? s.rate.toLocaleString('vi-VN') : 0}</td>
+                                                        <td style="text-align: right; font-weight: 600; color: var(--secondary);">${AppData.formatCurrency(s.revenueReal)}</td>
+                                                        <td style="text-align: right; font-weight: 600; color: var(--info);">${AppData.formatCurrency(s.revenueInvoice)}</td>
+                                                        <td style="text-align: right; font-weight: 600; color: #f59e0b;">${AppData.formatCurrency(paidAmount)}</td>
+                                                        <td style="text-align: right; color: var(--accent); font-weight: 500;">${AppData.formatCurrency(s.refundAmount || 0)}</td>
                                                     </tr>
                                                 `;
                                             }).join('');
@@ -2243,12 +1457,10 @@ const Views = {
                                                     <td colspan="4">TỔNG CỘNG PHÁT SINH CHUYẾN</td>
                                                     <td style="text-align: right;">${selectedData.shipments.reduce((sum, s) => sum + (s.qty || 0), 0).toLocaleString('vi-VN')}</td>
                                                     <td></td>
+                                                    <td style="text-align: right; color: var(--secondary);">${AppData.formatCurrency(selectedData.totalRealRevenue)}</td>
                                                     <td style="text-align: right; color: var(--info);">${AppData.formatCurrency(selectedData.totalInvoiceRevenue)}</td>
-                                                    <td style="text-align: right; color: var(--text-muted);">${AppData.formatCurrency(selectedData.totalRealRevenue)}</td>
-                                                    <td style="text-align: right; color: var(--secondary);">${AppData.formatCurrency(totalPaidForThis)}</td>
-                                                    <td style="text-align: right; color: var(--accent);">${AppData.formatCurrency(totalRemainingDebt)}</td>
-                                                    <td style="text-align: right;">${AppData.formatCurrency(selectedData.totalRefundAmount)}</td>
-                                                    <td style="text-align: right; color: var(--warning);">${AppData.formatCurrency(totalRemainingRefund)}</td>
+                                                    <td style="text-align: right; color: #f59e0b;">${AppData.formatCurrency(totalPaidForShipments)}</td>
+                                                    <td style="text-align: right; color: var(--accent);">${AppData.formatCurrency(selectedData.totalRefundAmount)}</td>
                                                 </tr>
                                             `;
                                             return rows + summaryRow;
@@ -2274,7 +1486,7 @@ const Views = {
                                             </thead>
                                             <tbody>
                                                 ${selectedData.transactions.filter(t => t.category === 'CVC').map(t => `
-                                                    <tr onclick="app.editTransaction('${t.id}')" title="Click để xem chi tiết / chỉnh sửa giao dịch" style="cursor: pointer;">
+                                                    <tr>
                                                         <td>${t.date.split('-').reverse().join('/')}</td>
                                                         <td>${t.content}</td>
                                                         <td><span class="badge badge-outline" style="font-size: 0.7rem;">${t.account}</span></td>
@@ -2524,9 +1736,8 @@ const Views = {
                         <tr><td>9. Bảo hiểm (Phân bổ)</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.crewInsurance || 0)}</td></tr>
                         <tr><td>10. Vật tư, sửa chữa Cty cấp (Phân bổ)</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.materialCompany || 0)}</td></tr>
                         <tr><td>11. Vật tư, sửa chữa Tàu chi (Phân bổ)</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.materialVessel || 0)}</td></tr>
-                        <tr><td>12. Lãi vay (Phân bổ)</td><td style="text-align: right; color: var(--warning);">${AppData.formatCurrency(s.costs.loanInterest || 0)}</td></tr>
-                        <tr><td>13. Phân bổ chi phí khác từ Cty</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.monthlyOther || 0)}</td></tr>
-                        <tr><td>14. Chi phí khác tàu chi tại chuyến</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.others || 0)}</td></tr>
+                        <tr><td>12. Phân bổ chi phí khác từ Cty</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.monthlyOther || 0)}</td></tr>
+                        <tr><td>13. Chi phí khác tàu chi tại chuyến</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.others || 0)}</td></tr>
                         <tr style="font-weight: bold; background: rgba(255,0,100,0.05);">
                             <td>TỔNG CHI PHÍ</td>
                             <td style="text-align: right; color: var(--rose-light);">${AppData.formatCurrency(costSum)}</td>
@@ -2746,7 +1957,7 @@ const Views = {
                 </div>
             `;
         } else {
-            // VOYAGE REPORT (Mặc định)
+            // VOYAGE REPORT
             const ships = AppData.getShipments();
             
             // Xây dựng danh sách các tháng có dữ liệu

@@ -239,6 +239,7 @@ a:hover {
     flex-direction: column;
     height: 100vh;
     position: relative;
+    min-width: 0;
 }
 
 /* Top Header */
@@ -315,6 +316,7 @@ a:hover {
     overflow-y: auto;
     position: relative;
     z-index: 1;
+    min-width: 0;
 }
 
 /* ==========================================================================
@@ -617,4 +619,135 @@ a:hover {
     display: flex;
     justify-content: flex-end;
     gap: 1rem;
+}
+
+/* Active Card highlight for Debts Report */
+.active-card {
+    background: rgba(99, 102, 241, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(99, 102, 241, 0.2) !important;
+}
+
+/* Reports Overview Specific Styles */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.kpi-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--primary);
+}
+
+.kpi-card.kpi-primary::before { background: var(--gradient-primary); }
+.kpi-card.kpi-success::before { background: var(--gradient-success); }
+.kpi-card.kpi-danger::before { background: var(--gradient-danger); }
+.kpi-card.kpi-info::before { background: var(--info); }
+
+.kpi-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.kpi-title {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.kpi-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+.kpi-icon-wrapper {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.kpi-primary .kpi-icon-wrapper { color: var(--primary-light); background: rgba(99, 102, 241, 0.1); }
+.kpi-success .kpi-icon-wrapper { color: var(--secondary); background: rgba(16, 185, 129, 0.1); }
+.kpi-danger .kpi-icon-wrapper { color: var(--accent); background: rgba(244, 63, 94, 0.1); }
+.kpi-info .kpi-icon-wrapper { color: var(--info); background: rgba(14, 165, 233, 0.1); }
+
+/* Reports Chart Grid */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 1024px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.chart-card-wrapper {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 380px;
+}
+
+.chart-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chart-card-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chart-card-body {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    height: 100%;
 }

@@ -1,3 +1,6 @@
+# Dependencies
+node_modules/
+
 # Temporary folders and zip files
 temp.zip
 temp_01/

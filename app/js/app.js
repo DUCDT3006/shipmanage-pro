@@ -4,7 +4,1326 @@
 
 const app = {
     currentView: 'dashboard',
+    selectedDebtCustomer: '',
     
+    exportFuelReport() {
+        if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện xuất Excel!');
+        const wb = XLSX.utils.book_new();
+        const formatDt = (iso) => iso ? new Date(iso).toLocaleString('vi-VN') : '';
+        const vessels = AppData.state.vessels;
+        
+        vessels.forEach(v => {
+            const rows = [];
+            // Header for the vessel
+            rows.push(['BÁO CÁO CHI TIẾT NHIÊN LIỆU - TÀU ' + v.name.toUpperCase()]);
+            rows.push([]);
+            rows.push([
+                'ID Chuyến Dầu',
+                'ID Chặng Hành Trình',
+                'Mã Tàu',
+                'Chuyến Dầu Số',
+                'Mặt Hàng',
+                'Số Dư Đầu Kỳ (L)',
+                'Số Lượng Cấp (L)',
+                'Ngày Cấp',
+                'Nơi Cấp Dầu',
+                'Nhà Cung Cấp Dầu',
+                'Đơn Giá Dầu (VNĐ)',
+                'Tổng Tiêu Thụ Chuyến (L)',
+                'Số Dư Cuối Kỳ (L)',
+                'Thứ Tự Chặng',
+                'Nơi Đi',
+                'Thời Gian Đi',
+                'Nơi Đến',
+                'Thời Gian Đến',
+                'Định Mức Tiêu Thụ (L/h)',
+                'Số Giờ Chạy (Giờ)',
+                'Tiêu Thụ Chặng (L)'
+            ]);
+            
+            const voyages = AppData.sortVoyages(AppData.getFuelVoyages(v.id), 'asc');
+            let runningBalance = 0;
+            if (voyages.length > 0) {
+                runningBalance = Number(voyages[0].initialFuel || 0);
+            }
+
+            voyages.forEach(voy => {
+                const stats = AppData.getFuelVoyageStats(voy.id);
+                const logs = AppData.getFuelLogs(voy.id);
+                runningBalance += Number(voy.addedFuel || 0);
+                runningBalance -= stats.totalFuel;
+                
+                if (logs.length === 0) {
+                    rows.push([
+                        voy.id,
+                        '',
+                        v.id,
+                        voy.voyageNo,
+                        voy.cargoType || '',
+                        voy.initialFuel || 0,
+                        voy.addedFuel || 0,
+                        voy.fuelDate || '',
+                        voy.fuelLocation || '',
+                        voy.fuelVendor || '',
+                        voy.fuelUnitPrice || 0,
+                        Math.round(stats.totalFuel),
+                        Math.round(runningBalance),
+                        '',
+                        '',
+                        '',
+                        '',
+                        '',
+                        '',
+                        '',
+                        ''
+                    ]);
+                } else {
+                    logs.forEach((log, idx) => {
+                        const fuelRate = Number(log.fuelRate) || 0;
+                        const hours = Number(log.hours) || 0;
+                        const legConsumption = Math.round(hours * fuelRate);
+
+                        if (idx === 0) {
+                            rows.push([
+                                voy.id,
+                                log.id,
+                                v.id,
+                                voy.voyageNo,
+                                voy.cargoType || '',
+                                voy.initialFuel || 0,
+                                voy.addedFuel || 0,
+                                voy.fuelDate || '',
+                                voy.fuelLocation || '',
+                                voy.fuelVendor || '',
+                                voy.fuelUnitPrice || 0,
+                                Math.round(stats.totalFuel),
+                                Math.round(runningBalance),
+                                idx + 1,
+                                log.startPos || '',
+                                formatDt(log.startTime),
+                                log.endPos || '',
+                                formatDt(log.endTime),
+                                Math.round(fuelRate),
+                                hours,
+                                legConsumption
+                            ]);
+                        } else {
+                            rows.push([
+                                '',
+                                log.id,
+                                '',
+                                '',
+                                '',
+                                '',
+                                '',
+                                '',
+                                '',
+                                '',
+                                '',
+                                '',
+                                '',
+                                idx + 1,
+                                log.startPos || '',
+                                formatDt(log.startTime),
+                                log.endPos || '',
+                                formatDt(log.endTime),
+                                Math.round(fuelRate),
+                                hours,
+                                legConsumption
+                            ]);
+                        }
+                    });
+                }
+            });
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            // Set column widths
+            ws['!cols'] = [
+                {wch: 15}, {wch: 15}, {wch: 8}, {wch: 12}, {wch: 12}, 
+                {wch: 15}, {wch: 15}, {wch: 12}, {wch: 15}, {wch: 18}, 
+                {wch: 15}, {wch: 20}, {wch: 18}, {wch: 10}, {wch: 15}, 
+                {wch: 20}, {wch: 15}, {wch: 20}, {wch: 18}, {wch: 15}, 
+                {wch: 18}
+            ];
+            XLSX.utils.book_append_sheet(wb, ws, v.id);
+        });
+        
+        XLSX.writeFile(wb, 'Bao_Cao_Nhien_Lieu_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    },
+
+    exportFinancialReport(selectedMonth = '', selectedVessel = '', selectedCategory = '', selectedPartner = '') {
+        if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện xuất Excel!');
+        if (selectedMonth === 'undefined') selectedMonth = '';
+        if (selectedVessel === 'undefined') selectedVessel = '';
+        if (selectedCategory === 'undefined') selectedCategory = '';
+        if (selectedPartner === 'undefined') selectedPartner = '';
+        
+        const wb = XLSX.utils.book_new();
+        const rows = [];
+        
+        rows.push(['BÁO CÁO CHI TIẾT TỔNG HỢP GIAO DỊCH THU CHI']);
+        rows.push([]);
+        rows.push([
+            'ID Giao Dịch',
+            'Ngày',
+            'Tàu / Bộ Phận',
+            'Hạng Mục',
+            'Chuyến Số',
+            'Số Hợp Đồng',
+            'Đối Tác',
+            'Nội Dung',
+            'Thu Vào (VNĐ)',
+            'Chi Ra (VNĐ)',
+            'Tài Khoản'
+        ]);
+        
+        let trans = AppData.getTransactions() || [];
+        if (selectedMonth) {
+            trans = trans.filter(t => t.date && t.date.substring(0, 7) === selectedMonth);
+        }
+        if (selectedVessel) {
+            trans = trans.filter(t => t.vessel === selectedVessel);
+        }
+        if (selectedCategory) {
+            trans = trans.filter(t => t.category === selectedCategory);
+        }
+        if (selectedPartner) {
+            trans = trans.filter(t => t.partner === selectedPartner);
+        }
+        
+        const sortedTrans = trans.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        
+        sortedTrans.forEach(t => {
+            rows.push([
+                t.id || '',
+                t.date || '',
+                t.vessel || '',
+                t.category || '',
+                t.voyageNo || '',
+                t.contractNo || '',
+                t.partner || '',
+                t.content || '',
+                Number(t.thu) || 0,
+                Number(t.chi) || 0,
+                t.account || ''
+            ]);
+        });
+        
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [
+            {wch: 15}, // ID
+            {wch: 12}, // Ngay
+            {wch: 15}, // Tau/Bo phan
+            {wch: 15}, // Hang muc
+            {wch: 10}, // Chuyen So
+            {wch: 15}, // So Hop Dong
+            {wch: 25}, // Doi Tac
+            {wch: 40}, // Noi dung
+            {wch: 18}, // Thu
+            {wch: 18}, // Chi
+            {wch: 18}  // Tai Khoan
+        ];
+        
+        let suffix = selectedMonth ? selectedMonth : 'Tat_Ca';
+        if (selectedVessel) suffix += '_' + selectedVessel;
+        if (selectedCategory) suffix += '_' + selectedCategory.replace(/[^a-zA-Z0-9]/g, '');
+        if (selectedPartner) suffix += '_' + selectedPartner.replace(/[^a-zA-Z0-9]/g, '');
+        
+        const filename = 'Bao_Cao_Giao_Dich_' + suffix + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+        XLSX.utils.book_append_sheet(wb, ws, 'Giao_Dich');
+        XLSX.writeFile(wb, filename);
+    },
+
+    exportSystemBackup() {
+        if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện xuất Excel!');
+        const wb = XLSX.utils.book_new();
+
+        // 1. Quản lý chuyến hàng
+        const shipmentsRows = [];
+        shipmentsRows.push(['DANH SÁCH CHI TIẾT CHUYẾN HÀNG']);
+        shipmentsRows.push([]);
+        shipmentsRows.push([
+            'ID Chuyến Hàng', 'Số Hợp Đồng', 'Chuyến Số', 'Mã Tàu', 'Khách Hàng', 'Tên Hàng', 
+            'Cảng Xếp (Đi)', 'Cảng Dỡ (Đến)', 'Ngày Xếp Hàng', 'Ngày Dỡ Hàng', 'Tháng Hạch Toán', 
+            'Khối Lượng (Tấn)', 'Đơn Giá Thực (VNĐ)', 'Tiền Gửi (VND/tấn)', 'Giá Dầu Chuyến (VNĐ)', 
+            'Số Giờ Chạy (Giờ)', 'Doanh Thu Thực Tế (VNĐ)', 'Doanh Thu Hóa Đơn (VNĐ)', 
+            'Tiền Gửi Lại Khách (VNĐ)', 'Tiền Dầu DO (VNĐ)', 'Tiền Dầu LO (VNĐ)', 'Lương TV (VNĐ)', 
+            'Tiền Ăn (VNĐ)', 'Bảo Hiểm (VNĐ)', 'Vật Tư Cty Cấp (VNĐ)', 'Vật Tư Tàu Chi (VNĐ)', 
+            'CP Khác Cty Cấp (VNĐ)', 'Đại Lý 2 Đầu Cảng (VNĐ)', 'Tàu Chi 2 Đầu Cảng (VNĐ)', 
+            'Tiền Bông (VNĐ)', 'Thuế VAT (VNĐ)', 'Hoa Tiêu, Tàu Lai, Phí Cảng (VNĐ)', 
+            'Chi Phí Khác Tàu Chi (VNĐ)', 'Tổng Chi Phí (VNĐ)', 'Lợi Nhuận/Hiệu Quả (VNĐ)'
+        ]);
+        const ships = AppData.state.shipments || [];
+        ships.forEach(s => {
+            const qty = Number(s.qty || 0);
+            const rate = Number(s.rate || 0);
+            const markup = Number(s.markup || 0);
+            const fuelPrice = Number(s.fuelPrice || 20000);
+            const fuelHours = Number(s.fuelHours || 0);
+            const revenueReal = Number(s.revenueReal || 0);
+            const revenueInvoice = Number(s.revenueInvoice || 0);
+            const refund = Number(s.refundAmount || 0);
+            const costs = s.costs || {};
+            const fuelDO = Number(costs.fuelDO || 0);
+            const fuelLO = Number(costs.fuelLO || 0);
+            const crewSalary = Number(costs.crewSalary || 0);
+            const crewFood = Number(costs.crewFood || 0);
+            const crewInsurance = Number(costs.crewInsurance || 0);
+            const materialCompany = Number(costs.materialCompany || 0);
+            const materialVessel = Number(costs.materialVessel || 0);
+            const monthlyOther = Number(costs.monthlyOther || 0);
+            const agent = Number(costs.agent || 0);
+            const vessel2ends = Number(costs.vessel2ends || 0);
+            const brokerage = Number(costs.brokerage || 0);
+            const vat = Number(costs.vat || 0);
+            const portFees = Number(costs.portFees || 0);
+            const others = Number(costs.others || 0);
+            const totalExpenses = fuelDO + fuelLO + crewSalary + crewFood + crewInsurance + 
+                                  materialCompany + materialVessel + monthlyOther + agent + 
+                                  vessel2ends + brokerage + vat + portFees + others;
+            const profit = revenueReal - totalExpenses;
+            shipmentsRows.push([
+                s.id || '', s.contractNo || '', s.voyageNo || '', s.vesselId || '', s.customer || '', s.cargo || '',
+                s.portLoad || '', s.portDischarge || '', s.dateStart || '', s.dateEnd || '', s.reportMonth || '',
+                qty, rate, markup, fuelPrice, fuelHours, revenueReal, revenueInvoice, refund,
+                fuelDO, fuelLO, crewSalary, crewFood, crewInsurance, materialCompany, materialVessel,
+                monthlyOther, agent, vessel2ends, brokerage, vat, portFees, others, totalExpenses, profit
+            ]);
+        });
+        const wsShipments = XLSX.utils.aoa_to_sheet(shipmentsRows);
+        wsShipments['!cols'] = Array(35).fill({wch: 15});
+        XLSX.utils.book_append_sheet(wb, wsShipments, 'Quản lý chuyến hàng');
+
+        // 2. Quản lý nhiên liệu
+        const fuelRows = [];
+        fuelRows.push(['DANH SÁCH CHI TIẾT NHIÊN LIỆU TOÀN BỘ CÁC TÀU']);
+        fuelRows.push([]);
+        fuelRows.push([
+            'ID Chuyến Dầu', 'ID Chặng Hành Trình', 'Mã Tàu', 'Chuyến Dầu Số', 'Mặt Hàng',
+            'Số Dư Đầu Kỳ (L)', 'Số Lượng Cấp (L)', 'Ngày Cấp', 'Nơi Cấp Dầu', 'Nhà Cung Cấp Dầu',
+            'Đơn Giá Dầu (VNĐ)', 'Tổng Tiêu Thụ Chuyến (L)', 'Số Dư Cuối Kỳ (L)', 'Thứ Tự Chặng',
+            'Nơi Đi', 'Thời Gian Đi', 'Nơi Đến', 'Thời Gian Đến', 'Định Mức Tiêu Thụ (L/h)',
+            'Số Giờ Chạy (Giờ)', 'Tiêu Thụ Chặng (L)'
+        ]);
+        const formatDt = (iso) => iso ? new Date(iso).toLocaleString('vi-VN') : '';
+        const vessels = AppData.state.vessels || [];
+        vessels.forEach(v => {
+            const voyages = AppData.sortVoyages(AppData.getFuelVoyages(v.id), 'asc') || [];
+            let runningBalance = 0;
+            if (voyages.length > 0) {
+                runningBalance = Number(voyages[0].initialFuel || 0);
+            }
+            voyages.forEach(voy => {
+                const stats = AppData.getFuelVoyageStats(voy.id) || { totalFuel: 0 };
+                const logs = AppData.getFuelLogs(voy.id) || [];
+                runningBalance += Number(voy.addedFuel || 0);
+                runningBalance -= stats.totalFuel;
+                
+                if (logs.length === 0) {
+                    fuelRows.push([
+                        voy.id, '', v.id, voy.voyageNo, voy.cargoType || '', voy.initialFuel || 0,
+                        voy.addedFuel || 0, voy.fuelDate || '', voy.fuelLocation || '', voy.fuelVendor || '',
+                        voy.fuelUnitPrice || 0, Math.round(stats.totalFuel), Math.round(runningBalance),
+                        '', '', '', '', '', '', '', ''
+                    ]);
+                } else {
+                    logs.forEach((log, idx) => {
+                        const fuelRate = Number(log.fuelRate) || 0;
+                        const hours = Number(log.hours) || 0;
+                        const legConsumption = Math.round(hours * fuelRate);
+                        if (idx === 0) {
+                            fuelRows.push([
+                                voy.id, log.id, v.id, voy.voyageNo, voy.cargoType || '', voy.initialFuel || 0,
+                                voy.addedFuel || 0, voy.fuelDate || '', voy.fuelLocation || '', voy.fuelVendor || '',
+                                voy.fuelUnitPrice || 0, Math.round(stats.totalFuel), Math.round(runningBalance),
+                                idx + 1, log.startPos || '', formatDt(log.startTime), log.endPos || '',
+                                formatDt(log.endTime), Math.round(fuelRate), hours, legConsumption
+                            ]);
+                        } else {
+                            fuelRows.push([
+                                '', log.id, '', '', '', '', '', '', '', '', '', '', '',
+                                idx + 1, log.startPos || '', formatDt(log.startTime), log.endPos || '',
+                                formatDt(log.endTime), Math.round(fuelRate), hours, legConsumption
+                            ]);
+                        }
+                    });
+                }
+            });
+        });
+        const wsFuel = XLSX.utils.aoa_to_sheet(fuelRows);
+        wsFuel['!cols'] = Array(21).fill({wch: 15});
+        XLSX.utils.book_append_sheet(wb, wsFuel, 'Quản lý nhiên liệu');
+
+        // 3. Theo dõi tài chính
+        const finRows = [];
+        finRows.push(['DANH SÁCH CHI TIẾT TỔNG HỢP GIAO DỊCH THU CHI']);
+        finRows.push([]);
+        finRows.push([
+            'ID Giao Dịch', 'Ngày', 'Tàu / Bộ Phận', 'Hạng Mục', 'Chuyến Số', 
+            'Số Hợp Đồng', 'Đối Tác', 'Nội Dung', 'Thu Vào (VNĐ)', 'Chi Ra (VNĐ)', 'Tài Khoản'
+        ]);
+        const trans = AppData.state.transactions || [];
+        const sortedTrans = trans.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        sortedTrans.forEach(t => {
+            finRows.push([
+                t.id || '', t.date || '', t.vessel || '', t.category || '', t.voyageNo || '',
+                t.contractNo || '', t.partner || '', t.content || '', Number(t.thu) || 0, Number(t.chi) || 0, t.account || ''
+            ]);
+        });
+        const wsFin = XLSX.utils.aoa_to_sheet(finRows);
+        wsFin['!cols'] = Array(11).fill({wch: 15});
+        XLSX.utils.book_append_sheet(wb, wsFin, 'Theo dõi tài chính');
+
+        // 4. Quản lý chi phí tàu (Báo cáo Thuyền trưởng)
+        const capRows = [];
+        capRows.push(['DANH SÁCH BÁO CÁO THUYỀN TRƯỞNG & CHI PHÍ TÀU']);
+        capRows.push([]);
+        capRows.push([
+            'Mã Báo Cáo', 'Mã Tàu', 'Tháng', 'Tiền Ăn (VNĐ)', 'Vật Tư Tàu Chi (VNĐ)', 
+            'Tên Khoản Mục Cảng', 'Chuyến Cảng', 'Số Tiền Cảng (VNĐ)', 
+            'Chuyến Tiền Bông', 'Số Tiền Bông (VNĐ)'
+        ]);
+        const reports = AppData.state.captainReports || [];
+        const sortedReports = reports.slice().sort((a, b) => (a.month || '').localeCompare(b.month || '') || (a.vesselId || '').localeCompare(b.vesselId || ''));
+        sortedReports.forEach(r => {
+            const portExps = r.portExpenses || [];
+            const brokerages = r.brokerages || [];
+            const maxLen = Math.max(portExps.length, brokerages.length, 1);
+            for (let i = 0; i < maxLen; i++) {
+                const portItem = portExps[i] || {};
+                const brokItem = brokerages[i] || {};
+                if (i === 0) {
+                    capRows.push([
+                        r.id || '',
+                        r.vesselId || '',
+                        r.month || '',
+                        Number(r.food) || 0,
+                        Number(r.material) || 0,
+                        portItem.port || '',
+                        portItem.voyageNo || '',
+                        Number(portItem.amount) || 0,
+                        brokItem.voyageNo || '',
+                        Number(brokItem.amount) || 0
+                    ]);
+                } else {
+                    capRows.push([
+                        '',
+                        '',
+                        '',
+                        '',
+                        '',
+                        portItem.port || '',
+                        portItem.voyageNo || '',
+                        Number(portItem.amount) || 0,
+                        brokItem.voyageNo || '',
+                        Number(brokItem.amount) || 0
+                    ]);
+                }
+            }
+        });
+        const wsExp = XLSX.utils.aoa_to_sheet(capRows);
+        wsExp['!cols'] = Array(10).fill({wch: 15});
+        XLSX.utils.book_append_sheet(wb, wsExp, 'Quản lý chi phí tàu');
+
+        // 5. Nhân sự
+        const hrRows = [];
+        hrRows.push(['DANH SÁCH NHÂN SỰ VÀ THÔNG TIN LƯƠNG ĐỊNH BÌNH']);
+        hrRows.push([]);
+        hrRows.push([
+            'ID Nhân Sự', 'Họ và Tên', 'Chức Vụ', 'Bộ Phận', 'Lương Cơ Bản (VNĐ)', 'Phụ Cấp (VNĐ)', 
+            'Giảm Trừ Bản Thân (VNĐ)', 'Số Người Phụ Thuộc', 'Ngày Vào', 'Ngày Nghỉ', 'Số Điện Thoại', 'Ghi Chú',
+            'Mức Lương Thực Tế (VNĐ)', 'Mức BHXH Đóng (VNĐ)', 'Tiền Ăn Ca (VNĐ)', 'Phụ Cấp Điện Thoại (VNĐ)',
+            'Phụ Cấp Trang Phục (VNĐ)', 'Phụ Cấp Xăng Xe (VNĐ)', 'Phụ Cấp Giao Nhận (VNĐ)', 'Thưởng Hoàn Thành (VNĐ)'
+        ]);
+        const employees = AppData.getEmployees() || [];
+        employees.forEach(e => {
+            hrRows.push([
+                e.id || '', e.name || '', e.role || '', e.department || '', Number(e.basicSalary) || 0, Number(e.allowances) || 0,
+                Number(e.personalDeduction) || 15500000, Number(e.dependents) || 0, e.joinDate || '', e.leaveDate || '',
+                e.phone || '', e.notes || '', Number(e.actualSalary) || 0, Number(e.insurance) || 0, Number(e.mealAllowance) || 0,
+                Number(e.phoneAllowance) || 0, Number(e.clothingAllowance) || 0, Number(e.transportAllowance) || 0,
+                Number(e.deliveryAllowance) || 0, Number(e.completionBonus) || 0
+            ]);
+        });
+        const wsHr = XLSX.utils.aoa_to_sheet(hrRows);
+        wsHr['!cols'] = Array(20).fill({wch: 15});
+        XLSX.utils.book_append_sheet(wb, wsHr, 'Nhân sự');
+
+        // 6. Lương
+        const salRows = [];
+        salRows.push(['DANH SÁCH BẢNG CHẤM CÔNG VÀ ĐIỂM DANH HÀNG THÁNG']);
+        salRows.push([]);
+        salRows.push([
+            'Tháng', 'Bộ Phận', 'Số Chuyến', 'Dữ Liệu Điểm Danh (JSON)'
+        ]);
+        const tsheets = AppData.state.timesheets || [];
+        tsheets.forEach(ts => {
+            salRows.push([
+                ts.month || '', ts.department || '', Number(ts.voyageCount) || 0, JSON.stringify(ts.attendance || {})
+            ]);
+        });
+        const wsSal = XLSX.utils.aoa_to_sheet(salRows);
+        wsSal['!cols'] = Array(4).fill({wch: 15});
+        XLSX.utils.book_append_sheet(wb, wsSal, 'Lương');
+
+        // 7. Chi phí theo tháng
+        const mCostsRows = [];
+        mCostsRows.push(['DANH SÁCH CHI PHÍ CỐ ĐỊNH THEO THÁNG CỦA CÁC TÀU']);
+        mCostsRows.push([]);
+        mCostsRows.push([
+            'Tháng', 'Mã Tàu', 'Lương (VNĐ)', 'Bảo Hiểm (VNĐ)', 'Tiền Ăn (VNĐ)',
+            'Vật Tư Công Ty Cấp (VNĐ)', 'Vật Tư Tàu Chi (VNĐ)', 'Chi Phí Khác (VNĐ)', 'Lãi Vay (VNĐ)'
+        ]);
+        const mCosts = AppData.state.monthlyCosts || [];
+        mCosts.forEach(c => {
+            mCostsRows.push([
+                c.month || '', c.vesselId || '', Number(c.salary) || 0, Number(c.insurance) || 0, Number(c.food) || 0,
+                Number(c.materialCompany) || 0, Number(c.materialVessel) || 0, Number(c.other) || 0, Number(c.loanInterest) || 0
+            ]);
+        });
+        const wsMcosts = XLSX.utils.aoa_to_sheet(mCostsRows);
+        wsMcosts['!cols'] = Array(9).fill({wch: 15});
+        XLSX.utils.book_append_sheet(wb, wsMcosts, 'Chi phí theo tháng');
+
+        // 8. Đối tác
+        const partnerRows = [];
+        partnerRows.push(['DANH SÁCH KHÁCH HÀNG VÀ NHÀ CUNG CẤP']);
+        partnerRows.push([]);
+        partnerRows.push(['Loại', 'ID Đối Tác', 'Tên Đối Tác', 'Phân Loại / Mặt Hàng', 'Liên Hệ', 'Địa Chỉ']);
+        const vendors = AppData.state.vendors || [];
+        vendors.forEach(v => {
+            partnerRows.push(['NCC', v.id || '', v.name || '', v.type || '', v.contact || '', v.address || '']);
+        });
+        const customers = AppData.state.customers || [];
+        customers.forEach(c => {
+            partnerRows.push(['Khách Hàng', c.id || '', c.name || '', '', c.contact || '', c.address || '']);
+        });
+        const wsPartner = XLSX.utils.aoa_to_sheet(partnerRows);
+        wsPartner['!cols'] = Array(6).fill({wch: 15});
+        XLSX.utils.book_append_sheet(wb, wsPartner, 'Đối tác');
+
+        // 9. Tàu
+        const vesselRows = [];
+        vesselRows.push(['DANH SÁCH CÁC TÀU VÀ ĐỊNH MỨC']);
+        vesselRows.push([]);
+        vesselRows.push(['Mã Tàu', 'Tên Tàu', 'Trọng Tải (Tấn)', 'Thuyền Trưởng', 'Định Mức Dầu DO (L/h)']);
+        const ves = AppData.state.vessels || [];
+        ves.forEach(v => {
+            vesselRows.push([v.id || '', v.name || '', Number(v.capacity) || 0, v.captain || '', Number(v.fuelRate) || 0]);
+        });
+        const wsVessels = XLSX.utils.aoa_to_sheet(vesselRows);
+        wsVessels['!cols'] = Array(5).fill({wch: 15});
+        XLSX.utils.book_append_sheet(wb, wsVessels, 'Tàu');
+
+        // 10. Thông tin công ty
+        const compRows = [];
+        compRows.push(['THÔNG TIN DOANH NGHIỆP VÀ SỐ DƯ ĐẦU KỲ']);
+        compRows.push([]);
+        compRows.push([
+            'Tên Doanh Nghiệp', 'Mã Số Thuế', 'Thông Tin Ngân Hàng', 'Địa Chỉ',
+            'Số Dư Đầu Kỳ ABbank (VNĐ)', 'Số Dư Đầu Kỳ Viettinbank (VNĐ)', 
+            'Số Dư Đầu Kỳ Tài Khoản Cá Nhân (VNĐ)', 'Số Dư Đầu Kỳ Tiền Mặt (VNĐ)'
+        ]);
+        const comp = AppData.state.company || {};
+        const balances = comp.openingBalances || {};
+        compRows.push([
+            comp.name || '', comp.taxId || '', comp.bankInfo || '', comp.address || '',
+            Number(balances.ABbank) || 0, Number(balances.Viettinbank) || 0,
+            Number(balances['Tài khoản cá nhân']) || 0, Number(balances['Tiền mặt']) || 0
+        ]);
+        const wsComp = XLSX.utils.aoa_to_sheet(compRows);
+        wsComp['!cols'] = Array(8).fill({wch: 15});
+        XLSX.utils.book_append_sheet(wb, wsComp, 'Thông tin công ty');
+
+        // Save Workbook
+        const filename = 'Bao_Cao_Sao_Luu_He_Thong_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+        XLSX.writeFile(wb, filename);
+    },
+
+    importSystemBackupExcel(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                const parseExcelDate = (val) => {
+                    if (!val) return '';
+                    if (typeof val === 'number') {
+                        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+                        const dateObj = new Date(excelEpoch.getTime() + val * 24 * 60 * 60 * 1000);
+                        return dateObj.toISOString().slice(0, 10);
+                    }
+                    const str = String(val).trim();
+                    if (str.match(/^\d{4}-\d{2}-\d{2}$/)) return str;
+                    if (str.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                        const parts = str.split('/');
+                        const d = parts[0].padStart(2, '0');
+                        const m = parts[1].padStart(2, '0');
+                        const y = parts[2];
+                        return `${y}-${m}-${d}`;
+                    }
+                    const parsed = new Date(str);
+                    return isNaN(parsed.getTime()) ? str : parsed.toISOString().slice(0, 10);
+                };
+
+                const parseExcelDateTime = (val) => {
+                    if (!val) return '';
+                    if (typeof val === 'number') {
+                        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+                        const dateObj = new Date(excelEpoch.getTime() + val * 24 * 60 * 60 * 1000);
+                        return dateObj.toISOString();
+                    }
+                    const str = String(val).trim();
+                    const parts = str.split(', ');
+                    if (parts.length === 2) {
+                        const [datePart, timePart] = parts;
+                        const [d, m, y] = datePart.split('/');
+                        return `${y}-${m}-${d}T${timePart}`;
+                    }
+                    const dateObj = new Date(str);
+                    return isNaN(dateObj.getTime()) ? str : dateObj.toISOString();
+                };
+
+                let restoredSheets = [];
+
+                // 1. Quản lý chuyến hàng
+                const wsShipments = workbook.Sheets['Quản lý chuyến hàng'];
+                if (wsShipments) {
+                    const rows = XLSX.utils.sheet_to_json(wsShipments, { header: 1 });
+                    if (rows.length >= 3) {
+                        const headers = rows[2];
+                        const dataRows = rows.slice(3);
+                        const colIdx = (name) => headers.indexOf(name);
+                        
+                        const idIdx = colIdx('ID Chuyến Hàng');
+                        const contractNoIdx = colIdx('Số Hợp Đồng');
+                        const voyageNoIdx = colIdx('Chuyến Số');
+                        const vesselIdIdx = colIdx('Mã Tàu');
+                        const customerIdx = colIdx('Khách Hàng');
+                        const cargoIdx = colIdx('Tên Hàng');
+                        const portLoadIdx = colIdx('Cảng Xếp (Đi)');
+                        const portDischargeIdx = colIdx('Cảng Dỡ (Đến)');
+                        const dateStartIdx = colIdx('Ngày Xếp Hàng');
+                        const dateEndIdx = colIdx('Ngày Dỡ Hàng');
+                        const reportMonthIdx = colIdx('Tháng Hạch Toán');
+                        const qtyIdx = colIdx('Khối Lượng (Tấn)');
+                        const rateIdx = colIdx('Đơn Giá Thực (VNĐ)');
+                        const markupIdx = colIdx('Tiền Gửi (VND/tấn)');
+                        const fuelPriceIdx = colIdx('Giá Dầu Chuyến (VNĐ)');
+                        const fuelHoursIdx = colIdx('Số Giờ Chạy (Giờ)');
+                        const revenueRealIdx = colIdx('Doanh Thu Thực Tế (VNĐ)');
+                        const revenueInvoiceIdx = colIdx('Doanh Thu Hóa Đơn (VNĐ)');
+                        const refundIdx = colIdx('Tiền Gửi Lại Khách (VNĐ)');
+                        
+                        const costsMap = {
+                            fuelDO: colIdx('Tiền Dầu DO (VNĐ)'),
+                            fuelLO: colIdx('Tiền Dầu LO (VNĐ)'),
+                            crewSalary: colIdx('Lương TV (VNĐ)'),
+                            crewFood: colIdx('Tiền Ăn (VNĐ)'),
+                            crewInsurance: colIdx('Bảo Hiểm (VNĐ)'),
+                            materialCompany: colIdx('Vật Tư Cty Cấp (VNĐ)'),
+                            materialVessel: colIdx('Vật Tư Tàu Chi (VNĐ)'),
+                            monthlyOther: colIdx('CP Khác Cty Cấp (VNĐ)'),
+                            agent: colIdx('Đại Lý 2 Đầu Cảng (VNĐ)'),
+                            vessel2ends: colIdx('Tàu Chi 2 Đầu Cảng (VNĐ)'),
+                            brokerage: colIdx('Tiền Bông (VNĐ)'),
+                            vat: colIdx('Thuế VAT (VNĐ)'),
+                            portFees: colIdx('Hoa Tiêu, Tàu Lai, Phí Cảng (VNĐ)'),
+                            others: colIdx('Chi Phí Khác Tàu Chi (VNĐ)')
+                        };
+
+                        dataRows.forEach(row => {
+                            if (row.length === 0 || !row[contractNoIdx]) return;
+                            const id = row[idIdx] || ('S' + Date.now() + Math.random().toString().slice(2, 6));
+                            const s = {
+                                id,
+                                contractNo: String(row[contractNoIdx] || '').trim(),
+                                voyageNo: String(row[voyageNoIdx] || '').trim(),
+                                vesselId: String(row[vesselIdIdx] || '').trim(),
+                                customer: String(row[customerIdx] || '').trim(),
+                                cargo: String(row[cargoIdx] || '').trim(),
+                                portLoad: String(row[portLoadIdx] || '').trim(),
+                                portDischarge: String(row[portDischargeIdx] || '').trim(),
+                                dateStart: row[dateStartIdx] ? parseExcelDate(row[dateStartIdx]) : '',
+                                dateEnd: row[dateEndIdx] ? parseExcelDate(row[dateEndIdx]) : '',
+                                reportMonth: String(row[reportMonthIdx] || '').trim(),
+                                qty: Number(row[qtyIdx]) || 0,
+                                rate: Number(row[rateIdx]) || 0,
+                                markup: Number(row[markupIdx]) || 0,
+                                fuelPrice: Number(row[fuelPriceIdx]) || 0,
+                                fuelHours: Number(row[fuelHoursIdx]) || 0,
+                                revenueReal: Number(row[revenueRealIdx]) || 0,
+                                revenueInvoice: Number(row[revenueInvoiceIdx]) || 0,
+                                refundAmount: Number(row[refundIdx]) || 0,
+                                costs: {}
+                            };
+                            for (let key in costsMap) {
+                                const idx = costsMap[key];
+                                s.costs[key] = idx !== -1 ? (Number(row[idx]) || 0) : 0;
+                            }
+                            
+                            const existingIdx = AppData.state.shipments.findIndex(x => x.id === id);
+                            if (existingIdx >= 0) AppData.state.shipments[existingIdx] = s;
+                            else AppData.state.shipments.push(s);
+                        });
+                        restoredSheets.push('Quản lý chuyến hàng');
+                    }
+                }
+
+                // 2. Quản lý nhiên liệu
+                const wsFuel = workbook.Sheets['Quản lý nhiên liệu'];
+                if (wsFuel) {
+                    const rows = XLSX.utils.sheet_to_json(wsFuel, { header: 1 });
+                    if (rows.length >= 3) {
+                        const headers = rows[2];
+                        const dataRows = rows.slice(3);
+                        const colIdx = (name) => headers.indexOf(name);
+                        
+                        const voyIdIdx = colIdx('ID Chuyến Dầu');
+                        const logIdIdx = colIdx('ID Chặng Hành Trình');
+                        const vesselIdIdx = colIdx('Mã Tàu');
+                        const voyageNoIdx = colIdx('Chuyến Dầu Số');
+                        const cargoTypeIdx = colIdx('Mặt Hàng');
+                        const initialFuelIdx = colIdx('Số Dư Đầu Kỳ (L)');
+                        const addedFuelIdx = colIdx('Số Lượng Cấp (L)');
+                        const fuelDateIdx = colIdx('Ngày Cấp');
+                        const fuelLocationIdx = colIdx('Nơi Cấp Dầu');
+                        const fuelVendorIdx = colIdx('Nhà Cung Cấp Dầu');
+                        const fuelUnitPriceIdx = colIdx('Đơn Giá Dầu (VNĐ)');
+                        
+                        const startPosIdx = colIdx('Nơi Đi');
+                        const startTimeIdx = colIdx('Thời Gian Đi');
+                        const endPosIdx = colIdx('Nơi Đến');
+                        const endTimeIdx = colIdx('Thời Gian Đến');
+                        const fuelRateIdx = colIdx('Định Mức Tiêu Thụ (L/h)');
+                        const hoursIdx = colIdx('Số Giờ Chạy (Giờ)');
+                        
+                        let lastVoyageId = '';
+                        let lastVesselId = '';
+                        
+                        dataRows.forEach(row => {
+                            if (row.length === 0) return;
+                            if (row[voyIdIdx]) {
+                                lastVoyageId = String(row[voyIdIdx]).trim();
+                                lastVesselId = String(row[vesselIdIdx] || lastVesselId).trim();
+                                const voy = {
+                                    id: lastVoyageId,
+                                    vesselId: lastVesselId,
+                                    voyageNo: String(row[voyageNoIdx] || '').trim(),
+                                    cargoType: String(row[cargoTypeIdx] || '').trim(),
+                                    initialFuel: Number(row[initialFuelIdx]) || 0,
+                                    addedFuel: Number(row[addedFuelIdx]) || 0,
+                                    fuelDate: row[fuelDateIdx] ? parseExcelDate(row[fuelDateIdx]) : '',
+                                    fuelVendor: String(row[fuelVendorIdx] || '').trim(),
+                                    fuelLocation: String(row[fuelLocationIdx] || '').trim(),
+                                    fuelUnitPrice: Number(row[fuelUnitPriceIdx]) || 0
+                                };
+                                const existingIdx = AppData.state.fuelVoyages.findIndex(x => x.id === voy.id);
+                                if (existingIdx >= 0) AppData.state.fuelVoyages[existingIdx] = voy;
+                                else AppData.state.fuelVoyages.push(voy);
+                            }
+                            if (row[logIdIdx] && lastVoyageId) {
+                                const logId = String(row[logIdIdx]).trim();
+                                const log = {
+                                    id: logId,
+                                    fuelVoyageId: lastVoyageId,
+                                    startTime: parseExcelDateTime(row[startTimeIdx]),
+                                    startPos: String(row[startPosIdx] || '').trim(),
+                                    endTime: parseExcelDateTime(row[endTimeIdx]),
+                                    endPos: String(row[endPosIdx] || '').trim(),
+                                    fuelRate: Number(row[fuelRateIdx]) || 0,
+                                    hours: Number(row[hoursIdx]) || 0
+                                };
+                                const existingIdx = AppData.state.fuelLogs.findIndex(x => x.id === log.id);
+                                if (existingIdx >= 0) AppData.state.fuelLogs[existingIdx] = log;
+                                else AppData.state.fuelLogs.push(log);
+                            }
+                        });
+                        restoredSheets.push('Quản lý nhiên liệu');
+                    }
+                }
+
+                // 3. Theo dõi tài chính
+                const wsFin = workbook.Sheets['Theo dõi tài chính'];
+                const affectedAllocations = new Set();
+                if (wsFin) {
+                    const rows = XLSX.utils.sheet_to_json(wsFin, { header: 1 });
+                    if (rows.length >= 3) {
+                        const headers = rows[2];
+                        const dataRows = rows.slice(3);
+                        const colIdx = (name) => headers.indexOf(name);
+                        
+                        const idIdx = colIdx('ID Giao Dịch');
+                        const dateIdx = colIdx('Ngày');
+                        const vesselIdx = colIdx('Tàu / Bộ Phận');
+                        const categoryIdx = colIdx('Hạng Mục');
+                        const voyageNoIdx = colIdx('Chuyến Số');
+                        const contractNoIdx = colIdx('Số Hợp Đồng');
+                        const partnerIdx = colIdx('Đối Tác');
+                        const contentIdx = colIdx('Nội Dung');
+                        const thuIdx = colIdx('Thu Vào (VNĐ)');
+                        const chiIdx = colIdx('Chi Ra (VNĐ)');
+                        const accountIdx = colIdx('Tài Khoản');
+                        
+                        dataRows.forEach(row => {
+                            if (row.length === 0 || !row[dateIdx]) return;
+                            const id = row[idIdx] ? String(row[idIdx]).trim() : ('TR' + Date.now() + Math.random().toString().slice(2, 6));
+                            const dateStr = parseExcelDate(row[dateIdx]);
+                            const t = {
+                                id,
+                                date: dateStr,
+                                vessel: String(row[vesselIdx] || 'VP').trim(),
+                                category: String(row[categoryIdx] || '').trim(),
+                                voyageNo: row[voyageNoIdx] ? String(row[voyageNoIdx]).trim() : '',
+                                contractNo: row[contractNoIdx] ? String(row[contractNoIdx]).trim() : '',
+                                partner: String(row[partnerIdx] || '').trim(),
+                                content: String(row[contentIdx] || '').trim(),
+                                thu: Number(row[thuIdx]) || 0,
+                                chi: Number(row[chiIdx]) || 0,
+                                account: String(row[accountIdx] || 'Tiền mặt').trim()
+                            };
+                            
+                            const existingIdx = AppData.state.transactions.findIndex(x => x.id === id);
+                            const oldTx = existingIdx >= 0 ? { ...AppData.state.transactions[existingIdx] } : null;
+                            if (existingIdx >= 0) AppData.state.transactions[existingIdx] = t;
+                            else AppData.state.transactions.push(t);
+                            
+                            if (t.vessel && t.vessel !== 'VP' && t.date && (t.category === '9.Vật Tư' || t.category === '6.Lãi Vay')) {
+                                affectedAllocations.add(`${t.vessel}_${t.date.substring(0, 7)}`);
+                            }
+                            if (oldTx && oldTx.vessel && oldTx.vessel !== 'VP' && oldTx.date && (oldTx.category === '9.Vật Tư' || oldTx.category === '6.Lãi Vay')) {
+                                affectedAllocations.add(`${oldTx.vessel}_${oldTx.date.substring(0, 7)}`);
+                            }
+                        });
+                        restoredSheets.push('Theo dõi tài chính');
+                    }
+                }
+
+                // 4. Quản lý chi phí tàu (Báo cáo Thuyền trưởng)
+                const wsExp = workbook.Sheets['Quản lý chi phí tàu'] || workbook.Sheets['Theo dõi tài chính tàu chi'];
+                if (wsExp) {
+                    const rows = XLSX.utils.sheet_to_json(wsExp, { header: 1 });
+                    if (rows.length >= 3) {
+                        const headers = rows[2];
+                        const dataRows = rows.slice(3);
+                        const colIdx = (name) => headers.indexOf(name);
+                        
+                        const hasNewFormat = colIdx('Mã Báo Cáo') !== -1;
+                        if (hasNewFormat) {
+                            const idIdx = colIdx('Mã Báo Cáo');
+                            const vesselIdx = colIdx('Mã Tàu');
+                            const monthIdx = colIdx('Tháng');
+                            const foodIdx = colIdx('Tiền Ăn (VNĐ)');
+                            const materialIdx = colIdx('Vật Tư Tàu Chi (VNĐ)');
+                            const portNameIdx = colIdx('Tên Khoản Mục Cảng');
+                            const portVoyageIdx = colIdx('Chuyến Cảng');
+                            const portAmountIdx = colIdx('Số Tiền Cảng (VNĐ)');
+                            const brokVoyageIdx = colIdx('Chuyến Tiền Bông');
+                            const brokAmountIdx = colIdx('Số Tiền Bông (VNĐ)');
+                            
+                            let currentReport = null;
+                            const reportsMap = {};
+                            
+                            dataRows.forEach(row => {
+                                if (row.length === 0) return;
+                                if (row[idIdx]) {
+                                    const id = String(row[idIdx]).trim();
+                                    currentReport = {
+                                        id,
+                                        vesselId: String(row[vesselIdx] || '').trim(),
+                                        month: String(row[monthIdx] || '').trim(),
+                                        food: Number(row[foodIdx]) || 0,
+                                        material: Number(row[materialIdx]) || 0,
+                                        portExpenses: [],
+                                        brokerages: []
+                                    };
+                                    reportsMap[id] = currentReport;
+                                }
+                                
+                                if (currentReport) {
+                                    const portName = row[portNameIdx] ? String(row[portNameIdx]).trim() : '';
+                                    const portAmount = Number(row[portAmountIdx]) || 0;
+                                    const portVoyage = row[portVoyageIdx] ? String(row[portVoyageIdx]).trim() : '';
+                                    if (portName || portAmount > 0) {
+                                        currentReport.portExpenses.push({
+                                            port: portName,
+                                            amount: portAmount,
+                                            voyageNo: portVoyage
+                                        });
+                                    }
+                                    
+                                    const brokVoyage = row[brokVoyageIdx] ? String(row[brokVoyageIdx]).trim() : '';
+                                    const brokAmount = Number(row[brokAmountIdx]) || 0;
+                                    if (brokVoyage || brokAmount > 0) {
+                                        currentReport.brokerages.push({
+                                            voyageNo: brokVoyage,
+                                            amount: brokAmount
+                                        });
+                                    }
+                                }
+                            });
+                            
+                            if (!AppData.state.captainReports) AppData.state.captainReports = [];
+                            Object.values(reportsMap).forEach(report => {
+                                const existingIdx = AppData.state.captainReports.findIndex(x => x.id === report.id);
+                                if (existingIdx >= 0) {
+                                    AppData.state.captainReports[existingIdx] = report;
+                                } else {
+                                    AppData.state.captainReports.push(report);
+                                }
+                                AppData.recalculateVesselAllocations(report.vesselId, report.month);
+                            });
+                            restoredSheets.push('Quản lý chi phí tàu');
+                        } else {
+                            // Old format
+                            const idIdx = colIdx('ID Chi Phí');
+                            const dateIdx = colIdx('Ngày');
+                            const vesselIdx = colIdx('Mã Tàu');
+                            const voyageNoIdx = colIdx('Chuyến Số');
+                            const categoryIdx = colIdx('Hạng Mục');
+                            const amountIdx = colIdx('Số Tiền (VNĐ)');
+                            const contentIdx = colIdx('Nội Dung');
+                            
+                            dataRows.forEach(row => {
+                                if (row.length === 0 || !row[dateIdx]) return;
+                                const id = row[idIdx] ? String(row[idIdx]).trim() : ('VE-' + Date.now() + Math.random().toString().slice(2, 6));
+                                const dateStr = parseExcelDate(row[dateIdx]);
+                                const ve = {
+                                    id,
+                                    date: dateStr,
+                                    vesselId: String(row[vesselIdx] || '').trim(),
+                                    voyageNo: String(row[voyageNoIdx] || '').trim(),
+                                    category: String(row[categoryIdx] || '').trim(),
+                                    amount: Number(row[amountIdx]) || 0,
+                                    content: String(row[contentIdx] || '').trim()
+                                };
+                                const existingIdx = AppData.state.vesselExpenses.findIndex(x => x.id === id);
+                                if (existingIdx >= 0) AppData.state.vesselExpenses[existingIdx] = ve;
+                                else AppData.state.vesselExpenses.push(ve);
+                            });
+                            restoredSheets.push('Theo dõi tài chính tàu chi');
+                        }
+                    }
+                }
+
+                // 5. Nhân sự
+                const wsHr = workbook.Sheets['Nhân sự'];
+                if (wsHr) {
+                    const rows = XLSX.utils.sheet_to_json(wsHr, { header: 1 });
+                    if (rows.length >= 3) {
+                        const headers = rows[2];
+                        const dataRows = rows.slice(3);
+                        const colIdx = (name) => headers.indexOf(name);
+                        
+                        const idIdx = colIdx('ID Nhân Sự');
+                        const nameIdx = colIdx('Họ và Tên');
+                        const roleIdx = colIdx('Chức Vụ');
+                        const departmentIdx = colIdx('Bộ Phận');
+                        const basicSalaryIdx = colIdx('Lương Cơ Bản (VNĐ)');
+                        const allowancesIdx = colIdx('Phụ Cấp (VNĐ)');
+                        const personalDeductionIdx = colIdx('Giảm Trừ Bản Thân (VNĐ)');
+                        const dependentsIdx = colIdx('Số Người Phụ Thuộc');
+                        const joinDateIdx = colIdx('Ngày Vào');
+                        const leaveDateIdx = colIdx('Ngày Nghỉ');
+                        const phoneIdx = colIdx('Số Điện Thoại');
+                        const notesIdx = colIdx('Ghi Chú');
+                        
+                        const actualSalaryIdx = colIdx('Mức Lương Thực Tế (VNĐ)');
+                        const insuranceIdx = colIdx('Mức BHXH Đóng (VNĐ)');
+                        const mealAllowanceIdx = colIdx('Tiền Ăn Ca (VNĐ)');
+                        const phoneAllowanceIdx = colIdx('Phụ Cấp Điện Thoại (VNĐ)');
+                        const clothingAllowanceIdx = colIdx('Phụ Cấp Trang Phục (VNĐ)');
+                        const transportAllowanceIdx = colIdx('Phụ Cấp Xăng Xe (VNĐ)');
+                        const deliveryAllowanceIdx = colIdx('Phụ Cấp Giao Nhận (VNĐ)');
+                        const completionBonusIdx = colIdx('Thưởng Hoàn Thành (VNĐ)');
+                        
+                        dataRows.forEach(row => {
+                            if (row.length === 0 || !row[nameIdx]) return;
+                            const id = row[idIdx] ? String(row[idIdx]).trim() : ('EMP-' + Date.now() + Math.random().toString().slice(2, 6));
+                            const emp = {
+                                id,
+                                name: String(row[nameIdx]).trim(),
+                                role: String(row[roleIdx] || '').trim(),
+                                department: String(row[departmentIdx] || 'VP').trim(),
+                                basicSalary: Number(row[basicSalaryIdx]) || 0,
+                                allowances: Number(row[allowancesIdx]) || 0,
+                                personalDeduction: Number(row[personalDeductionIdx]) || 15500000,
+                                dependents: Number(row[dependentsIdx]) || 0,
+                                joinDate: row[joinDateIdx] ? parseExcelDate(row[joinDateIdx]) : '',
+                                leaveDate: row[leaveDateIdx] ? parseExcelDate(row[leaveDateIdx]) : '',
+                                phone: String(row[phoneIdx] || '').trim(),
+                                notes: String(row[notesIdx] || '').trim(),
+                                actualSalary: Number(row[actualSalaryIdx]) || 0,
+                                insurance: Number(row[insuranceIdx]) || 0,
+                                mealAllowance: Number(row[mealAllowanceIdx]) || 0,
+                                phoneAllowance: Number(row[phoneAllowanceIdx]) || 0,
+                                clothingAllowance: Number(row[clothingAllowanceIdx]) || 0,
+                                transportAllowance: Number(row[transportAllowanceIdx]) || 0,
+                                deliveryAllowance: Number(row[deliveryAllowanceIdx]) || 0,
+                                completionBonus: Number(row[completionBonusIdx]) || 0
+                            };
+                            const existingIdx = AppData.state.employees.findIndex(x => x.id === id);
+                            if (existingIdx >= 0) AppData.state.employees[existingIdx] = emp;
+                            else AppData.state.employees.push(emp);
+                        });
+                        restoredSheets.push('Nhân sự');
+                    }
+                }
+
+                // 6. Lương
+                const wsSal = workbook.Sheets['Lương'];
+                if (wsSal) {
+                    const rows = XLSX.utils.sheet_to_json(wsSal, { header: 1 });
+                    if (rows.length >= 3) {
+                        const headers = rows[2];
+                        const dataRows = rows.slice(3);
+                        const colIdx = (name) => headers.indexOf(name);
+                        const monthIdx = colIdx('Tháng');
+                        const departmentIdx = colIdx('Bộ Phận');
+                        const voyageCountIdx = colIdx('Số Chuyến');
+                        const attendanceIdx = colIdx('Dữ Liệu Điểm Danh (JSON)');
+                        
+                        dataRows.forEach(row => {
+                            if (row.length === 0 || !row[monthIdx] || !row[departmentIdx]) return;
+                            const month = String(row[monthIdx]).trim();
+                            const department = String(row[departmentIdx]).trim();
+                            let attendance = {};
+                            try {
+                                if (row[attendanceIdx]) {
+                                    attendance = JSON.parse(String(row[attendanceIdx]).trim());
+                                }
+                            } catch (err) {
+                                console.error('Lỗi parse JSON điểm danh:', err);
+                            }
+                            const ts = {
+                                month,
+                                department,
+                                voyageCount: Number(row[voyageCountIdx]) || 0,
+                                attendance
+                            };
+                            const existingIdx = AppData.state.timesheets.findIndex(x => x.month === month && x.department === department);
+                            if (existingIdx >= 0) AppData.state.timesheets[existingIdx] = ts;
+                            else AppData.state.timesheets.push(ts);
+                        });
+                        restoredSheets.push('Lương');
+                    }
+                }
+
+                // 7. Chi phí theo tháng
+                const wsMcosts = workbook.Sheets['Chi phí theo tháng'];
+                if (wsMcosts) {
+                    const rows = XLSX.utils.sheet_to_json(wsMcosts, { header: 1 });
+                    if (rows.length >= 3) {
+                        const headers = rows[2];
+                        const dataRows = rows.slice(3);
+                        const colIdx = (name) => headers.indexOf(name);
+                        const monthIdx = colIdx('Tháng');
+                        const vesselIdx = colIdx('Mã Tàu');
+                        const salaryIdx = colIdx('Lương (VNĐ)');
+                        const insuranceIdx = colIdx('Bảo Hiểm (VNĐ)');
+                        const foodIdx = colIdx('Tiền Ăn (VNĐ)');
+                        const matCIdx = colIdx('Vật Tư Công Ty Cấp (VNĐ)');
+                        const matVIdx = colIdx('Vật Tư Tàu Chi (VNĐ)');
+                        const otherIdx = colIdx('Chi Phí Khác (VNĐ)');
+                        const loanIdx = colIdx('Lãi Vay (VNĐ)');
+                        
+                        dataRows.forEach(row => {
+                            if (row.length === 0 || !row[monthIdx] || !row[vesselIdx]) return;
+                            const month = String(row[monthIdx]).trim();
+                            const vesselId = String(row[vesselIdx]).trim();
+                            const c = {
+                                month,
+                                vesselId,
+                                salary: Number(row[salaryIdx]) || 0,
+                                insurance: Number(row[insuranceIdx]) || 0,
+                                food: Number(row[foodIdx]) || 0,
+                                materialCompany: Number(row[matCIdx]) || 0,
+                                materialVessel: Number(row[matVIdx]) || 0,
+                                other: Number(row[otherIdx]) || 0,
+                                loanInterest: Number(row[loanIdx]) || 0
+                            };
+                            const existingIdx = AppData.state.monthlyCosts.findIndex(x => x.month === month && x.vesselId === vesselId);
+                            if (existingIdx >= 0) AppData.state.monthlyCosts[existingIdx] = c;
+                            else AppData.state.monthlyCosts.push(c);
+                        });
+                        restoredSheets.push('Chi phí theo tháng');
+                    }
+                }
+
+                // 8. Đối tác
+                const wsPartner = workbook.Sheets['Đối tác'];
+                if (wsPartner) {
+                    const rows = XLSX.utils.sheet_to_json(wsPartner, { header: 1 });
+                    if (rows.length >= 3) {
+                        const headers = rows[2];
+                        const dataRows = rows.slice(3);
+                        const colIdx = (name) => headers.indexOf(name);
+                        const typeIdx = colIdx('Loại');
+                        const idIdx = colIdx('ID Đối Tác');
+                        const nameIdx = colIdx('Tên Đối Tác');
+                        const catIdx = colIdx('Phân Loại / Mặt Hàng');
+                        const contactIdx = colIdx('Liên Hệ');
+                        const addrIdx = colIdx('Địa Chỉ');
+                        
+                        dataRows.forEach(row => {
+                            if (row.length === 0 || !row[nameIdx]) return;
+                            const isVendor = String(row[typeIdx]).trim() === 'NCC';
+                            const id = row[idIdx] ? String(row[idIdx]).trim() : ((isVendor ? 'v' : 'c') + Date.now() + Math.random().toString().slice(2, 6));
+                            if (isVendor) {
+                                const vendor = {
+                                    id,
+                                    name: String(row[nameIdx]).trim(),
+                                    type: String(row[catIdx] || '').trim(),
+                                    contact: String(row[contactIdx] || '').trim(),
+                                    address: String(row[addrIdx] || '').trim()
+                                };
+                                const existingIdx = AppData.state.vendors.findIndex(x => x.id === id);
+                                if (existingIdx >= 0) AppData.state.vendors[existingIdx] = vendor;
+                                else AppData.state.vendors.push(vendor);
+                            } else {
+                                const customer = {
+                                    id,
+                                    name: String(row[nameIdx]).trim(),
+                                    contact: String(row[contactIdx] || '').trim(),
+                                    address: String(row[addrIdx] || '').trim()
+                                };
+                                const existingIdx = AppData.state.customers.findIndex(x => x.id === id);
+                                if (existingIdx >= 0) AppData.state.customers[existingIdx] = customer;
+                                else AppData.state.customers.push(customer);
+                            }
+                        });
+                        restoredSheets.push('Đối tác');
+                    }
+                }
+
+                // 9. Tàu
+                const wsVessels = workbook.Sheets['Tàu'];
+                if (wsVessels) {
+                    const rows = XLSX.utils.sheet_to_json(wsVessels, { header: 1 });
+                    if (rows.length >= 3) {
+                        const headers = rows[2];
+                        const dataRows = rows.slice(3);
+                        const colIdx = (name) => headers.indexOf(name);
+                        const idIdx = colIdx('Mã Tàu');
+                        const nameIdx = colIdx('Tên Tàu');
+                        const capIdx = colIdx('Trọng Tải (Tấn)');
+                        const captainIdx = colIdx('Thuyền Trưởng');
+                        const rateIdx = colIdx('Định Mức Dầu DO (L/h)');
+                        
+                        dataRows.forEach(row => {
+                            if (row.length === 0 || !row[idIdx] || !row[nameIdx]) return;
+                            const id = String(row[idIdx]).trim();
+                            const v = {
+                                id,
+                                name: String(row[nameIdx]).trim(),
+                                capacity: Number(row[capIdx]) || 0,
+                                captain: String(row[captainIdx] || '').trim(),
+                                fuelRate: Number(row[rateIdx]) || 0
+                            };
+                            const existingIdx = AppData.state.vessels.findIndex(x => x.id === id);
+                            if (existingIdx >= 0) AppData.state.vessels[existingIdx] = v;
+                            else AppData.state.vessels.push(v);
+                        });
+                        restoredSheets.push('Tàu');
+                    }
+                }
+
+                // 10. Thông tin công ty
+                const wsComp = workbook.Sheets['Thông tin công ty'];
+                if (wsComp) {
+                    const rows = XLSX.utils.sheet_to_json(wsComp, { header: 1 });
+                    if (rows.length >= 3) {
+                        const headers = rows[2];
+                        const row = rows[3];
+                        if (row) {
+                            const colIdx = (name) => headers.indexOf(name);
+                            const nameIdx = colIdx('Tên Doanh Nghiệp');
+                            const taxIdx = colIdx('Mã Số Thuế');
+                            const bankIdx = colIdx('Thông Tin Ngân Hàng');
+                            const addrIdx = colIdx('Địa Chỉ');
+                            const abIdx = colIdx('Số Dư Đầu Kỳ ABbank (VNĐ)');
+                            const vtIdx = colIdx('Số Dư Đầu Kỳ Viettinbank (VNĐ)');
+                            const cnIdx = colIdx('Số Dư Đầu Kỳ Tài Khoản Cá Nhân (VNĐ)');
+                            const tmIdx = colIdx('Số Dư Đầu Kỳ Tiền Mặt (VNĐ)');
+                            
+                            AppData.state.company = {
+                                name: String(row[nameIdx] || '').trim(),
+                                taxId: String(row[taxIdx] || '').trim(),
+                                bankInfo: String(row[bankIdx] || '').trim(),
+                                address: String(row[addrIdx] || '').trim(),
+                                openingBalances: {
+                                    ABbank: Number(row[abIdx]) || 0,
+                                    Viettinbank: Number(row[vtIdx]) || 0,
+                                    'Tài khoản cá nhân': Number(row[cnIdx]) || 0,
+                                    'Tiền mặt': Number(row[tmIdx]) || 0
+                                }
+                            };
+                        }
+                        restoredSheets.push('Thông tin công ty');
+                    }
+                }
+
+                // Recalculate allocations for all modified vessel-months
+                affectedAllocations.forEach(key => {
+                    const [vesselId, monthStr] = key.split('_');
+                    AppData.recalculateVesselAllocations(vesselId, monthStr);
+                });
+
+                if (restoredSheets.length === 0) {
+                    alert('Không tìm thấy sheet hợp lệ nào để khôi phục!');
+                    return;
+                }
+
+                AppData.save();
+                alert('Khôi phục toàn bộ hệ thống thành công! Đã khôi phục các sheet: \n- ' + restoredSheets.join('\n- '));
+                this.navigate('company');
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi khi đọc file Excel: ' + err.message);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    },
+
+    exportShipmentReport() {
+        if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện xuất Excel!');
+        const wb = XLSX.utils.book_new();
+        const rows = [];
+        
+        rows.push(['BÁO CÁO CHI TIẾT TỔNG HỢP CHUYẾN HÀNG']);
+        rows.push([]);
+        rows.push([
+            'ID Chuyến Hàng',
+            'Số Hợp Đồng',
+            'Chuyến Số',
+            'Mã Tàu',
+            'Khách Hàng',
+            'Tên Hàng',
+            'Cảng Xếp (Đi)',
+            'Cảng Dỡ (Đến)',
+            'Ngày Xếp Hàng',
+            'Ngày Dỡ Hàng',
+            'Tháng Hạch Toán',
+            'Khối Lượng (Tấn)',
+            'Đơn Giá Thực (VNĐ)',
+            'Tiền Gửi (VND/tấn)',
+            'Giá Dầu Chuyến (VNĐ)',
+            'Số Giờ Chạy (Giờ)',
+            'Doanh Thu Thực Tế (VNĐ)',
+            'Doanh Thu Hóa Đơn (VNĐ)',
+            'Tiền Gửi Lại Khách (VNĐ)',
+            'Tiền Dầu DO (VNĐ)',
+            'Tiền Dầu LO (VNĐ)',
+            'Lương TV (VNĐ)',
+            'Tiền Ăn (VNĐ)',
+            'Bảo Hiểm (VNĐ)',
+            'Vật Tư Cty Cấp (VNĐ)',
+            'Vật Tư Tàu Chi (VNĐ)',
+            'CP Khác Cty Cấp (VNĐ)',
+            'Đại Lý 2 Đầu Cảng (VNĐ)',
+            'Tàu Chi 2 Đầu Cảng (VNĐ)',
+            'Tiền Bông (VNĐ)',
+            'Thuế VAT (VNĐ)',
+            'Hoa Tiêu, Tàu Lai, Phí Cảng (VNĐ)',
+            'Chi Phí Khác Tàu Chi (VNĐ)',
+            'Tổng Chi Phí (VNĐ)',
+            'Lợi Nhuận/Hiệu Quả (VNĐ)'
+        ]);
+        
+        const ships = AppData.getShipments()
+            .slice()
+            .sort((a, b) => {
+                const numA = parseInt((a.contractNo || '').replace(/\D/g, '')) || 0;
+                const numB = parseInt((b.contractNo || '').replace(/\D/g, '')) || 0;
+                return numB - numA; // Descending by HD number
+            });
+            
+        ships.forEach(s => {
+            const qty = Number(s.qty || 0);
+            const rate = Number(s.rate || 0);
+            const markup = Number(s.markup || 0);
+            const fuelPrice = Number(s.fuelPrice || 20000);
+            const fuelHours = Number(s.fuelHours || 0);
+            const revenueReal = Number(s.revenueReal || 0);
+            const revenueInvoice = Number(s.revenueInvoice || 0);
+            const refund = Number(s.refundAmount || 0);
+            
+            const costs = s.costs || {};
+            const fuelDO = Number(costs.fuelDO || 0);
+            const fuelLO = Number(costs.fuelLO || 0);
+            const crewSalary = Number(costs.crewSalary || 0);
+            const crewFood = Number(costs.crewFood || 0);
+            const crewInsurance = Number(costs.crewInsurance || 0);
+            const materialCompany = Number(costs.materialCompany || 0);
+            const materialVessel = Number(costs.materialVessel || 0);
+            const monthlyOther = Number(costs.monthlyOther || 0);
+            const agent = Number(costs.agent || 0);
+            const vessel2ends = Number(costs.vessel2ends || 0);
+            const brokerage = Number(costs.brokerage || 0);
+            const vat = Number(costs.vat || 0);
+            const portFees = Number(costs.portFees || 0);
+            const others = Number(costs.others || 0);
+            
+            const totalExpenses = fuelDO + fuelLO + crewSalary + crewFood + crewInsurance + 
+                                  materialCompany + materialVessel + monthlyOther + agent + 
+                                  vessel2ends + brokerage + vat + portFees + others;
+            const profit = revenueReal - totalExpenses;
+            
+            rows.push([
+                s.id || '',
+                s.contractNo || '',
+                s.voyageNo || '',
+                s.vesselId || '',
+                s.customer || '',
+                s.cargo || '',
+                s.portLoad || '',
+                s.portDischarge || '',
+                s.dateStart || '',
+                s.dateEnd || '',
+                s.reportMonth || '',
+                qty,
+                rate,
+                markup,
+                fuelPrice,
+                fuelHours,
+                revenueReal,
+                revenueInvoice,
+                refund,
+                fuelDO,
+                fuelLO,
+                crewSalary,
+                crewFood,
+                crewInsurance,
+                materialCompany,
+                materialVessel,
+                monthlyOther,
+                agent,
+                vessel2ends,
+                brokerage,
+                vat,
+                portFees,
+                others,
+                totalExpenses,
+                profit
+            ]);
+        });
+        
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [
+            {wch: 15}, {wch: 12}, {wch: 10}, {wch: 8}, {wch: 25}, 
+            {wch: 15}, {wch: 15}, {wch: 15}, {wch: 12}, {wch: 12}, 
+            {wch: 12}, {wch: 15}, {wch: 18}, {wch: 15}, {wch: 18}, 
+            {wch: 15}, {wch: 22}, {wch: 22}, {wch: 20}, {wch: 18}, 
+            {wch: 18}, {wch: 18}, {wch: 15}, {wch: 15}, {wch: 18}, 
+            {wch: 18}, {wch: 18}, {wch: 18}, {wch: 18}, {wch: 15}, 
+            {wch: 15}, {wch: 20}, {wch: 18}, {wch: 20}, {wch: 22}
+        ];
+        XLSX.utils.book_append_sheet(wb, ws, 'Chuyen_Hang');
+        XLSX.writeFile(wb, 'Bao_Cao_Chuyen_Hang_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    },
+
     init() {
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
@@ -19,14 +1338,24 @@ const app = {
     navigate(viewName, ...args) {
         if (!Views[viewName]) return;
         this.currentView = viewName;
+        if (viewName === 'debts' && args.length > 0) {
+            this.currentDebtTab = args[0];
+        }
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
             if (item.getAttribute('data-view') === viewName) item.classList.add('active');
         });
         const container = document.getElementById('view-container');
-        container.innerHTML = Views[viewName](...args);
+        if (viewName === 'hr') {
+            container.innerHTML = Views.hr(this.hrTab || 'all');
+        } else {
+            container.innerHTML = Views[viewName](...args);
+        }
 
         // Post-render logic
+        if (viewName === 'dashboard') {
+            this.renderDashboardCharts(...args);
+        }
         if (viewName === 'financials') {
             this.renderFinancialChart();
         }
@@ -34,6 +1363,29 @@ const app = {
             this.loadVesselExpenses();
         }
     },
+
+    changeDebtCustomer(custName) {
+        this.selectedDebtCustomer = custName;
+        this.navigate('debts');
+    },
+
+    filterFinancials(month) {
+        this.navigate('financials', month);
+    },
+
+    updateFinancialsFilters() {
+        const month = document.getElementById('filter-fin-month').value;
+        const vessel = document.getElementById('filter-fin-vessel').value;
+        const category = document.getElementById('filter-fin-category').value;
+        const partner = document.getElementById('filter-fin-partner').value;
+        
+        this.navigate('financials', month, vessel, category, partner);
+    },
+
+    resetFinancialsFilters() {
+        this.navigate('financials');
+    },
+
 
     renderFinancialChart() {
         const ctx = document.getElementById('financialChart');
@@ -136,8 +1488,855 @@ const app = {
         });
     },
 
+    renderDashboardCharts(filterMonth = '') {
+        const canvasVessel = document.getElementById('repVesselChart');
+        const canvasTrend = document.getElementById('repTrendChart');
+        const canvasCost = document.getElementById('repCostChart');
+        const canvasFuel = document.getElementById('repFuelChart');
+
+        if (!canvasVessel || !canvasTrend || !canvasCost || !canvasFuel) return;
+
+        const allShipments = AppData.getShipments();
+        let shipments = allShipments;
+        if (filterMonth) {
+            shipments = allShipments.filter(s => {
+                const m = s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : '');
+                return m === filterMonth;
+            });
+        }
+
+        // 1. Dữ liệu theo Tàu (Vessel Stats)
+        const vesselStats = {};
+        AppData.state.vessels.forEach(v => {
+            vesselStats[v.id] = { name: v.name, revenue: 0, cost: 0, profit: 0, fuelDO: 0 };
+        });
+
+        shipments.forEach(s => {
+            const vId = s.vesselId;
+            if (!vesselStats[vId]) {
+                vesselStats[vId] = { name: vId, revenue: 0, cost: 0, profit: 0, fuelDO: 0 };
+            }
+            const rev = Number(s.revenueReal || 0);
+            const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+            const baseCosts = { ...s.costs };
+            delete baseCosts.vat;
+            const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
+            const profit = rev - costSum;
+            
+            vesselStats[vId].revenue += rev;
+            vesselStats[vId].cost += costSum;
+            vesselStats[vId].profit += profit;
+            vesselStats[vId].fuelDO += Number(s.costs?.fuelDO || 0);
+        });
+
+        const vesselLabels = Object.keys(vesselStats).sort();
+        const vesselNames = vesselLabels.map(id => vesselStats[id].name);
+        const vesselRevData = vesselLabels.map(id => vesselStats[id].revenue);
+        const vesselCostData = vesselLabels.map(id => vesselStats[id].cost);
+        const vesselProfitData = vesselLabels.map(id => vesselStats[id].profit);
+        const vesselFuelData = vesselLabels.map(id => vesselStats[id].fuelDO);
+
+        // Destroy existing charts to prevent memory leak/hover glitch
+        if (this.dashboardCharts) {
+            Object.values(this.dashboardCharts).forEach(c => {
+                if (c && typeof c.destroy === 'function') c.destroy();
+            });
+        }
+        this.dashboardCharts = {};
+
+        // Vẽ biểu đồ 1: Hiệu quả theo Tàu
+        this.dashboardCharts.vessel = new Chart(canvasVessel, {
+            type: 'bar',
+            data: {
+                labels: vesselNames,
+                datasets: [
+                    {
+                        label: 'Doanh thu',
+                        data: vesselRevData,
+                        backgroundColor: 'rgba(14, 165, 233, 0.75)',
+                        borderColor: '#0ea5e9',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Chi phí',
+                        data: vesselCostData,
+                        backgroundColor: 'rgba(244, 63, 94, 0.75)',
+                        borderColor: '#f43f5e',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Lợi nhuận ròng',
+                        data: vesselProfitData,
+                        backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#94a3b8', font: { family: 'Inter' } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + AppData.formatCurrency(context.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8', callback: value => (value / 1e6).toFixed(0) + 'M' }
+                    },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                }
+            }
+        });
+
+        // 2. Dữ liệu theo Tháng hoặc Chuyến (Monthly Trend / Voyage Details)
+        let trendLabels = [];
+        let trendRevData = [];
+        let trendProfitData = [];
+
+        if (!filterMonth) {
+            // Hiển thị xu hướng theo Tháng
+            const monthlyStats = {};
+            shipments.forEach(s => {
+                const m = s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : '');
+                if (!m) return;
+                if (!monthlyStats[m]) {
+                    monthlyStats[m] = { revenue: 0, cost: 0, profit: 0 };
+                }
+                const rev = Number(s.revenueReal || 0);
+                const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+                const baseCosts = { ...s.costs };
+                delete baseCosts.vat;
+                const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
+                const profit = rev - costSum;
+
+                monthlyStats[m].revenue += rev;
+                monthlyStats[m].cost += costSum;
+                monthlyStats[m].profit += profit;
+            });
+
+            const monthLabels = Object.keys(monthlyStats).sort();
+            trendLabels = monthLabels.map(m => `Tháng ${m.split('-')[1]}/${m.split('-')[0]}`);
+            trendRevData = monthLabels.map(m => monthlyStats[m].revenue);
+            trendProfitData = monthLabels.map(m => monthlyStats[m].profit);
+        } else {
+            // Lọc theo tháng: hiển thị chi tiết theo từng chuyến đi
+            const sortedVoyages = [...shipments].sort((a, b) => {
+                const numA = parseInt((a.contractNo || '').replace(/\D/g, '')) || 0;
+                const numB = parseInt((b.contractNo || '').replace(/\D/g, '')) || 0;
+                return numA - numB; // Thứ tự hợp đồng tăng dần
+            });
+            trendLabels = sortedVoyages.map(s => `${s.vesselId} (HĐ: ${s.contractNo || s.voyageNo})`);
+            trendRevData = sortedVoyages.map(s => Number(s.revenueReal || 0));
+            trendProfitData = sortedVoyages.map(s => {
+                const rev = Number(s.revenueReal || 0);
+                const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+                const baseCosts = { ...s.costs };
+                delete baseCosts.vat;
+                const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
+                return rev - costSum;
+            });
+        }
+
+        // Vẽ biểu đồ 2: Xu hướng
+        this.dashboardCharts.trend = new Chart(canvasTrend, {
+            type: filterMonth ? 'bar' : 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [
+                    {
+                        label: 'Doanh thu thực tế',
+                        data: trendRevData,
+                        borderColor: '#38bdf8',
+                        backgroundColor: filterMonth ? 'rgba(56, 189, 248, 0.75)' : 'rgba(56, 189, 248, 0.1)',
+                        fill: !filterMonth,
+                        tension: 0.35,
+                        borderWidth: filterMonth ? 1 : 3,
+                        borderRadius: filterMonth ? 4 : 0,
+                        pointBackgroundColor: '#38bdf8'
+                    },
+                    {
+                        label: 'Lợi nhuận ròng',
+                        data: trendProfitData,
+                        borderColor: '#34d399',
+                        backgroundColor: filterMonth ? 'rgba(52, 211, 153, 0.75)' : 'rgba(52, 211, 153, 0.1)',
+                        fill: !filterMonth,
+                        tension: 0.35,
+                        borderWidth: filterMonth ? 1 : 3,
+                        borderRadius: filterMonth ? 4 : 0,
+                        pointBackgroundColor: '#34d399'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#94a3b8', font: { family: 'Inter' } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + AppData.formatCurrency(context.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8', callback: value => (value / 1e6).toFixed(0) + 'M' }
+                    },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                }
+            }
+        });
+
+        // 3. Cơ cấu Chi phí (Cost Structure)
+        const costSums = {
+            fuelDO: 0,
+            fuelLO: 0,
+            crewSalary: 0,
+            crewFood: 0,
+            crewInsurance: 0,
+            materialCompany: 0,
+            materialVessel: 0,
+            monthlyOther: 0,
+            agent: 0,
+            vessel2ends: 0,
+            portFees: 0,
+            brokerage: 0,
+            vat: 0,
+            others: 0
+        };
+
+        shipments.forEach(s => {
+            const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+            costSums.fuelDO += Number(s.costs?.fuelDO || 0);
+            costSums.fuelLO += Number(s.costs?.fuelLO || 0);
+            costSums.crewSalary += Number(s.costs?.crewSalary || 0);
+            costSums.crewFood += Number(s.costs?.crewFood || 0);
+            costSums.crewInsurance += Number(s.costs?.crewInsurance || 0);
+            costSums.materialCompany += Number(s.costs?.materialCompany || 0);
+            costSums.materialVessel += Number(s.costs?.materialVessel || 0);
+            costSums.monthlyOther += Number(s.costs?.monthlyOther || 0);
+            costSums.agent += Number(s.costs?.agent || 0);
+            costSums.vessel2ends += Number(s.costs?.vessel2ends || 0);
+            costSums.portFees += Number(s.costs?.portFees || 0);
+            costSums.brokerage += Number(s.costs?.brokerage || 0);
+            costSums.vat += (vat > 0 ? vat : 0);
+            costSums.others += Number(s.costs?.others || 0);
+        });
+
+        const costLabels = [
+            'Dầu DO',
+            'Dầu LO',
+            'Lương thuyền viên',
+            'Tiền ăn',
+            'Bảo hiểm TV',
+            'Vật tư Cty cấp',
+            'Vật tư Tàu chi',
+            'CP Phân bổ Cty',
+            'Đại lý 2 đầu cảng',
+            'Tàu chi 2 đầu cảng',
+            'Phí cảng & hoa tiêu',
+            'Tiền Bông',
+            'Thuế VAT',
+            'Chi phí khác'
+        ];
+
+        const costValues = [
+            costSums.fuelDO,
+            costSums.fuelLO,
+            costSums.crewSalary,
+            costSums.crewFood,
+            costSums.crewInsurance,
+            costSums.materialCompany,
+            costSums.materialVessel,
+            costSums.monthlyOther,
+            costSums.agent,
+            costSums.vessel2ends,
+            costSums.portFees,
+            costSums.brokerage,
+            costSums.vat,
+            costSums.others
+        ];
+
+        const costColors = [
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(217, 119, 6, 0.8)',
+            'rgba(79, 70, 229, 0.8)',
+            'rgba(99, 102, 241, 0.8)',
+            'rgba(129, 140, 248, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(52, 211, 153, 0.8)',
+            'rgba(110, 231, 183, 0.8)',
+            'rgba(14, 165, 233, 0.8)',
+            'rgba(56, 189, 248, 0.8)',
+            'rgba(186, 230, 253, 0.8)',
+            'rgba(244, 63, 94, 0.8)',
+            'rgba(225, 29, 72, 0.8)',
+            'rgba(156, 163, 175, 0.8)'
+        ];
+
+        const filteredCosts = [];
+        costLabels.forEach((lbl, idx) => {
+            if (costValues[idx] > 0) {
+                filteredCosts.push({
+                    label: lbl,
+                    value: costValues[idx],
+                    color: costColors[idx]
+                });
+            }
+        });
+
+        // Vẽ biểu đồ 3: Cơ cấu chi phí
+        this.dashboardCharts.cost = new Chart(canvasCost, {
+            type: 'doughnut',
+            data: {
+                labels: filteredCosts.map(item => item.label),
+                datasets: [{
+                    data: filteredCosts.map(item => item.value),
+                    backgroundColor: filteredCosts.map(item => item.color),
+                    borderWidth: 1,
+                    borderColor: 'rgba(15, 17, 26, 0.6)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: '#94a3b8',
+                            font: { family: 'Inter', size: 10 },
+                            boxWidth: 12
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const val = context.parsed;
+                                const pct = ((val / total) * 100).toFixed(1);
+                                return context.label + ': ' + AppData.formatCurrency(val) + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Vẽ biểu đồ 4: Tiêu hao nhiên liệu DO
+        this.dashboardCharts.fuel = new Chart(canvasFuel, {
+            type: 'bar',
+            data: {
+                labels: vesselNames,
+                datasets: [{
+                    label: 'Tiền dầu DO',
+                    data: vesselFuelData,
+                    backgroundColor: 'rgba(245, 158, 11, 0.75)',
+                    borderColor: '#f59e0b',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Tiền dầu: ' + AppData.formatCurrency(context.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8', callback: value => (value / 1e6).toFixed(0) + 'M' }
+                    },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                }
+            }
+        });
+
+        // Tự động phân tích và nhận xét
+        this.generateDashboardAnalysis(shipments, allShipments, filterMonth);
+    },
+
+    generateDashboardAnalysis(filteredShipments, allShipments, filterMonth) {
+        const el = document.getElementById('reports-analysis-content');
+        if (!el) return;
+
+        if (filteredShipments.length === 0) {
+            el.innerHTML = `<p style="color: var(--text-muted);"><i class="fa-solid fa-triangle-exclamation" style="color: var(--warning); margin-right: 6px;"></i>Không có dữ liệu chuyến hàng nào để phân tích trong giai đoạn này.</p>`;
+            return;
+        }
+
+        // 1. Tính các chỉ số cơ bản
+        let totalRevenue = 0;
+        let totalCost = 0;
+        let totalFuelDO = 0;
+        let totalVat = 0;
+        let totalBrokerage = 0;
+        let totalCrewSalary = 0;
+
+        filteredShipments.forEach(s => {
+            totalRevenue += Number(s.revenueReal || 0);
+            const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+            const baseCosts = { ...s.costs };
+            delete baseCosts.vat;
+            const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
+            
+            totalCost += costSum;
+            totalFuelDO += Number(s.costs?.fuelDO || 0);
+            totalVat += (vat > 0 ? vat : 0);
+            totalBrokerage += Number(s.costs?.brokerage || 0);
+            totalCrewSalary += Number(s.costs?.crewSalary || 0);
+        });
+
+        const totalProfit = totalRevenue - totalCost;
+        const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0;
+
+        // 2. Tính hiệu suất theo Tàu
+        const vesselStats = {};
+        filteredShipments.forEach(s => {
+            const vId = s.vesselId;
+            if (!vesselStats[vId]) {
+                vesselStats[vId] = { 
+                    revenue: 0, 
+                    cost: 0, 
+                    profit: 0, 
+                    voyages: 0,
+                    costsDetail: {
+                        fuelDO: 0,
+                        fuelLO: 0,
+                        crewSalary: 0,
+                        crewFood: 0,
+                        crewInsurance: 0,
+                        materialCompany: 0,
+                        materialVessel: 0,
+                        monthlyOther: 0,
+                        agent: 0,
+                        vessel2ends: 0,
+                        portFees: 0,
+                        brokerage: 0,
+                        vat: 0,
+                        others: 0
+                    }
+                };
+            }
+            const rev = Number(s.revenueReal || 0);
+            const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+            const baseCosts = { ...s.costs };
+            delete baseCosts.vat;
+            const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
+            
+            vesselStats[vId].revenue += rev;
+            vesselStats[vId].cost += costSum;
+            vesselStats[vId].profit += (rev - costSum);
+            vesselStats[vId].voyages += 1;
+
+            // Cộng dồn chi tiết từng hạng mục chi phí
+            vesselStats[vId].costsDetail.fuelDO += Number(s.costs?.fuelDO || 0);
+            vesselStats[vId].costsDetail.fuelLO += Number(s.costs?.fuelLO || 0);
+            vesselStats[vId].costsDetail.crewSalary += Number(s.costs?.crewSalary || 0);
+            vesselStats[vId].costsDetail.crewFood += Number(s.costs?.crewFood || 0);
+            vesselStats[vId].costsDetail.crewInsurance += Number(s.costs?.crewInsurance || 0);
+            vesselStats[vId].costsDetail.materialCompany += Number(s.costs?.materialCompany || 0);
+            vesselStats[vId].costsDetail.materialVessel += Number(s.costs?.materialVessel || 0);
+            vesselStats[vId].costsDetail.monthlyOther += Number(s.costs?.monthlyOther || 0);
+            vesselStats[vId].costsDetail.agent += Number(s.costs?.agent || 0);
+            vesselStats[vId].costsDetail.vessel2ends += Number(s.costs?.vessel2ends || 0);
+            vesselStats[vId].costsDetail.portFees += Number(s.costs?.portFees || 0);
+            vesselStats[vId].costsDetail.brokerage += Number(s.costs?.brokerage || 0);
+            vesselStats[vId].costsDetail.vat += (vat > 0 ? vat : 0);
+            vesselStats[vId].costsDetail.others += Number(s.costs?.others || 0);
+        });
+
+        let bestVessel = '', maxProfit = -Infinity;
+        let worstVessel = '', minProfit = Infinity;
+        let mostActiveVessel = '', maxVoyages = 0;
+
+        Object.keys(vesselStats).forEach(vId => {
+            const stats = vesselStats[vId];
+            if (stats.profit > maxProfit) {
+                maxProfit = stats.profit;
+                bestVessel = vId;
+            }
+            if (stats.profit < minProfit) {
+                minProfit = stats.profit;
+                worstVessel = vId;
+            }
+            if (stats.voyages > maxVoyages) {
+                maxVoyages = stats.voyages;
+                mostActiveVessel = vId;
+            }
+        });
+
+        const bestVesselObj = AppData.state.vessels.find(v => v.id === bestVessel) || { name: bestVessel };
+        const worstVesselObj = AppData.state.vessels.find(v => v.id === worstVessel) || { name: worstVessel };
+
+        // 3. Phân tích Chi phí
+        const fuelDOPercent = totalRevenue > 0 ? ((totalFuelDO / totalRevenue) * 100).toFixed(1) : 0;
+        const crewSalaryPercent = totalRevenue > 0 ? ((totalCrewSalary / totalRevenue) * 100).toFixed(1) : 0;
+
+        // 4. Tính toán so sánh tăng trưởng nếu có chọn tháng
+        let growthHTML = '';
+        if (filterMonth) {
+            // Xác định tháng trước
+            const parts = filterMonth.split('-');
+            let yr = parseInt(parts[0]);
+            let mo = parseInt(parts[1]);
+            mo--;
+            if (mo === 0) {
+                mo = 12;
+                yr--;
+            }
+            const prevMonthStr = yr + '-' + String(mo).padStart(2, '0');
+            const prevMonthShipments = allShipments.filter(s => {
+                const m = s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : '');
+                return m === prevMonthStr;
+            });
+
+            if (prevMonthShipments.length > 0) {
+                let prevRevenue = 0;
+                let prevCost = 0;
+                prevMonthShipments.forEach(s => {
+                    prevRevenue += Number(s.revenueReal || 0);
+                    const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.10 * (s.costs?.fuelDO || 0)));
+                    const baseCosts = { ...s.costs };
+                    delete baseCosts.vat;
+                    const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
+                    prevCost += costSum;
+                });
+                const prevProfit = prevRevenue - prevCost;
+                const profitDiff = totalProfit - prevProfit;
+                
+                let growthRate = 0;
+                if (prevProfit !== 0) {
+                    growthRate = ((profitDiff / Math.abs(prevProfit)) * 100).toFixed(1);
+                }
+                
+                if (profitDiff > 0) {
+                    growthHTML = `<li style="margin-bottom: 0.5rem;"><i class="fa-solid fa-arrow-trend-up" style="color: var(--secondary); margin-right: 8px;"></i>So với tháng trước (Tháng ${mo}/${yr}), lợi nhuận ròng của công ty <strong>tăng trưởng ${growthRate}%</strong> (Tương đương tăng thêm <strong style="color: var(--secondary);">${AppData.formatCurrency(profitDiff)}</strong>).</li>`;
+                } else if (profitDiff < 0) {
+                    growthHTML = `<li style="margin-bottom: 0.5rem;"><i class="fa-solid fa-arrow-trend-down" style="color: var(--accent); margin-right: 8px;"></i>So với tháng trước (Tháng ${mo}/${yr}), lợi nhuận ròng của công ty <strong>suy giảm ${Math.abs(growthRate)}%</strong> (Tương đương giảm <strong style="color: var(--accent);">${AppData.formatCurrency(Math.abs(profitDiff))}</strong>). Ban điều hành cần rà soát lại chi phí chuyến.</li>`;
+                } else {
+                    growthHTML = `<li style="margin-bottom: 0.5rem;"><i class="fa-solid fa-equals" style="color: var(--info); margin-right: 8px;"></i>Lợi nhuận ròng duy trì ổn định tương đương tháng trước (Tháng ${mo}/${yr}).</li>`;
+                }
+            } else {
+                growthHTML = `<li style="margin-bottom: 0.5rem;"><i class="fa-solid fa-circle-info" style="color: var(--info); margin-right: 8px;"></i>Không có dữ liệu của tháng trước (${prevMonthStr}) để so sánh tăng trưởng.</li>`;
+            }
+        }
+
+        // 5. Cảnh báo và khuyến nghị (Operational Warnings & Recommendations)
+        let alertHTML = '';
+        let recommendationHTML = '';
+        
+        // Nhiên liệu DO
+        if (Number(fuelDOPercent) > 40) {
+            alertHTML += `<div style="background: rgba(244, 63, 94, 0.08); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: 8px; padding: 12px; margin-top: 10px; display: flex; gap: 10px; align-items: flex-start;">
+                <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent); font-size: 1.2rem; margin-top: 2px;"></i>
+                <div>
+                    <strong style="color: var(--text-main); font-size: 0.9rem;">CẢNH BÁO CHI PHÍ NHIÊN LIỆU DO CAO:</strong>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                        Chi phí dầu DO chiếm tới <strong>${fuelDOPercent}%</strong> tổng doanh thu trong kỳ (vượt ngưỡng kiểm soát 40%). Ban quản lý cần rà soát lại định mức tiêu hao dầu của từng tàu.
+                    </p>
+                </div>
+            </div>`;
+            recommendationHTML += `<li style="margin-bottom: 0.5rem;"><i class="fa-solid fa-circle-check" style="color: var(--primary-light); margin-right: 8px;"></i>Tăng cường giám sát chỉ số tiêu thụ nhiên liệu chặng và kiểm tra chênh lệch hiệu suất kỹ thuật giữa các tàu.</li>`;
+        } else {
+            recommendationHTML += `<li style="margin-bottom: 0.5rem;"><i class="fa-solid fa-circle-check" style="color: var(--secondary); margin-right: 8px;"></i>Chi phí nhiên liệu DO chiếm <strong>${fuelDOPercent}%</strong> tổng doanh thu, nằm trong biên độ an toàn và kiểm soát tốt.</li>`;
+        }
+
+        // Lợi nhuận
+        if (totalProfit < 0) {
+            alertHTML += `<div style="background: rgba(244, 63, 94, 0.08); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: 8px; padding: 12px; margin-top: 10px; display: flex; gap: 10px; align-items: flex-start;">
+                <i class="fa-solid fa-chart-line-down" style="color: var(--accent); font-size: 1.2rem; margin-top: 2px;"></i>
+                <div>
+                    <strong style="color: var(--text-main); font-size: 0.9rem;">CẢNH BÁO THUA LỖ:</strong>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                        Kỳ báo cáo này ghi nhận mức <strong>lỗ ròng</strong> <strong style="color: var(--accent);">${AppData.formatCurrency(Math.abs(totalProfit))}</strong>. Cần tối ưu ngay các khoản chi phí không thiết yếu.
+                    </p>
+                </div>
+            </div>`;
+            recommendationHTML += `<li style="margin-bottom: 0.5rem;"><i class="fa-solid fa-circle-check" style="color: var(--primary-light); margin-right: 8px;"></i>Kiểm tra lại giá cước vận tải chuyến và đàm phán tối ưu phụ phí đại lý hoa tiêu cảng 2 đầu.</li>`;
+        } else if (Number(profitMargin) < 15) {
+            recommendationHTML += `<li style="margin-bottom: 0.5rem;"><i class="fa-solid fa-circle-check" style="color: var(--warning); margin-right: 8px;"></i>Biên lợi nhuận ròng hiện ở mức thấp (<strong>${profitMargin}%</strong>). Công ty cần nâng cao hiệu suất xếp dỡ để rút ngắn số ngày chuyến tàu.</li>`;
+        } else {
+            recommendationHTML += `<li style="margin-bottom: 0.5rem;"><i class="fa-solid fa-circle-check" style="color: var(--secondary); margin-right: 8px;"></i>Biên lợi nhuận ròng đạt hiệu quả lý tưởng (<strong>${profitMargin}%</strong>). Mô hình hoạt động hiện tại rất tối ưu.</li>`;
+        }
+
+        // Tàu kém hiệu quả
+        if (minProfit < 0) {
+            alertHTML += `<div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 8px; padding: 12px; margin-top: 10px; display: flex; gap: 10px; align-items: flex-start;">
+                <i class="fa-solid fa-circle-exclamation" style="color: var(--warning); font-size: 1.2rem; margin-top: 2px;"></i>
+                <div>
+                    <strong style="color: var(--text-main); font-size: 0.9rem;">CẢNH BÁO TÀU HOẠT ĐỘNG THUA LỖ:</strong>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                        Tàu <strong>${worstVesselObj.name}</strong> đang có biên lợi nhuận âm <strong style="color: var(--accent);">${AppData.formatCurrency(minProfit)}</strong> qua <strong>${vesselStats[worstVessel].voyages}</strong> chuyến hàng.
+                    </p>
+                </div>
+            </div>`;
+        }
+
+        let timeStr = filterMonth ? `Tháng ${filterMonth.split('-')[1]}/${filterMonth.split('-')[0]}` : 'Toàn bộ thời gian';
+
+        el.innerHTML = `
+            <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 2rem;">
+                <div>
+                    <h4 style="margin: 0 0 0.75rem 0; color: var(--primary-light); font-size: 1.05rem;"><i class="fa-solid fa-list-check" style="margin-right: 6px;"></i>Nhận định Tài chính & Vận hành (${timeStr})</h4>
+                    <ul style="padding-left: 1.25rem; margin: 0; color: var(--text-main);">
+                        <li style="margin-bottom: 0.5rem;">
+                            Tổng doanh thu thực tế toàn đội tàu đạt <strong style="color: var(--info);">${AppData.formatCurrency(totalRevenue)}</strong> 
+                            với tổng chi phí vận hành chuyến là <strong style="color: var(--accent);">${AppData.formatCurrency(totalCost)}</strong>.
+                        </li>
+                        <li style="margin-bottom: 0.5rem;">
+                            Lợi nhuận ròng thu về đạt <strong style="color: var(--secondary);">${AppData.formatCurrency(totalProfit)}</strong>, 
+                            biên lợi nhuận ròng trung bình đạt <strong>${profitMargin}%</strong>.
+                        </li>
+                        ${growthHTML}
+                        <li style="margin-bottom: 0.5rem;">
+                            Tàu mang lại hiệu quả kinh tế cao nhất là <strong>${bestVesselObj.name}</strong> 
+                            đạt lợi nhuận ròng <strong style="color: var(--secondary);">${AppData.formatCurrency(maxProfit)}</strong> 
+                            qua <strong>${vesselStats[bestVessel].voyages}</strong> chuyến đi.
+                        </li>
+                        ${bestVessel !== worstVessel ? `
+                        <li style="margin-bottom: 0.5rem;">
+                            Tàu có hiệu quả kinh tế thấp nhất là <strong>${worstVesselObj.name}</strong> 
+                            với lợi nhuận ròng là <strong style="${minProfit < 0 ? 'color: var(--accent);' : 'color: var(--text-main);'}">${AppData.formatCurrency(minProfit)}</strong>.
+                        </li>
+                        ` : ''}
+                        <li style="margin-bottom: 0.5rem;">
+                            Chi phí nhiên liệu DO là chi phí lớn nhất, tiêu tốn <strong style="color: var(--warning);">${AppData.formatCurrency(totalFuelDO)}</strong>, 
+                            chiếm <strong>${fuelDOPercent}%</strong> tổng doanh thu thực tế.
+                        </li>
+                    </ul>
+                </div>
+                
+                <div style="border-left: 1px solid var(--border-color); padding-left: 2rem;">
+                    <h4 style="margin: 0 0 0.75rem 0; color: var(--secondary); font-size: 1.05rem;"><i class="fa-solid fa-lightbulb" style="margin-right: 6px;"></i>Đề xuất Khuyến nghị Vận hành</h4>
+                    <ul style="padding-left: 1.25rem; margin: 0; color: var(--text-main); font-size: 0.9rem;">
+                        ${recommendationHTML}
+                        <li style="margin-bottom: 0.5rem;"><i class="fa-solid fa-circle-check" style="color: var(--primary-light); margin-right: 8px;"></i>Tập trung khai thác và phân bổ thêm tài nguyên cho đội tàu <strong>${bestVesselObj.name}</strong> để tối ưu hóa doanh số.</li>
+                    </ul>
+                </div>
+            </div>
+            
+            ${alertHTML ? `
+            <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+                <h4 style="margin: 0 0 0.75rem 0; color: var(--accent); font-size: 1.05rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i>Cảnh báo Vận hành khẩn cấp</h4>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                    ${alertHTML}
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Phân tích Chi tiết Từng Tàu -->
+            <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                <h4 style="margin: 0 0 1.25rem 0; color: var(--primary-light); font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-ship"></i> Phân tích Hiệu quả & Chi tiết Chi phí từng Tàu (${timeStr})
+                </h4>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+                    ${Object.keys(vesselStats).map(vId => {
+                        const stats = vesselStats[vId];
+                        const vesselObj = AppData.state.vessels.find(v => v.id === vId) || { name: vId };
+                        const margin = stats.revenue > 0 ? ((stats.profit / stats.revenue) * 100).toFixed(1) : 0;
+                        
+                        // Chi tiết các hạng mục chi phí > 0
+                        const costLabels = {
+                            fuelDO: 'Dầu DO',
+                            fuelLO: 'Dầu LO',
+                            crewSalary: 'Lương thuyền viên',
+                            crewFood: 'Tiền ăn',
+                            crewInsurance: 'Bảo hiểm TV',
+                            materialCompany: 'Vật tư Cty cấp',
+                            materialVessel: 'Vật tư Tàu chi',
+                            monthlyOther: 'CP Phân bổ Cty',
+                            agent: 'Đại lý 2 đầu cảng',
+                            vessel2ends: 'Tàu chi 2 đầu cảng',
+                            portFees: 'Phí cảng & hoa tiêu',
+                            brokerage: 'Tiền Bông',
+                            vat: 'Thuế VAT',
+                            others: 'Chi phí khác'
+                        };
+
+                        const costRows = Object.keys(costLabels).map(key => {
+                            const val = stats.costsDetail[key] || 0;
+                            if (val <= 0) return '';
+                            const pct = stats.cost > 0 ? ((val / stats.cost) * 100).toFixed(1) : 0;
+                            const revPct = stats.revenue > 0 ? ((val / stats.revenue) * 100).toFixed(1) : 0;
+                            return `
+                                <tr>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text-muted);">${costLabels[key]}</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: right; font-weight: 500;">${AppData.formatCurrency(val)}</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: right; color: var(--warning); font-size: 0.85rem;">${pct}%</td>
+                                    <td style="padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: right; color: var(--info); font-size: 0.85rem;">${revPct}%</td>
+                                </tr>
+                            `;
+                        }).join('');
+
+                        // Nhận xét định tính cho tàu này
+                        let vesselComment = '';
+                        if (stats.profit > 0) {
+                            if (Number(margin) >= 20) {
+                                vesselComment = `<span style="color: var(--secondary); font-weight: 600;"><i class="fa-solid fa-circle-check"></i> Hoạt động rất hiệu quả.</span> Lợi nhuận ròng tốt (${margin}%) nhờ kiểm soát chi phí tối ưu.`;
+                            } else {
+                                vesselComment = `<span style="color: var(--warning); font-weight: 600;"><i class="fa-solid fa-triangle-exclamation"></i> Hiệu quả trung bình.</span> Biên lợi nhuận ròng đạt ${margin}%, cần rà soát lại các hạng mục chi phí chiếm tỷ trọng cao.`;
+                            }
+                        } else {
+                            vesselComment = `<span style="color: var(--accent); font-weight: 600;"><i class="fa-solid fa-circle-xmark"></i> Hoạt động thua lỗ.</span> Tàu bị âm lợi nhuận <strong style="color: var(--accent);">${AppData.formatCurrency(Math.abs(stats.profit))}</strong> trong kỳ này.`;
+                        }
+
+                        const specificDO = stats.costsDetail.fuelDO;
+                        const specFuelDOPercent = stats.revenue > 0 ? ((specificDO / stats.revenue) * 100).toFixed(1) : 0;
+                        if (Number(specFuelDOPercent) > 40) {
+                            vesselComment += ` <br><span style="color: var(--accent); font-weight: 600;"><i class="fa-solid fa-triangle-exclamation"></i> Cảnh báo:</span> Chi phí dầu DO rất cao, chiếm <strong>${specFuelDOPercent}%</strong> tổng doanh thu của tàu.`;
+                        }
+
+                        return `
+                            <div style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 1.25rem;">
+                                <!-- Vessel Summary Header -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span style="font-size: 1.1rem; font-weight: 700; color: var(--info);"><i class="fa-solid fa-ship"></i> ${vesselObj.name}</span>
+                                        <span class="badge badge-outline" style="font-size: 0.75rem;">${stats.voyages} chuyến</span>
+                                    </div>
+                                    <div style="display: flex; gap: 1.5rem; font-size: 0.9rem;">
+                                        <div>Doanh thu: <strong style="color: var(--info);">${AppData.formatCurrency(stats.revenue)}</strong></div>
+                                        <div>Chi phí: <strong style="color: var(--accent);">${AppData.formatCurrency(stats.cost)}</strong></div>
+                                        <div>Lợi nhuận: <strong class="${stats.profit >= 0 ? 'value-positive' : 'value-negative'}">${AppData.formatCurrency(stats.profit)} (${margin}%)</strong></div>
+                                    </div>
+                                </div>
+
+                                <!-- Detail Layout: Comment and Cost Breakdown -->
+                                <div style="display: grid; grid-template-columns: 1.2fr 2fr; gap: 2rem;">
+                                    <div style="font-size: 0.9rem; line-height: 1.6; display: flex; flex-direction: column; justify-content: center; background: rgba(255,255,255,0.01); padding: 12px; border-radius: 6px; border-left: 3px solid var(--primary-light);">
+                                        <h5 style="margin: 0 0 6px 0; font-size: 0.95rem; color: var(--text-main); font-weight: 600;">Nhận định vận hành:</h5>
+                                        <p style="margin: 0; color: var(--text-muted);">${vesselComment}</p>
+                                    </div>
+                                    <div>
+                                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                                            <thead>
+                                                <tr style="background: rgba(255,255,255,0.03); color: var(--text-muted); font-weight: 600;">
+                                                    <th style="padding: 6px 12px; text-align: left;">Hạng mục chi phí</th>
+                                                    <th style="padding: 6px 12px; text-align: right;">Số tiền</th>
+                                                    <th style="padding: 6px 12px; text-align: right;">% Chi phí</th>
+                                                    <th style="padding: 6px 12px; text-align: right;">% Doanh thu</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${costRows}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    },
+
     openModal(id) { document.getElementById(id).classList.add('active'); },
     closeModal(id) { document.getElementById(id).classList.remove('active'); },
+
+    hrTab: 'all',
+
+    openEmployeeModal() {
+        document.getElementById('employee-modal-content').innerHTML = Views.employeeModal();
+        this.openModal('employee-modal');
+    },
+    editEmployee(id) {
+        const e = AppData.getEmployee(id);
+        if (!e) return;
+        document.getElementById('employee-modal-content').innerHTML = Views.employeeModal(e);
+        this.openModal('employee-modal');
+    },
+    saveEmployee(id) {
+        const emp = {
+            id: id || null,
+            name: document.getElementById('emp-name').value,
+            phone: document.getElementById('emp-phone').value,
+            role: document.getElementById('emp-role').value,
+            department: document.getElementById('emp-department').value,
+            joinDate: document.getElementById('emp-join').value,
+            leaveDate: document.getElementById('emp-leave').value,
+            basicSalary: Number(document.getElementById('emp-basic-salary').value) || 0,
+            mealAllowance: Number(document.getElementById('emp-meal-allowance').value) || 0,
+            phoneAllowance: Number(document.getElementById('emp-phone-allowance').value) || 0,
+            clothingAllowance: Number(document.getElementById('emp-clothing-allowance').value) || 0,
+            transportAllowance: Number(document.getElementById('emp-transport-allowance').value) || 0,
+            personalDeduction: Number(document.getElementById('emp-personal-deduction').value) || 0,
+            dependents: Number(document.getElementById('emp-dependents').value) || 0,
+            actualSalary: Number(document.getElementById('emp-actual-salary').value) || 0,
+            insurance: Number(document.getElementById('emp-insurance').value) || 0,
+            deliveryAllowance: Number(document.getElementById('emp-delivery-allowance').value) || 0,
+            completionBonus: Number(document.getElementById('emp-completion-bonus').value) || 0,
+            notes: document.getElementById('emp-notes').value
+        };
+        AppData.saveEmployee(emp);
+        this.closeModal('employee-modal');
+        this.navigate('hr');
+    },
+    deleteEmployee(id) {
+        if (confirm('Bạn có chắc muốn xóa nhân sự này?')) {
+            AppData.deleteEmployee(id);
+            this.navigate('hr');
+        }
+    },
+
+    loadSalaryView() {
+        const month = document.getElementById('sal-month')?.value;
+        const dep = document.getElementById('sal-department')?.value;
+        this.navigate('salary', month, dep, app.salaryTab || 'thucte');
+    },
+
+    updateVoyageCount() {
+        const month = document.getElementById('sal-month')?.value;
+        const dep = document.getElementById('sal-department')?.value;
+        const count = Number(document.getElementById('sal-voyage-count')?.value) || 0;
+        let ts = AppData.getTimesheet(month, dep);
+        if (!ts) {
+            ts = { month, department: dep, attendance: {}, voyageCount: 0 };
+        }
+        ts.voyageCount = count;
+        AppData.saveTimesheet(ts);
+        this.navigate('salary', month, dep, 'chungtu');
+    },
+
+    toggleAttendanceDay(employeeId, dayIndex, isChecked) {
+        const month = document.getElementById('sal-month')?.value;
+        const dep = document.getElementById('sal-department')?.value;
+        let ts = AppData.getTimesheet(month, dep);
+        if (!ts) return; // Should not happen
+        
+        if (ts.attendance[employeeId] && ts.attendance[employeeId].length > dayIndex) {
+            ts.attendance[employeeId][dayIndex] = isChecked;
+            AppData.saveTimesheet(ts);
+            // Re-render view to update calculations
+            this.navigate('salary', month, dep);
+        }
+    },
 
     openTransactionModal() {
         document.getElementById('trans-modal-content').innerHTML = Views.transModal();
@@ -151,6 +2350,8 @@ const app = {
             date: document.getElementById('t-date').value,
             vessel: document.getElementById('t-vessel').value,
             category: document.getElementById('t-cat').value,
+            voyageNo: document.getElementById('t-voyage').value,
+            contractNo: document.getElementById('t-contract').value,
             partner: document.getElementById('t-partner').value,
             content: document.getElementById('t-content').value,
             thu: Number(document.getElementById('t-thu').value) || 0,
@@ -159,7 +2360,11 @@ const app = {
         };
         AppData.addTransaction(t);
         this.closeModal('trans-modal');
-        this.navigate('financials');
+        if (this.currentView === 'debts') {
+            this.navigate('debts', this.currentDebtTab || 'customer');
+        } else {
+            this.navigate('financials');
+        }
     },
     editTransaction(id) {
         const trans = AppData.state.transactions.find(t => t.id === id);
@@ -169,6 +2374,12 @@ const app = {
         document.getElementById('t-date').value = trans.date;
         document.getElementById('t-vessel').value = trans.vessel;
         document.getElementById('t-cat').value = trans.category;
+        
+        document.getElementById('t-voyage').value = trans.voyageNo || '';
+        this.onTransactionCatChange();
+        if (trans.category === 'CVC') {
+            document.getElementById('t-contract').value = trans.contractNo || '';
+        }
         document.getElementById('t-partner').value = trans.partner;
         document.getElementById('t-content').value = trans.content;
         document.getElementById('t-thu').value = trans.thu;
@@ -179,7 +2390,27 @@ const app = {
     deleteTransaction(id) {
         if (confirm('Bạn có chắc muốn xóa giao dịch này?')) {
             AppData.deleteTransaction(id);
-            this.navigate('financials');
+            if (this.currentView === 'debts') {
+                this.navigate('debts', this.currentDebtTab || 'customer');
+            } else {
+                this.navigate('financials');
+            }
+        }
+    },
+    onTransactionCatChange() {
+        const cat = document.getElementById('t-cat').value;
+        const wrapper = document.getElementById('t-contract-wrapper');
+        const contractSelect = document.getElementById('t-contract');
+        
+        if (cat === 'CVC') {
+            wrapper.style.display = 'block';
+            const vesselId = document.getElementById('t-vessel').value;
+            const shipments = AppData.state.shipments.filter(s => s.vesselId === vesselId);
+            contractSelect.innerHTML = '<option value="">-- Chọn Mã HĐ --</option>' + 
+                shipments.map(s => `<option value="${s.contractNo}">${s.contractNo}</option>`).join('');
+        } else {
+            wrapper.style.display = 'none';
+            contractSelect.value = '';
         }
     },
 
@@ -191,10 +2422,18 @@ const app = {
     saveFuelVoyage() {
         const id = document.getElementById('fv-id').value;
         const vesselId = document.getElementById('fv-vessel-id').value;
+        const fvNo = document.getElementById('fv-no').value;
+        
+        const existingNo = AppData.findFuelVoyageByVesselAndNo(vesselId, fvNo);
+        if (existingNo && existingNo.id !== id) {
+            alert(`Lỗi: Chuyến ${fvNo} đã tồn tại cho tàu này!`);
+            return;
+        }
+
         const voyage = {
             id: id || null,
             vesselId: vesselId,
-            voyageNo: document.getElementById('fv-no').value,
+            voyageNo: fvNo,
             cargoType: document.getElementById('fv-cargo').value,
             addedFuel: Number(document.getElementById('fv-added').value) || 0,
             fuelUnitPrice: Number(document.getElementById('fv-price').value) || 0,
@@ -227,16 +2466,95 @@ const app = {
         }
     },
 
+    formatDateTimeLocal(str) {
+        if (!str) return '';
+        str = String(str).trim();
+        if (!str || str === '---') return '';
+        
+        // If it's already in YYYY-MM-DDTHH:mm format
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(str)) {
+            return str.substring(0, 16);
+        }
+        
+        // Try to match MM/DD/YYYY HH:mm or DD/MM/YYYY HH:mm
+        const parts = str.split(/[\s,T]+/);
+        if (parts.length >= 2) {
+            const datePart = parts[0];
+            const timePart = parts[1];
+            
+            const dateSubparts = datePart.split('/');
+            if (dateSubparts.length === 3) {
+                let dVal = Number(dateSubparts[0]);
+                let mVal = Number(dateSubparts[1]);
+                let yVal = Number(dateSubparts[2]);
+                
+                // Determine day vs month
+                let day, month, year;
+                if (dVal > 12) {
+                    day = dVal;
+                    month = mVal;
+                    year = yVal;
+                } else if (mVal > 12) {
+                    day = mVal;
+                    month = dVal;
+                    year = yVal;
+                } else {
+                    // Ambiguous. Default to MM/DD/YYYY, or let Date try to parse it
+                    day = dVal;
+                    month = mVal;
+                    year = yVal;
+                    
+                    const testD = new Date(str);
+                    if (!isNaN(testD.getTime())) {
+                        const yr = testD.getFullYear();
+                        const mt = String(testD.getMonth() + 1).padStart(2, '0');
+                        const dy = String(testD.getDate()).padStart(2, '0');
+                        const hr = String(testD.getHours()).padStart(2, '0');
+                        const min = String(testD.getMinutes()).padStart(2, '0');
+                        return `${yr}-${mt}-${dy}T${hr}:${min}`;
+                    }
+                }
+                
+                // Format time part
+                const timeSubparts = timePart.split(':');
+                let hours = 0;
+                let minutes = 0;
+                if (timeSubparts.length >= 2) {
+                    hours = Number(timeSubparts[0]);
+                    minutes = Number(timeSubparts[1]);
+                }
+                
+                if (!isNaN(year) && !isNaN(month) && !isNaN(day) && !isNaN(hours) && !isNaN(minutes)) {
+                    const pad = (n) => String(n).padStart(2, '0');
+                    return `${year}-${pad(month)}-${pad(day)}T${pad(hours)}:${pad(minutes)}`;
+                }
+            }
+        }
+        
+        // General fallback using Date
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+        
+        return '';
+    },
+
     openFuelLogModal(voyageId, logId) {
         document.getElementById('fuel-modal-content').innerHTML = Views.fuelModal(voyageId);
         document.getElementById('f-id').value = logId || '';
         if (logId) {
             const log = AppData.state.fuelLogs.find(l => l.id === logId);
             if (log) {
-                document.getElementById('f-start-time').value = log.startTime;
-                document.getElementById('f-start-pos').value = log.startPos;
-                document.getElementById('f-end-time').value = log.endTime;
-                document.getElementById('f-end-pos').value = log.endPos;
+                document.getElementById('f-start-time').value = this.formatDateTimeLocal(log.startTime);
+                document.getElementById('f-start-pos').value = log.startPos || '';
+                document.getElementById('f-end-time').value = this.formatDateTimeLocal(log.endTime);
+                document.getElementById('f-end-pos').value = log.endPos || '';
                 document.getElementById('f-fuel-rate').value = log.fuelRate;
                 document.getElementById('f-hours').value = log.hours;
             }
@@ -299,6 +2617,7 @@ const app = {
         document.getElementById('m-food').value = costs.food || 0;
         document.getElementById('m-material-company').value = costs.materialCompany || 0;
         document.getElementById('m-material-vessel').value = costs.materialVessel || 0;
+        document.getElementById('m-loan-interest').value = costs.loanInterest || 0;
         document.getElementById('m-other').value = costs.other || 0;
     },
     saveMonthlyCosts() {
@@ -312,6 +2631,7 @@ const app = {
             food: Number(document.getElementById('m-food').value) || 0,
             materialCompany: Number(document.getElementById('m-material-company').value) || 0,
             materialVessel: Number(document.getElementById('m-material-vessel').value) || 0,
+            loanInterest: Number(document.getElementById('m-loan-interest').value) || 0,
             other: Number(document.getElementById('m-other').value) || 0
         };
         AppData.saveMonthlyCosts(data);
@@ -323,7 +2643,32 @@ const app = {
     // Shipment Actions
     openShipmentModal() { 
         document.getElementById('ship-modal-content').innerHTML = Views.shipModal();
+        
+        // Auto-fill defaults for new shipment
+        document.getElementById('s-contract-no').value = AppData.getNextContractNo();
+        const firstVessel = document.getElementById('s-vessel-id').value;
+        if (firstVessel) {
+            document.getElementById('s-voy-no').value = AppData.getNextVoyageNo(firstVessel);
+            const loadDate = AppData.getNextLoadDate(firstVessel);
+            if (loadDate) document.getElementById('s-start').value = loadDate;
+            
+            // Sync fuel details if the new voyage number exists in fuel logs
+            setTimeout(() => {
+                this.syncShipmentFuel();
+            }, 0);
+        }
+
         this.openModal('ship-modal'); 
+    },
+    
+    handleShipmentVesselChange() {
+        if (!document.getElementById('s-id').value) {
+            const vesselId = document.getElementById('s-vessel-id').value;
+            document.getElementById('s-voy-no').value = AppData.getNextVoyageNo(vesselId);
+            const loadDate = AppData.getNextLoadDate(vesselId);
+            if (loadDate) document.getElementById('s-start').value = loadDate;
+        }
+        this.syncShipmentFuel();
     },
     
     calcShipmentFinance() {
@@ -334,7 +2679,8 @@ const app = {
         
         const revReal = qty * rate;
         const revInvoice = (rate + markup) * qty;
-        const refund = AppData.calcRefund(revInvoice, revReal);
+        const contractNo = document.getElementById('s-contract-no').value;
+        const refund = AppData.calcRefund(revInvoice, revReal, contractNo);
         
         document.getElementById('val-rev-real').innerText = AppData.formatCurrency(revReal);
         document.getElementById('val-rev-inv').innerText = AppData.formatCurrency(revInvoice);
@@ -344,15 +2690,32 @@ const app = {
         const hours = Number(document.getElementById('s-c-hours').value) || 0;
         const vesselId = document.getElementById('s-vessel-id').value;
         const vessel = AppData.getVessel(vesselId);
+        const voyNo = document.getElementById('s-voy-no')?.value;
         
         let fuelCost = 0;
-        if (vessel) {
+        let fuelVoy = null;
+        if (vesselId && voyNo) {
+            fuelVoy = AppData.findFuelVoyageByVesselAndNo(vesselId, voyNo);
+        }
+        
+        if (fuelVoy) {
+            // Lấy chính xác từ chi tiết các chặng (Fuel Logs) nếu đã có
+            const stats = AppData.getFuelVoyageStats(fuelVoy.id);
+            let price = Number(stats.fuelPrice) || fuelP;
+            fuelCost = Math.round(stats.totalFuel * price);
+            document.getElementById('s-c-fuel').value = fuelCost;
+        } else if (vessel) {
+            // Tạm tính dựa trên định mức chung nếu chưa có chi tiết chặng
             fuelCost = hours * vessel.fuelRate * fuelP;
             document.getElementById('s-c-fuel').value = fuelCost;
         }
 
-        // Calculate VAT: 8% Doanh Thu hoá đơn - 10% hoá đơn dầu
-        const vat = (0.08 * revInvoice) - (0.10 * fuelCost);
+        // Calculate VAT: 8% Doanh Thu hoá đơn - 8% (Dầu DO + Dầu LO + Đại lý 2 đầu + Hoa tiêu, phí cảng)
+        const fuelLO = Number(document.getElementById('s-c-fuel-lo')?.value) || 0;
+        const agent = Number(document.getElementById('s-c-agent')?.value) || 0;
+        const portFees = Number(document.getElementById('s-c-port-fees')?.value) || 0;
+        const deduc = fuelCost + fuelLO + agent + portFees;
+        const vat = (0.08 * revInvoice) - (0.08 * deduc);
         document.getElementById('s-c-vat').value = Math.round(vat);
 
         this.calcBrokerage();
@@ -401,6 +2764,24 @@ const app = {
         const W = 1.5; // Default for full load
         
         const totalBrokerage = L * W * coefA * crewCount;
+        
+        // Prevent overwriting if exact value exists in Captain's Report
+        const sId = document.getElementById('s-id')?.value;
+        const voyageNo = document.getElementById('s-voy-no')?.value;
+        const start = document.getElementById('s-start')?.value;
+        
+        if (sId && voyageNo && start && vesselId) {
+            const monthStr = start.substring(0, 7);
+            const report = AppData.getCaptainReport(vesselId, monthStr);
+            if (report && report.brokerages) {
+                const exactBrokerage = report.brokerages.find(b => b.voyageNo === voyageNo);
+                if (exactBrokerage) {
+                    // Skip overwriting, keep the exact value from report
+                    return;
+                }
+            }
+        }
+
         const field = document.getElementById('s-c-brokerage');
         if (field) field.value = Math.round(totalBrokerage);
     },
@@ -411,19 +2792,14 @@ const app = {
         const vId = document.getElementById('s-vessel-id').value;
         if (!start || !end || !vId) return;
 
-        const voyageDays = AppData.calcDays(start, end);
-        const monthStr = start.substring(0, 7);
-        const monthly = AppData.getMonthlyCosts(monthStr, vId);
-        const daysInMonth = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 0).getDate();
+        const allocate = (field) => AppData.calcExactAllocation(start, end, vId, field);
 
-        const allocate = (total) => Math.round((Number(total) || 0) / daysInMonth * voyageDays);
-
-        document.getElementById('s-c-sal').value = allocate(monthly.salary);
-        document.getElementById('s-c-food').value = allocate(monthly.food);
-        document.getElementById('s-c-ins').value = allocate(monthly.insurance);
-        document.getElementById('s-c-m-mat-company').value = allocate(monthly.materialCompany);
-        document.getElementById('s-c-m-mat-vessel').value = allocate(monthly.materialVessel);
-        document.getElementById('s-c-m-other').value = allocate(monthly.other);
+        document.getElementById('s-c-sal').value = allocate('salary');
+        document.getElementById('s-c-food').value = allocate('food');
+        document.getElementById('s-c-ins').value = allocate('insurance');
+        document.getElementById('s-c-m-mat-company').value = allocate('materialCompany');
+        document.getElementById('s-c-m-mat-vessel').value = allocate('materialVessel');
+        document.getElementById('s-c-m-other').value = allocate('other');
     },
 
     syncShipmentFuel() {
@@ -438,12 +2814,25 @@ const app = {
             
             let price = Number(stats.fuelPrice);
             if (price === 0) {
-                price = AppData.getLastFuelPrice(vId);
+                price = AppData.getLastFuelPrice(vId, voyNo);
             }
             document.getElementById('s-fuel-p').value = price;
             
+            if (fuelVoy.cargoType) {
+                document.getElementById('s-cargo').value = fuelVoy.cargoType;
+                // Update brokerage since cargo changed
+                if (typeof this.calcBrokerage === 'function') {
+                    this.calcBrokerage();
+                }
+            }
+            
             this.calcShipmentFinance();
             console.log(`Synced fuel data for voyage ${voyNo} on vessel ${vId} (Price: ${price})`);
+        } else {
+            const price = AppData.getLastFuelPrice(vId, voyNo);
+            document.getElementById('s-fuel-p').value = price;
+            this.calcShipmentFinance();
+            console.log(`No fuel voyage record for voyage ${voyNo} on vessel ${vId}. Set fallback price to ${price}`);
         }
     },
 
@@ -460,6 +2849,7 @@ const app = {
             portDischarge: document.getElementById('s-p-dis').value,
             dateStart: document.getElementById('s-start').value,
             dateEnd: document.getElementById('s-end').value,
+            reportMonth: document.getElementById('s-report-month').value || '',
             qty: Number(document.getElementById('s-qty').value) || 0,
             rate: Number(document.getElementById('s-rate').value) || 0,
             markup: Number(document.getElementById('s-markup').value) || 0,
@@ -487,7 +2877,11 @@ const app = {
         };
         AppData.addShipment(s);
         this.closeModal('ship-modal');
-        this.navigate('shipments');
+        if (this.currentView === 'debts') {
+            this.navigate('debts', this.currentDebtTab || 'customer');
+        } else {
+            this.navigate('shipments');
+        }
     },
     editShipment(id) {
         const s = AppData.state.shipments.find(x => x.id === id);
@@ -503,6 +2897,7 @@ const app = {
         document.getElementById('s-p-dis').value = s.portDischarge || '';
         document.getElementById('s-start').value = s.dateStart;
         document.getElementById('s-end').value = s.dateEnd;
+        document.getElementById('s-report-month').value = s.reportMonth || '';
         document.getElementById('s-qty').value = s.qty;
         document.getElementById('s-rate').value = s.rate;
         document.getElementById('s-markup').value = s.markup;
@@ -530,7 +2925,11 @@ const app = {
     deleteShipment(id) {
         if (confirm('Bạn có chắc muốn xóa chuyến hàng này?')) {
             AppData.deleteShipment(id);
-            this.navigate('shipments');
+            if (this.currentView === 'debts') {
+                this.navigate('debts', this.currentDebtTab || 'customer');
+            } else {
+                this.navigate('shipments');
+            }
         }
     },
     openShipmentReport(id) {
@@ -557,6 +2956,513 @@ const app = {
         AppData.updateCompany(data);
         alert('Đã cập nhật thông tin Master Data và Số dư đầu kỳ!');
         this.navigate('company');
+    },
+
+    importTransactionsExcel(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                if (rows.length < 3) {
+                    alert('File không hợp lệ hoặc không có dữ liệu!');
+                    return;
+                }
+                
+                const headers = rows[2];
+                const dataRows = rows.slice(3);
+                
+                const colIdx = (name) => headers.indexOf(name);
+                
+                const idIdx = colIdx('ID Giao Dịch');
+                const dateIdx = colIdx('Ngày');
+                const vesselIdx = colIdx('Tàu / Bộ Phận');
+                const categoryIdx = colIdx('Hạng Mục');
+                const voyageNoIdx = colIdx('Chuyến Số');
+                const contractNoIdx = colIdx('Số Hợp Đồng');
+                const partnerIdx = colIdx('Đối Tác');
+                const contentIdx = colIdx('Nội Dung');
+                const thuIdx = colIdx('Thu Vào (VNĐ)');
+                const chiIdx = colIdx('Chi Ra (VNĐ)');
+                const accountIdx = colIdx('Tài Khoản');
+                
+                if (dateIdx === -1 || categoryIdx === -1 || contentIdx === -1) {
+                    alert('File Excel không đúng định dạng báo cáo giao dịch thu chi!');
+                    return;
+                }
+
+                let count = 0;
+                const affectedAllocations = new Set();
+                
+                dataRows.forEach(row => {
+                    if (row.length === 0 || !row[dateIdx]) return;
+                    
+                    const id = row[idIdx] ? String(row[idIdx]).trim() : ('TR' + Date.now() + Math.random().toString().slice(2, 6));
+                    
+                    // Parse Excel Date safely
+                    let dateVal = row[dateIdx];
+                    let dateStr = '';
+                    if (dateVal) {
+                        if (typeof dateVal === 'number') {
+                            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+                            const dateObj = new Date(excelEpoch.getTime() + dateVal * 24 * 60 * 60 * 1000);
+                            dateStr = dateObj.toISOString().slice(0, 10);
+                        } else {
+                            const str = String(dateVal).trim();
+                            if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                dateStr = str;
+                            } else if (str.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                                const parts = str.split('/');
+                                const d = parts[0].padStart(2, '0');
+                                const m = parts[1].padStart(2, '0');
+                                const y = parts[2];
+                                dateStr = `${y}-${m}-${d}`;
+                            } else {
+                                const parsed = new Date(str);
+                                if (!isNaN(parsed.getTime())) {
+                                    dateStr = parsed.toISOString().slice(0, 10);
+                                } else {
+                                    dateStr = str;
+                                }
+                            }
+                        }
+                    }
+
+                    const t = {
+                        id,
+                        date: dateStr,
+                        vessel: String(row[vesselIdx] || 'VP').trim(),
+                        category: String(row[categoryIdx] || '').trim(),
+                        voyageNo: row[voyageNoIdx] ? String(row[voyageNoIdx]).trim() : '',
+                        contractNo: row[contractNoIdx] ? String(row[contractNoIdx]).trim() : '',
+                        partner: String(row[partnerIdx] || '').trim(),
+                        content: String(row[contentIdx] || '').trim(),
+                        thu: Number(row[thuIdx]) || 0,
+                        chi: Number(row[chiIdx]) || 0,
+                        account: String(row[accountIdx] || 'Tiền mặt').trim()
+                    };
+                    
+                    const existingIdx = AppData.state.transactions.findIndex(x => x.id === id);
+                    const oldTx = existingIdx >= 0 ? { ...AppData.state.transactions[existingIdx] } : null;
+                    
+                    if (existingIdx >= 0) {
+                        AppData.state.transactions[existingIdx] = t;
+                    } else {
+                        AppData.state.transactions.push(t);
+                    }
+                    
+                    if (t.vessel && t.vessel !== 'VP' && t.date && (t.category === '9.Vật Tư' || t.category === '6.Lãi Vay')) {
+                        affectedAllocations.add(`${t.vessel}_${t.date.substring(0, 7)}`);
+                    }
+                    if (oldTx && oldTx.vessel && oldTx.vessel !== 'VP' && oldTx.date && (oldTx.category === '9.Vật Tư' || oldTx.category === '6.Lãi Vay')) {
+                        affectedAllocations.add(`${oldTx.vessel}_${oldTx.date.substring(0, 7)}`);
+                    }
+                    count++;
+                });
+                
+                affectedAllocations.forEach(key => {
+                    const [vesselId, monthStr] = key.split('_');
+                    AppData.recalculateVesselAllocations(vesselId, monthStr);
+                });
+                
+                AppData.save();
+                alert(`Khôi phục thành công ${count} giao dịch!`);
+                this.navigate('company');
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi khi đọc file Excel: ' + err.message);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    },
+
+    importShipmentsExcel(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                if (rows.length < 3) {
+                    alert('File không hợp lệ hoặc không có dữ liệu!');
+                    return;
+                }
+                
+                const headers = rows[2];
+                const dataRows = rows.slice(3);
+                
+                const colIdx = (name) => headers.indexOf(name);
+                
+                const idIdx = colIdx('ID Chuyến Hàng');
+                const contractNoIdx = colIdx('Số Hợp Đồng');
+                const voyageNoIdx = colIdx('Chuyến Số');
+                const vesselIdIdx = colIdx('Mã Tàu');
+                const customerIdx = colIdx('Khách Hàng');
+                const cargoIdx = colIdx('Tên Hàng');
+                const portLoadIdx = colIdx('Cảng Xếp (Đi)');
+                const portDischargeIdx = colIdx('Cảng Dỡ (Đến)');
+                const dateStartIdx = colIdx('Ngày Xếp Hàng');
+                const dateEndIdx = colIdx('Ngày Dỡ Hàng');
+                const reportMonthIdx = colIdx('Tháng Hạch Toán');
+                const qtyIdx = colIdx('Khối Lượng (Tấn)');
+                const rateIdx = colIdx('Đơn Giá Thực (VNĐ)');
+                const markupIdx = colIdx('Tiền Gửi (VND/tấn)');
+                const fuelPriceIdx = colIdx('Giá Dầu Chuyến (VNĐ)');
+                const fuelHoursIdx = colIdx('Số Giờ Chạy (Giờ)');
+                const revenueRealIdx = colIdx('Doanh Thu Thực Tế (VNĐ)');
+                const revenueInvoiceIdx = colIdx('Doanh Thu Hóa Đơn (VNĐ)');
+                const refundIdx = colIdx('Tiền Gửi Lại Khách (VNĐ)');
+                
+                const costsMap = {
+                    fuelDO: colIdx('Tiền Dầu DO (VNĐ)'),
+                    fuelLO: colIdx('Tiền Dầu LO (VNĐ)'),
+                    crewSalary: colIdx('Lương TV (VNĐ)'),
+                    crewFood: colIdx('Tiền Ăn (VNĐ)'),
+                    crewInsurance: colIdx('Bảo Hiểm (VNĐ)'),
+                    materialCompany: colIdx('Vật Tư Cty Cấp (VNĐ)'),
+                    materialVessel: colIdx('Vật Tư Tàu Chi (VNĐ)'),
+                    monthlyOther: colIdx('CP Khác Cty Cấp (VNĐ)'),
+                    agent: colIdx('Đại Lý 2 Đầu Cảng (VNĐ)'),
+                    vessel2ends: colIdx('Tàu Chi 2 Đầu Cảng (VNĐ)'),
+                    brokerage: colIdx('Tiền Bông (VNĐ)'),
+                    vat: colIdx('Thuế VAT (VNĐ)'),
+                    portFees: colIdx('Hoa Tiêu, Tàu Lai, Phí Cảng (VNĐ)'),
+                    others: colIdx('Chi Phí Khác Tàu Chi (VNĐ)')
+                };
+
+                let count = 0;
+                dataRows.forEach(row => {
+                    if (row.length === 0 || !row[contractNoIdx]) return;
+                    
+                    const id = row[idIdx] || ('S' + Date.now() + Math.random().toString().slice(2, 6));
+                    const s = {
+                        id,
+                        contractNo: String(row[contractNoIdx] || '').trim(),
+                        voyageNo: String(row[voyageNoIdx] || '').trim(),
+                        vesselId: String(row[vesselIdIdx] || '').trim(),
+                        customer: String(row[customerIdx] || '').trim(),
+                        cargo: String(row[cargoIdx] || '').trim(),
+                        portLoad: String(row[portLoadIdx] || '').trim(),
+                        portDischarge: String(row[portDischargeIdx] || '').trim(),
+                        dateStart: String(row[dateStartIdx] || '').trim(),
+                        dateEnd: String(row[dateEndIdx] || '').trim(),
+                        reportMonth: String(row[reportMonthIdx] || '').trim(),
+                        qty: Number(row[qtyIdx]) || 0,
+                        rate: Number(row[rateIdx]) || 0,
+                        markup: Number(row[markupIdx]) || 0,
+                        fuelPrice: Number(row[fuelPriceIdx]) || 0,
+                        fuelHours: Number(row[fuelHoursIdx]) || 0,
+                        revenueReal: Number(row[revenueRealIdx]) || 0,
+                        revenueInvoice: Number(row[revenueInvoiceIdx]) || 0,
+                        refundAmount: Number(row[refundIdx]) || 0,
+                        costs: {}
+                    };
+                    
+                    for (let key in costsMap) {
+                        const idx = costsMap[key];
+                        s.costs[key] = idx !== -1 ? (Number(row[idx]) || 0) : 0;
+                    }
+                    
+                    const existingIdx = AppData.state.shipments.findIndex(x => x.id === id);
+                    if (existingIdx >= 0) {
+                        AppData.state.shipments[existingIdx] = s;
+                    } else {
+                        AppData.state.shipments.push(s);
+                    }
+                    count++;
+                });
+                
+                AppData.save();
+                alert(`Khôi phục thành công ${count} chuyến hàng!`);
+                this.navigate('company');
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi khi đọc file Excel: ' + err.message);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    },
+
+    importFuelExcel(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                let voyagesCount = 0;
+                let logsCount = 0;
+                
+                workbook.SheetNames.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    if (rows.length < 3) return;
+                    
+                    const headers = rows[2];
+                    const dataRows = rows.slice(3);
+                    
+                    const colIdx = (name) => headers.indexOf(name);
+                    
+                    const voyIdIdx = colIdx('ID Chuyến Dầu');
+                    const logIdIdx = colIdx('ID Chặng Hành Trình');
+                    const vesselIdIdx = colIdx('Mã Tàu');
+                    const voyageNoIdx = colIdx('Chuyến Dầu Số');
+                    const cargoTypeIdx = colIdx('Mặt Hàng');
+                    const initialFuelIdx = colIdx('Số Dư Đầu Kỳ (L)');
+                    const addedFuelIdx = colIdx('Số Lượng Cấp (L)');
+                    const fuelDateIdx = colIdx('Ngày Cấp');
+                    const fuelLocationIdx = colIdx('Nơi Cấp Dầu');
+                    const fuelVendorIdx = colIdx('Nhà Cung Cấp Dầu');
+                    const fuelUnitPriceIdx = colIdx('Đơn Giá Dầu (VNĐ)');
+                    
+                    const startPosIdx = colIdx('Nơi Đi');
+                    const startTimeIdx = colIdx('Thời Gian Đi');
+                    const endPosIdx = colIdx('Nơi Đến');
+                    const endTimeIdx = colIdx('Thời Gian Đến');
+                    const fuelRateIdx = colIdx('Định Mức Tiêu Thụ (L/h)');
+                    const hoursIdx = colIdx('Số Giờ Chạy (Giờ)');
+                    
+                    let lastVoyageId = '';
+                    let lastVesselId = sheetName;
+                    
+                    dataRows.forEach(row => {
+                        if (row.length === 0) return;
+                        
+                        if (row[voyIdIdx]) {
+                            lastVoyageId = String(row[voyIdIdx]).trim();
+                            lastVesselId = String(row[vesselIdIdx] || lastVesselId).trim();
+                            
+                            const voy = {
+                                id: lastVoyageId,
+                                vesselId: lastVesselId,
+                                voyageNo: String(row[voyageNoIdx] || '').trim(),
+                                cargoType: String(row[cargoTypeIdx] || '').trim(),
+                                initialFuel: Number(row[initialFuelIdx]) || 0,
+                                addedFuel: Number(row[addedFuelIdx]) || 0,
+                                fuelDate: String(row[fuelDateIdx] || '').trim(),
+                                fuelVendor: String(row[fuelVendorIdx] || '').trim(),
+                                fuelLocation: String(row[fuelLocationIdx] || '').trim(),
+                                fuelUnitPrice: Number(row[fuelUnitPriceIdx]) || 0
+                            };
+                            
+                            const existingIdx = AppData.state.fuelVoyages.findIndex(x => x.id === voy.id);
+                            if (existingIdx >= 0) {
+                                AppData.state.fuelVoyages[existingIdx] = voy;
+                            } else {
+                                AppData.state.fuelVoyages.push(voy);
+                            }
+                            voyagesCount++;
+                        }
+                        
+                        if (row[logIdIdx] && lastVoyageId) {
+                            const logId = String(row[logIdIdx]).trim();
+                            
+                            const parseDt = (str) => {
+                                if (!str) return '';
+                                const parts = str.split(', ');
+                                if (parts.length === 2) {
+                                    const [datePart, timePart] = parts;
+                                    const [d, m, y] = datePart.split('/');
+                                    return `${y}-${m}-${d}T${timePart}`;
+                                }
+                                const dateObj = new Date(str);
+                                return isNaN(dateObj.getTime()) ? str : dateObj.toISOString();
+                            };
+                            
+                            const log = {
+                                id: logId,
+                                fuelVoyageId: lastVoyageId,
+                                startTime: parseDt(row[startTimeIdx]),
+                                startPos: String(row[startPosIdx] || '').trim(),
+                                endTime: parseDt(row[endTimeIdx]),
+                                endPos: String(row[endPosIdx] || '').trim(),
+                                fuelRate: Number(row[fuelRateIdx]) || 0,
+                                hours: Number(row[hoursIdx]) || 0
+                            };
+                            
+                            const existingIdx = AppData.state.fuelLogs.findIndex(x => x.id === log.id);
+                            if (existingIdx >= 0) {
+                                AppData.state.fuelLogs[existingIdx] = log;
+                            } else {
+                                AppData.state.fuelLogs.push(log);
+                            }
+                            logsCount++;
+                        }
+                    });
+                });
+                
+                AppData.save();
+                alert(`Khôi phục thành công ${voyagesCount} chuyến dầu và ${logsCount} chặng hành trình!`);
+                this.navigate('company');
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi khi đọc file Excel: ' + err.message);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    },
+    importVesselExpensesExcel(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                const parseExcelDate = (val) => {
+                    if (!val) return '';
+                    if (typeof val === 'number') {
+                        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+                        const dateObj = new Date(excelEpoch.getTime() + val * 24 * 60 * 60 * 1000);
+                        return dateObj.toISOString().slice(0, 10);
+                    }
+                    const str = String(val).trim();
+                    if (str.match(/^\d{4}-\d{2}-\d{2}$/)) return str;
+                    if (str.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                        const parts = str.split('/');
+                        const d = parts[0].padStart(2, '0');
+                        const m = parts[1].padStart(2, '0');
+                        const y = parts[2];
+                        return `${y}-${m}-${d}`;
+                    }
+                    const parsed = new Date(str);
+                    return isNaN(parsed.getTime()) ? str : parsed.toISOString().slice(0, 10);
+                };
+
+                const wsCap = workbook.Sheets['Quản lý chi phí tàu'] || workbook.Sheets['Theo dõi tài chính tàu chi'];
+                if (!wsCap) {
+                    return alert('Không tìm thấy sheet "Quản lý chi phí tàu" hoặc "Theo dõi tài chính tàu chi" trong file Excel!');
+                }
+
+                const rows = XLSX.utils.sheet_to_json(wsCap, { header: 1 });
+                if (rows.length < 3) return alert('File Excel không đúng định dạng!');
+
+                const headers = rows[2];
+                const dataRows = rows.slice(3);
+                const colIdx = (name) => headers.indexOf(name);
+                
+                const hasNewFormat = colIdx('Mã Báo Cáo') !== -1;
+                let restoredCount = 0;
+
+                if (hasNewFormat) {
+                    const idIdx = colIdx('Mã Báo Cáo');
+                    const vesselIdx = colIdx('Mã Tàu');
+                    const monthIdx = colIdx('Tháng');
+                    const foodIdx = colIdx('Tiền Ăn (VNĐ)');
+                    const materialIdx = colIdx('Vật Tư Tàu Chi (VNĐ)');
+                    const portNameIdx = colIdx('Tên Khoản Mục Cảng');
+                    const portVoyageIdx = colIdx('Chuyến Cảng');
+                    const portAmountIdx = colIdx('Số Tiền Cảng (VNĐ)');
+                    const brokVoyageIdx = colIdx('Chuyến Tiền Bông');
+                    const brokAmountIdx = colIdx('Số Tiền Bông (VNĐ)');
+                    
+                    let currentReport = null;
+                    const reportsMap = {};
+                    
+                    dataRows.forEach(row => {
+                        if (row.length === 0) return;
+                        if (row[idIdx]) {
+                            const id = String(row[idIdx]).trim();
+                            currentReport = {
+                                id,
+                                vesselId: String(row[vesselIdx] || '').trim(),
+                                month: String(row[monthIdx] || '').trim(),
+                                food: Number(row[foodIdx]) || 0,
+                                material: Number(row[materialIdx]) || 0,
+                                portExpenses: [],
+                                brokerages: []
+                            };
+                            reportsMap[id] = currentReport;
+                        }
+                        
+                        if (currentReport) {
+                            const portName = row[portNameIdx] ? String(row[portNameIdx]).trim() : '';
+                            const portAmount = Number(row[portAmountIdx]) || 0;
+                            const portVoyage = row[portVoyageIdx] ? String(row[portVoyageIdx]).trim() : '';
+                            if (portName || portAmount > 0) {
+                                currentReport.portExpenses.push({
+                                    port: portName,
+                                    amount: portAmount,
+                                    voyageNo: portVoyage
+                                });
+                            }
+                            
+                            const brokVoyage = row[brokVoyageIdx] ? String(row[brokVoyageIdx]).trim() : '';
+                            const brokAmount = Number(row[brokAmountIdx]) || 0;
+                            if (brokVoyage || brokAmount > 0) {
+                                currentReport.brokerages.push({
+                                    voyageNo: brokVoyage,
+                                    amount: brokAmount
+                                });
+                            }
+                        }
+                    });
+                    
+                    if (!AppData.state.captainReports) AppData.state.captainReports = [];
+                    Object.values(reportsMap).forEach(report => {
+                        const existingIdx = AppData.state.captainReports.findIndex(x => x.id === report.id);
+                        if (existingIdx >= 0) {
+                            AppData.state.captainReports[existingIdx] = report;
+                        } else {
+                            AppData.state.captainReports.push(report);
+                        }
+                        AppData.recalculateVesselAllocations(report.vesselId, report.month);
+                        restoredCount++;
+                    });
+                    AppData.save();
+                    alert(`Khôi phục thành công ${restoredCount} Báo cáo Thuyền trưởng!`);
+                } else {
+                    const idIdx = colIdx('ID Chi Phí');
+                    const dateIdx = colIdx('Ngày');
+                    const vesselIdx = colIdx('Mã Tàu');
+                    const voyageNoIdx = colIdx('Chuyến Số');
+                    const categoryIdx = colIdx('Hạng Mục');
+                    const amountIdx = colIdx('Số Tiền (VNĐ)');
+                    const contentIdx = colIdx('Nội Dung');
+                    
+                    dataRows.forEach(row => {
+                        if (row.length === 0 || !row[dateIdx]) return;
+                        const id = row[idIdx] ? String(row[idIdx]).trim() : ('VE-' + Date.now() + Math.random().toString().slice(2, 6));
+                        const dateStr = parseExcelDate(row[dateIdx]);
+                        const ve = {
+                            id,
+                            date: dateStr,
+                            vesselId: String(row[vesselIdx] || '').trim(),
+                            voyageNo: String(row[voyageNoIdx] || '').trim(),
+                            category: String(row[categoryIdx] || '').trim(),
+                            amount: Number(row[amountIdx]) || 0,
+                            content: String(row[contentIdx] || '').trim()
+                        };
+                        const existingIdx = AppData.state.vesselExpenses.findIndex(x => x.id === id);
+                        if (existingIdx >= 0) AppData.state.vesselExpenses[existingIdx] = ve;
+                        else AppData.state.vesselExpenses.push(ve);
+                        restoredCount++;
+                    });
+                    AppData.save();
+                    alert(`Khôi phục thành công ${restoredCount} Giao dịch Chi phí Tàu (Legacy)!`);
+                }
+                this.navigate('company');
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi khi đọc file Excel: ' + err.message);
+            }
+        };
+        reader.readAsArrayBuffer(file);
     },
     editVessel(id) {
         const v = AppData.getVessel(id);
@@ -798,9 +3704,10 @@ const app = {
         if (!tbody) return;
 
         // Get shipments matching this vessel and month
-        const shipments = AppData.getShipments().filter(s => 
-            s.vesselId === vesselId && s.dateStart && typeof s.dateStart === 'string' && s.dateStart.substring(0, 7) === monthStr
-        );
+        const shipments = AppData.getShipments().filter(s => {
+            const sMonth = s.reportMonth || (s.dateStart && typeof s.dateStart === 'string' ? s.dateStart.substring(0, 7) : '');
+            return s.vesselId === vesselId && sMonth === monthStr;
+        });
 
         if (shipments.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">Không có chuyến hàng nào hoạt động trong tháng này để nhận phân bổ.</td></tr>`;
@@ -826,6 +3733,22 @@ const app = {
                 </tr>
             `;
         }).join('');
+    },
+
+    updateCustomerOpeningDebt(custName) {
+        const input = document.getElementById('cust-opening-debt');
+        if (!input) return;
+        const amount = Number(input.value) || 0;
+
+        if (!AppData.state.company.customerOpeningDebts) {
+            AppData.state.company.customerOpeningDebts = {};
+        }
+        AppData.state.company.customerOpeningDebts[custName] = amount;
+        
+        AppData.save();
+        
+        alert(`Đã cập nhật công nợ đầu kỳ của khách hàng "${custName}" thành công!`);
+        this.navigate('debts');
     }
 };
 

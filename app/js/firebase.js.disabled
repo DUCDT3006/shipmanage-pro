@@ -1,0 +1,232 @@
+/**
+ * Firebase Integration & Cloud Database Sync V2.0 (Firestore Version)
+ */
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAoAhYpcijQZ0Wgs8ZwtMmcyWX3-pf7jmQ",
+  authDomain: "shipmanagevgt.firebaseapp.com",
+  projectId: "shipmanagevgt",
+  storageBucket: "shipmanagevgt.firebasestorage.app",
+  messagingSenderId: "266936765184",
+  appId: "1:266936765184:web:52abed9b1caa12ffaec1e5",
+  measurementId: "G-P5N1346GZS"
+};
+
+let db = null;
+let isFirebaseInitialized = false;
+
+function initFirebase() {
+    try {
+        if (typeof firebase !== 'undefined') {
+            firebase.initializeApp(firebaseConfig);
+            try {
+                if (typeof firebase.analytics === 'function') {
+                    firebase.analytics();
+                }
+            } catch (analyticsError) {
+                console.warn("Analytics failed:", analyticsError);
+            }
+            
+            db = firebase.firestore();
+            isFirebaseInitialized = true;
+            console.log("Firebase Firestore initialized successfully!");
+            setupFirebaseSync();
+        } else {
+            console.warn("Firebase SDK is not loaded. Working in local-only mode.");
+            updateServerStatus('offline', 'Ngoại tuyến (Lưu cục bộ)');
+        }
+    } catch (e) {
+        console.error("Failed to initialize Firebase:", e);
+        updateServerStatus('error', 'Lỗi kết nối Firebase');
+        alert("Lỗi khởi tạo Firebase: " + e.message);
+    }
+}
+
+// Helper to update premium UI status indicator
+function updateServerStatus(status, text) {
+    const container = document.querySelector('.server-status');
+    if (!container) return;
+    
+    let dotColor = '#10b981'; // Green (Online / Synced)
+    let pulseClass = '';
+    
+    if (status === 'connecting') {
+        dotColor = '#f59e0b'; // Amber (Connecting)
+        pulseClass = 'animation: pulse 1s infinite alternate;';
+    } else if (status === 'error' || status === 'offline') {
+        dotColor = '#ef4444'; // Red (Offline)
+    }
+    
+    container.innerHTML = `
+        <span class="status-dot" style="
+            background-color: ${dotColor}; 
+            box-shadow: 0 0 10px ${dotColor}; 
+            display: inline-block; 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+            margin-right: 6px; 
+            vertical-align: middle;
+            ${pulseClass}
+        "></span>
+        <span style="font-size: 0.85rem; font-weight: 500;">${text}</span>
+    `;
+}
+
+// Two-way synchronization with Firebase Firestore
+function setupFirebaseSync() {
+    if (!db) return;
+    
+    // We store the state in a single document 'state' in a collection 'shipmanage'
+    const docRef = db.collection('shipmanage').doc('state');
+    
+    updateServerStatus('connecting', 'Đang tải dữ liệu đám mây...');
+
+    // 1. Listen for updates in Firestore
+    docRef.onSnapshot((doc) => {
+        if (doc.exists) {
+            const cloudState = doc.data();
+            // If the document stores the entire state as a JSON string in a field called "data",
+            // parse it back to an object. Otherwise assume the document directly contains the state.
+            if (cloudState && typeof cloudState === 'object' && cloudState.data && typeof cloudState.data === 'string') {
+                try {
+                    AppData.state = JSON.parse(cloudState.data);
+                } catch (e) {
+                    console.error('Failed to parse cloud state JSON:', e);
+                    AppData.state = cloudState; // fallback
+                }
+            } else {
+                AppData.state = cloudState;
+            }
+            
+            // Persist parsed state to localStorage as a cache
+            localStorage.setItem(DB_KEY, JSON.stringify(AppData.state));
+            
+            // If the main application is already initialized and rendered, refresh the current view
+            if (typeof app !== 'undefined' && app.currentView) {
+                app.navigate(app.currentView);
+            }
+            
+            updateServerStatus('online', 'Đã đồng bộ đám mây');
+        } else {
+            // First time use: Firestore is empty, upload local storage state to Firebase
+            console.log("Firestore has no existing data. Uploading local state as backup.");
+            if (AppData.state) {
+                docRef.set(AppData.state)
+                    .then(() => {
+                        updateServerStatus('online', 'Đã đồng bộ đám mây');
+                    })
+                    .catch((err) => {
+                        console.error("Error setting initial state in Firestore:", err);
+                        if (err.code === 'permission-denied') {
+                            updateServerStatus('error', 'Lỗi phân quyền (Chưa bật Rules)');
+                        } else {
+                            updateServerStatus('error', 'Lỗi đồng bộ (Offline)');
+                        }
+                    });
+            }
+        }
+    }, (error) => {
+        console.error("Firebase Firestore subscription error:", error);
+        if (error.code === 'permission-denied') {
+            updateServerStatus('error', 'Lỗi phân quyền (Chưa bật Rules)');
+        } else {
+            updateServerStatus('error', 'Lỗi đồng bộ (Offline)');
+        }
+    });
+
+    // 2. Intercept AppData.save() to push updates to Firestore
+    const originalSave = AppData.save;
+    AppData.save = function() {
+        // Run original save to localStorage (keeps it lightning fast)
+        originalSave.call(AppData);
+        
+        // Push state to Firebase in background
+        if (isFirebaseInitialized && db) {
+            updateServerStatus('connecting', 'Đang lưu đám mây...');
+            docRef.set(AppData.state)
+                .then(() => {
+                    updateServerStatus('online', 'Đã đồng bộ đám mây');
+                })
+                .catch((err) => {
+                    console.error("Failed to save to Firebase Firestore:", err);
+                    if (err.code === 'permission-denied') {
+                        updateServerStatus('error', 'Lỗi phân quyền (Chưa bật Rules)');
+                    } else {
+                        updateServerStatus('error', 'Lỗi lưu dữ liệu (Offline)');
+                    }
+                });
+        }
+    };
+}
+
+// Auto-run initialization when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Add CSS keyframes for connecting status indicator pulsing
+    const style = document.createElement('style');
+    style.innerHTML = `
+        @keyframes pulse {
+            from { transform: scale(1); opacity: 0.6; }
+            to { transform: scale(1.3); opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Initialize Firebase
+    initFirebase();
+});
+
+// Expose a global function to force sync the local data to Firestore using REST API (bypasses file:// restrictions)
+window.forceSyncToCloud = function() {
+    if (!AppData.state) {
+        alert("Lỗi: Không có dữ liệu để đẩy!");
+        return;
+    }
+    
+    if (confirm("HÀNH ĐỘNG NÀY SẼ GHI ĐÈ TOÀN BỘ DỮ LIỆU ĐÁM MÂY BẰNG DỮ LIỆU ĐANG CÓ TRÊN MÁY TÍNH NÀY.\n\nBạn có chắc chắn muốn ép đẩy dữ liệu Local lên Cloud không?")) {
+        updateServerStatus('connecting', 'Đang ép lưu (REST API)...');
+        
+        // Use direct REST API to bypass WebSocket/IndexedDB hanging issues on file://
+        const url = `https://firestore.googleapis.com/v1/projects/shipmanagevgt/databases/(default)/documents/shipmanage/state?key=${firebaseConfig.apiKey}`;
+        
+        // Wrap state in Firestore document format (string payload)
+        const payload = {
+            fields: {
+                data: {
+                    stringValue: JSON.stringify(AppData.state)
+                }
+            }
+        };
+
+            // Save the stringified state to Firestore
+            fetch(url, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(() => {
+            alert("✅ THÀNH CÔNG TỨC THÌ!\n\nĐã đẩy dữ liệu thật từ máy tính lên Đám mây. Bây giờ bạn hãy mở link online (hoặc F5 lại link online) để kiểm tra, nó sẽ tải dữ liệu cực nhanh!");
+            updateServerStatus('online', 'Đã đồng bộ đám mây');
+        })
+        .catch((err) => {
+            console.error("REST API sync failed:", err);
+            updateServerStatus('error', 'Lỗi đẩy dữ liệu');
+            
+            let errorMsg = err.error && err.error.message ? err.error.message : JSON.stringify(err);
+            if (errorMsg.includes("Missing or insufficient permissions") || errorMsg.includes("403")) {
+                alert("❌ THẤT BẠI: LỖI PHÂN QUYỀN FIREBASE!\n\nGoogle đã chặn kết nối vì bạn CHƯA BẬT RULES cho Firestore.\n\nHãy vào Firebase Console -> Firestore Database -> tab Rules -> sửa thành:\nallow read, write: if true;\n\nSau đó bấm Publish và thử lại!");
+            } else if (errorMsg.includes("NOT_FOUND") || errorMsg.includes("404")) {
+                alert("❌ THẤT BẠI: CHƯA TẠO DATABASE!\n\nBạn chưa khởi tạo cơ sở dữ liệu Firestore trên Firebase Console.\nHãy vào Firebase Console -> nhấp vào Firestore Database -> bấm nút 'Create Database' (Tạo cơ sở dữ liệu) rồi thử lại!");
+            } else {
+                alert("❌ THẤT BẠI: Lỗi không xác định!\n\nChi tiết: " + errorMsg);
+            }
+        });
+    }
+};
