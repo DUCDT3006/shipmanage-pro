@@ -751,3 +751,61 @@ a:hover {
     width: 100%;
     height: 100%;
 }
+
+/* =========================================================
+   RESPONSIVE (mobile + tablet) — task #13
+   ========================================================= */
+.mobile-menu-btn { display: none; }
+.sidebar-backdrop { display: none; }
+
+/* Tablet */
+@media (max-width: 1024px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .view-container { padding: 1.5rem; }
+    .top-header { padding: 0 1.5rem; }
+    .header-search { width: 200px; }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .mobile-menu-btn {
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(255,255,255,0.06); border: 1px solid var(--border-color);
+        color: var(--text-main); width: 40px; height: 40px; border-radius: 10px;
+        cursor: pointer; font-size: 1.15rem; margin-right: 12px; flex-shrink: 0;
+    }
+
+    /* Sidebar trượt ra (off-canvas) */
+    .sidebar {
+        position: fixed; top: 0; left: 0; height: 100%;
+        width: 82%; max-width: 300px;
+        transform: translateX(-100%);
+        transition: transform 0.28s ease;
+        background: var(--bg-base);
+    }
+    .sidebar.open { transform: translateX(0); box-shadow: 6px 0 28px rgba(0,0,0,0.55); }
+    .sidebar-backdrop {
+        display: block; position: fixed; inset: 0; z-index: 99;
+        background: rgba(0,0,0,0.55); opacity: 0; pointer-events: none;
+        transition: opacity 0.28s ease;
+    }
+    .sidebar-backdrop.show { opacity: 1; pointer-events: auto; }
+
+    .top-header { padding: 0 1rem; }
+    .header-search { display: none; }
+    .header-actions { gap: 0.5rem; }
+    #auth-user-badge { display: none; }
+
+    .view-container { padding: 1rem; }
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; gap: 1rem; }
+    .kpi-grid { grid-template-columns: 1fr !important; }
+    .charts-grid { grid-template-columns: 1fr; }
+    .page-title { font-size: 1.35rem; }
+    .page-header { flex-wrap: wrap; gap: 0.75rem; }
+
+    /* Card chiếm 2 cột -> về 1 cột trên mobile */
+    .glass-card[style*="span 2"] { grid-column: auto !important; }
+    /* Bảng rộng vẫn cuộn ngang gọn trong khung (table-container đã overflow-x:auto) */
+    .table th, .table td { padding: 0.7rem 0.8rem; font-size: 0.85rem; }
+}

@@ -2,8 +2,15 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ShipManage Pro V2.0</title>
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b0f19">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -86,13 +93,19 @@
             </div>
         </aside>
 
+        <!-- Lớp nền mờ khi mở menu trên mobile -->
+        <div class="sidebar-backdrop" onclick="app.toggleSidebar(false)"></div>
+
         <!-- Main Content Area -->
         <main class="main-content">
             <!-- Header -->
             <header class="top-header glass-panel">
-                <div class="header-search">
-                    <i class="fa-solid fa-search"></i>
-                    <input type="text" placeholder="Tìm kiếm dữ liệu...">
+                <div style="display:flex; align-items:center;">
+                    <button class="mobile-menu-btn" onclick="app.toggleSidebar()" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+                    <div class="header-search">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" placeholder="Tìm kiếm dữ liệu...">
+                    </div>
                 </div>
                 <div class="header-actions">
                     <div style="display: flex; align-items: center;">
@@ -167,5 +180,13 @@
     <script src="js/firebase.js"></script>
     <script src="js/views.js"></script>
     <script src="js/app.js"></script>
+    <!-- PWA: đăng ký service worker (offline + cài như app) -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('sw.js').catch(function () {});
+        });
+      }
+    </script>
 </body>
 </html>

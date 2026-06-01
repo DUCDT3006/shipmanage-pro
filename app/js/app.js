@@ -1401,9 +1401,20 @@ const app = {
                 e.preventDefault();
                 const view = e.currentTarget.getAttribute('data-view');
                 if (view) this.navigate(view);
+                this.toggleSidebar(false);   // đóng menu sau khi chọn (mobile)
             });
         });
         this.navigate(this.currentView);
+    },
+
+    // Mở/đóng sidebar dạng off-canvas trên mobile
+    toggleSidebar(force) {
+        const sb = document.querySelector('.sidebar');
+        const bd = document.querySelector('.sidebar-backdrop');
+        if (!sb) return;
+        const open = (typeof force === 'boolean') ? force : !sb.classList.contains('open');
+        sb.classList.toggle('open', open);
+        if (bd) bd.classList.toggle('show', open);
     },
 
     navigate(viewName, ...args) {
