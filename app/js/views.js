@@ -1775,6 +1775,14 @@ const Views = {
                         <div id="members-panel"><p style="color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải danh sách người dùng...</p></div>
                     </div>` : ''}
 
+                    ${(typeof window !== 'undefined' && window.SM_USER && window.SM_USER.role === 'owner') ? `
+                    <div class="glass-card" style="margin-top: 1.5rem; grid-column: span 2;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="margin: 0;"><i class="fa-solid fa-clock-rotate-left" style="color: var(--warning);"></i> Nhật ký thay đổi tài chính</h3>
+                        </div>
+                        <div id="audit-panel"><p style="color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải nhật ký...</p></div>
+                    </div>` : ''}
+
                     <div class="glass-card" style="margin-top: 1.5rem; grid-column: span 2; border: 1px solid var(--secondary);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
                             <h3 style="margin: 0;"><i class="fa-solid fa-shield-halved" style="color: var(--secondary);"></i> Sao lưu & Khôi phục JSON <span class="badge badge-success" style="font-size:0.7rem;">Chuẩn nhất</span></h3>

@@ -1446,6 +1446,7 @@ const app = {
         }
         if (viewName === 'company') {
             this.loadMembers();
+            this.loadAudit();
         }
     },
 
@@ -2510,6 +2511,33 @@ const app = {
             .catch(e => alert('Lỗi: ' + (e.message || e)));
     },
 
+    // === Nhật ký thay đổi (audit log) — owner ===
+    async loadAudit() {
+        const panel = document.getElementById('audit-panel');
+        if (!panel || typeof window.smListAudit !== 'function') return;
+        try {
+            const items = await window.smListAudit(50);
+            if (!items.length) {
+                panel.innerHTML = '<p style="color:var(--text-muted); margin:0;">Chưa có thay đổi nào được ghi nhận.</p>';
+                return;
+            }
+            const fmt = (iso) => { try { return new Date(iso).toLocaleString('vi-VN'); } catch (e) { return iso; } };
+            let html = '<div class="table-container"><table class="table"><thead><tr><th>Thời gian</th><th>Người dùng</th><th>Hành động</th><th>Chi tiết</th></tr></thead><tbody>';
+            items.forEach(it => {
+                html += `<tr>
+                    <td style="white-space:nowrap; font-size:0.82rem;">${esc(fmt(it.at))}</td>
+                    <td style="font-size:0.82rem;">${esc(it.userEmail || '')}</td>
+                    <td><span class="badge badge-outline">${esc(it.action || '')}</span></td>
+                    <td style="font-size:0.82rem;">${esc(it.detail || '')}</td>
+                </tr>`;
+            });
+            html += '</tbody></table></div><p style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">Hiển thị tối đa 50 thay đổi gần nhất.</p>';
+            panel.innerHTML = html;
+        } catch (e) {
+            panel.innerHTML = '<p style="color:var(--accent)">Lỗi tải nhật ký: ' + (e.message || e) + '</p>';
+        }
+    },
+
     // === Validation helpers (chống nhập sai dữ liệu tài chính) ===
     _vErr(msg) { alert('⚠️ ' + msg); return false; },
     _isNumeric(raw) { return raw !== '' && raw !== null && raw !== undefined && isFinite(Number(raw)); },
@@ -2581,6 +2609,8 @@ const app = {
         if (t.thu < 0 || t.chi < 0) return this._vErr('Khoản Thu/Chi không được âm.');
         if (t.thu === 0 && t.chi === 0) return this._vErr('Phải nhập ít nhất một khoản Thu hoặc Chi lớn hơn 0.');
         AppData.addTransaction(t);
+        if (window.smLogAudit) window.smLogAudit(tId ? 'Sửa giao dịch' : 'Thêm giao dịch',
+            `${t.content || ''} · ${t.partner || ''} · Thu ${t.thu || 0} / Chi ${t.chi || 0} · ${t.vessel || ''}`);
         this.closeModal('trans-modal');
         if (this.currentView === 'debts') {
             this.navigate('debts', this.currentDebtTab || 'customer');
@@ -2611,6 +2641,9 @@ const app = {
     },
     deleteTransaction(id) {
         if (confirm('Bạn có chắc muốn xóa giao dịch này?')) {
+            const t = AppData.state.transactions.find(x => x.id === id);
+            if (t && window.smLogAudit) window.smLogAudit('Xóa giao dịch',
+                `${t.content || ''} · ${t.partner || ''} · Thu ${t.thu || 0} / Chi ${t.chi || 0} · ${t.vessel || ''}`);
             AppData.deleteTransaction(id);
             if (this.currentView === 'debts') {
                 this.navigate('debts', this.currentDebtTab || 'customer');

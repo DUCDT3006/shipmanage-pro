@@ -429,6 +429,33 @@ if (typeof window !== 'undefined') {
   window.smUpdateMemberPermissions = smUpdateMemberPermissions;
 }
 
+// ===== Audit log (nhật ký thay đổi tài chính) =====
+// Ghi vào tenants/{tid}/auditLog (append-only, tách khỏi state đồng bộ).
+function smLogAudit(action, detail) {
+  if (!db || !tenantId || !currentUser) return;
+  const id = 'AL' + Date.now() + Math.random().toString(36).slice(2, 7);
+  tenantRoot().collection('auditLog').doc(id).set({
+    action: action,
+    detail: detail || '',
+    userEmail: currentUser.email || '',
+    uid: currentUser.uid,
+    at: new Date().toISOString()
+  }).catch(e => console.warn('[Audit] lỗi ghi log:', e));
+}
+async function smListAudit(max) {
+  if (!db || !tenantId) return [];
+  try {
+    const snap = await tenantRoot().collection('auditLog').get();
+    const items = snap.docs.map(d => d.data());
+    items.sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+    return items.slice(0, max || 50);
+  } catch (e) { return []; }
+}
+if (typeof window !== 'undefined') {
+  window.smLogAudit = smLogAudit;
+  window.smListAudit = smListAudit;
+}
+
 // State trắng cho khách mới (không phải dữ liệu mẫu Vũ Gia) -> khách tự nhập công ty
 function blankState() {
   return {
