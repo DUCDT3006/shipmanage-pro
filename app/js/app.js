@@ -233,10 +233,10 @@ const app = {
         XLSX.writeFile(wb, filename);
     },
 
-    // === JSON Backup/Restore (bản sao lưu trung thực tuyệt đối từ localStorage) ===
+    // === JSON Backup/Restore (sao lưu trung thực từ state trong bộ nhớ) ===
     exportLocalJSON() {
-        const data = localStorage.getItem('shipManageDB_v2');
-        if (!data) return alert('Không tìm thấy dữ liệu trong localStorage!');
+        const data = (AppData.state) ? JSON.stringify(AppData.state) : localStorage.getItem('shipManageDB_v2');
+        if (!data) return alert('Không tìm thấy dữ liệu!');
         try {
             // Định dạng đẹp + đính kèm metadata để dễ kiểm tra
             const state = JSON.parse(data);
@@ -2675,7 +2675,7 @@ const app = {
             const today = new Date().toISOString().slice(0, 10);
             let list = this.listAutoBackups();
             if (list.some(b => b.date === today)) return; // hôm nay đã có ảnh
-            const data = localStorage.getItem('shipManageDB_v2');
+            const data = (AppData.state) ? JSON.stringify(AppData.state) : localStorage.getItem('shipManageDB_v2');
             if (!data) return;
             list.push({ date: today, at: new Date().toISOString(), data });
             while (list.length > this.AUTOBACKUP_MAX) list.shift();
@@ -4156,4 +4156,7 @@ const app = {
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => app.init());
+document.addEventListener('DOMContentLoaded', () => {
+    // Chờ AppData boot (IndexedDB) xong rồi mới render
+    (AppData.bootPromise || Promise.resolve()).then(() => app.init());
+});

@@ -61,6 +61,37 @@ const correctCustomers = [
 
 const DB_KEY = 'shipManageDB_v2';
 
+// ===== SMStore: lưu trữ local bằng IndexedDB (task #21) =====
+// IDB không bị trần 5MB như localStorage và ghi BẤT ĐỒNG BỘ (không chặn luồng giao diện).
+// Vẫn giữ localStorage làm cache khởi động nhanh (best-effort, try/catch chống tràn quota).
+const SMStore = (() => {
+    let dbp = null;
+    function open() {
+        if (dbp) return dbp;
+        dbp = new Promise((resolve, reject) => {
+            try {
+                if (typeof indexedDB === 'undefined') return resolve(null);
+                const req = indexedDB.open('shipmanage_db', 1);
+                req.onupgradeneeded = () => { try { req.result.createObjectStore('kv'); } catch (e) {} };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+            } catch (e) { resolve(null); }
+        });
+        return dbp;
+    }
+    function tx(mode) { return open().then(db => db ? db.transaction('kv', mode).objectStore('kv') : null); }
+    return {
+        get(key) {
+            return tx('readonly').then(store => store ? new Promise(res => {
+                const r = store.get(key); r.onsuccess = () => res(r.result); r.onerror = () => res(undefined);
+            }) : undefined);
+        },
+        set(key, val) {
+            return tx('readwrite').then(store => { if (store) { try { store.put(val, key); } catch (e) {} } }).catch(() => {});
+        }
+    };
+})();
+
 const AppData = {
     state: null,
 
@@ -983,7 +1014,28 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
     },
 
     save() {
-        localStorage.setItem(DB_KEY, JSON.stringify(this.state));
+        const json = JSON.stringify(this.state);
+        // localStorage: cache khởi động nhanh (chống tràn quota -> dựa vào IDB)
+        try { localStorage.setItem(DB_KEY, json); }
+        catch (e) { console.warn('[Store] localStorage đầy, dùng IndexedDB làm bản chính.'); }
+        // IndexedDB: bản lưu durable, không trần 5MB, ghi bất đồng bộ (không chặn UI)
+        SMStore.set(DB_KEY, this.state);
+    },
+    // Nạp lại từ IndexedDB nếu localStorage trống/bị xoá (ổ lớn hơn localStorage)
+    hydrateFromIDB() {
+        return SMStore.get(DB_KEY).then(idbState => {
+            if (!idbState) return false;
+            const hasLocal = !!localStorage.getItem(DB_KEY);
+            if (!hasLocal) {
+                this.state = idbState;
+                try { localStorage.setItem(DB_KEY, JSON.stringify(idbState)); } catch (e) {}
+                if (typeof app !== 'undefined' && app.currentView) {
+                    try { app.navigate(app.currentView); } catch (e) {}
+                }
+                return true;
+            }
+            return false;
+        }).catch(() => false);
     },
 
     // Getters
@@ -1592,4 +1644,14 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
     }
 };
 
-AppData.init();
+// Boot: ưu tiên IndexedDB (durable, không trần 5MB). Nếu localStorage trống mà IDB có dữ liệu
+// -> khôi phục vào localStorage TRƯỚC khi init (tránh seed DEFAULT ghi đè dữ liệu thật trong IDB).
+AppData.bootPromise = (async () => {
+    try {
+        const idbState = await SMStore.get(DB_KEY);
+        if (idbState && !localStorage.getItem(DB_KEY)) {
+            try { localStorage.setItem(DB_KEY, JSON.stringify(idbState)); } catch (e) {}
+        }
+    } catch (e) { /* IDB không khả dụng -> dùng localStorage như cũ */ }
+    AppData.init();
+})();

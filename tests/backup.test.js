@@ -56,6 +56,8 @@ check('_isNumeric từ chối rỗng', !app._isNumeric(''));
 
 // ---------- Auto-backup rotation ----------
 console.log('[Group] Auto-backup rotation');
+// runAutoBackup giờ serialize từ AppData.state (bộ nhớ), không từ localStorage
+sandbox.AppData.state = { transactions: [{ id: 'TX1' }] };
 ls.setItem('shipManageDB_v2', JSON.stringify({ transactions: [{ id: 'TX1' }] }));
 // Seed 3 ảnh cũ (ngày quá khứ)
 ls.setItem(app.AUTOBACKUP_KEY, JSON.stringify([
