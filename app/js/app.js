@@ -4011,9 +4011,17 @@ const app = {
             fuelRate: Number(document.getElementById('v-fuel-rate').value) || 0,
             certRegistry: get('v-cert-reg'),
             certLicense: get('v-cert-license'),
-            certInsurance: get('v-cert-insurance')
+            certInsurance: get('v-cert-insurance'),
+            fixedCosts: {
+                drydockPeriodic: this.parseNum(document.getElementById('v-fc-drydock')?.value),
+                drydockIntermediate: this.parseNum(document.getElementById('v-fc-drydock-mid')?.value),
+                depreciation: this.parseNum(document.getElementById('v-fc-depr')?.value),
+                annualSurvey: this.parseNum(document.getElementById('v-fc-survey')?.value),
+                hullInsurance: this.parseNum(document.getElementById('v-fc-hull')?.value)
+            }
         };
         this._clearFieldErrors();
+        let vid = id;
         if (id) {
             AppData.updateVessel(id, data);
             this.toast('Đã cập nhật tàu', 'success');
@@ -4022,9 +4030,11 @@ const app = {
             const name = get('v-name');
             if (!name) return this._vErr('Vui lòng nhập Tên tàu.', 'v-name');
             data.name = name;
-            AppData.addVessel(data);
+            vid = AppData.addVessel(data);
             this.toast('Đã thêm tàu ' + name, 'success');
         }
+        // Lớn#A: cấu hình chi phí cố định đổi -> phân bổ lại cho mọi chuyến của tàu
+        if (vid) AppData.recalcVesselFixedCosts(vid);
         this.closeModal('vessel-modal');
         this.navigate('company');
     },

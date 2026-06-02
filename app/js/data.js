@@ -1395,6 +1395,49 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         });
     },
 
+    // Số ngày của 1 chuyến (gồm cả ngày đầu & cuối).
+    _voyageDays(start, end) {
+        if (!start || !end) return 0;
+        const a = new Date(start), b = new Date(end);
+        if (isNaN(a) || isNaN(b)) return 0;
+        return Math.max(0, Math.round((b - a) / 86400000) + 1);
+    },
+    // Lớn#A: chi phí cố định/năm của tàu -> phân bổ cho chuyến theo số ngày (annual/365 × ngày).
+    calcFixedCostForShipment(s, vesselId) {
+        const v = this.getVessel(vesselId || (s && s.vesselId));
+        if (!v || !v.fixedCosts) return 0;
+        const fc = v.fixedCosts;
+        const annual = (Number(fc.drydockPeriodic) || 0) + (Number(fc.drydockIntermediate) || 0)
+            + (Number(fc.depreciation) || 0) + (Number(fc.annualSurvey) || 0) + (Number(fc.hullInsurance) || 0);
+        if (annual <= 0) return 0;
+        const days = this._voyageDays(s.dateStart, s.dateEnd);
+        if (days <= 0) return 0;
+        return Math.round(annual / 365 * days);
+    },
+    // Áp các chi phí TỰ ĐỘNG cho 1 chuyến (không đụng tới crew/material nhập tay):
+    //  - agent: gộp giao dịch "2.Chi Phí Cảng" (chỉ khi trống/đã auto)
+    //  - fixedCost: phân bổ chi phí cố định theo ngày
+    applyAutoCostsToShipment(s) {
+        if (!s) return;
+        if (!s.costs) s.costs = {};
+        if (!Number(s.costs.agent) || s._agentAuto) {
+            const portSum = (this.state.transactions || [])
+                .filter(t => t.category === '2.Chi Phí Cảng' && t.vessel === s.vesselId
+                    && t.voyageNo && s.voyageNo && String(t.voyageNo) === String(s.voyageNo))
+                .reduce((sum, t) => sum + (Number(t.chi) || 0), 0);
+            if (portSum > 0) { s.costs.agent = portSum; s._agentAuto = true; }
+            else if (s._agentAuto) { s.costs.agent = 0; delete s._agentAuto; }
+        }
+        s.costs.fixedCost = this.calcFixedCostForShipment(s, s.vesselId);
+    },
+    // Tính lại chi phí cố định cho tất cả chuyến của 1 tàu (gọi khi đổi cấu hình chi phí cố định).
+    recalcVesselFixedCosts(vesselId) {
+        (this.state.shipments || []).forEach(s => {
+            if (s.vesselId === vesselId) this.applyAutoCostsToShipment(s);
+        });
+        this.save();
+    },
+
     recalculateAllShipmentAllocations(vesselId, monthStr) {
         this.state.shipments.forEach(s => {
             const sMonth = s.reportMonth || (s.dateStart && typeof s.dateStart === 'string' ? s.dateStart.substring(0, 7) : '');
@@ -1408,17 +1451,8 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
                 s.costs.loanInterest = this.calcExactAllocation(s.dateStart, s.dateEnd, vesselId, 'loanInterest');
                 s.costs.monthlyOther = this.calcExactAllocation(s.dateStart, s.dateEnd, vesselId, 'other');
 
-                // Fix#2: gộp giao dịch "2.Chi Phí Cảng" gán cho chuyến này vào agent.
-                // Tự gộp khi ô agent đang trống HOẶC giá trị trước đó cũng do tự gộp (_agentAuto)
-                // -> cộng dồn được nhiều giao dịch; KHÔNG đè giá trị người dùng nhập tay.
-                if (!Number(s.costs.agent) || s.costs._agentAuto) {
-                    const portSum = (this.state.transactions || [])
-                        .filter(t => t.category === '2.Chi Phí Cảng' && t.vessel === vesselId
-                            && t.voyageNo && s.voyageNo && String(t.voyageNo) === String(s.voyageNo))
-                        .reduce((sum, t) => sum + (Number(t.chi) || 0), 0);
-                    if (portSum > 0) { s.costs.agent = portSum; s.costs._agentAuto = true; }
-                    else if (s.costs._agentAuto) { s.costs.agent = 0; delete s.costs._agentAuto; }
-                }
+                // Fix#2 (chi phí cảng -> agent) + Lớn#A (chi phí cố định) — gom vào 1 helper.
+                this.applyAutoCostsToShipment(s);
             }
         });
         this.save();
@@ -1625,6 +1659,7 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
 
     addShipment(s) {
         s.id = s.id || ('S' + Date.now());
+        this.applyAutoCostsToShipment(s);   // fixedCost + auto-agent (không đụng crew nhập tay)
         const idx = this.state.shipments.findIndex(x => x.id === s.id);
         if(idx >= 0) this.state.shipments[idx] = s;
         else this.state.shipments.push(s);

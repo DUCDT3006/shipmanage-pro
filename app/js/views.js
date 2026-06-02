@@ -2803,6 +2803,17 @@ const Views = {
                         <div class="form-group"><label class="form-label">Hết hạn Cấp phép vận tải</label><input type="date" class="form-control" id="v-cert-license" value="${v.certLicense || ''}"></div>
                         <div class="form-group"><label class="form-label">Hết hạn Bảo hiểm</label><input type="date" class="form-control" id="v-cert-insurance" value="${v.certInsurance || ''}"></div>
                     </div>
+                    <h4 style="margin: 1.2rem 0 0.6rem; color: var(--info); font-size: 0.95rem;"><i class="fa-solid fa-coins"></i> Chi phí cố định (nhập theo NĂM) — tự phân bổ vào chuyến theo số ngày</h4>
+                    ${(() => { const fc = v.fixedCosts || {}; const val = (x) => x ? Number(x).toLocaleString('vi-VN') : ''; return `
+                    <div class="grid-3">
+                        <div class="form-group"><label class="form-label">Lên đà định kỳ /năm</label><input type="text" class="form-control money" id="v-fc-drydock" value="${val(fc.drydockPeriodic)}" placeholder="0"></div>
+                        <div class="form-group"><label class="form-label">Lên đà trung gian /năm</label><input type="text" class="form-control money" id="v-fc-drydock-mid" value="${val(fc.drydockIntermediate)}" placeholder="0"></div>
+                        <div class="form-group"><label class="form-label">Khấu hao tài sản /năm</label><input type="text" class="form-control money" id="v-fc-depr" value="${val(fc.depreciation)}" placeholder="0"></div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group"><label class="form-label">Đăng kiểm hàng năm /năm</label><input type="text" class="form-control money" id="v-fc-survey" value="${val(fc.annualSurvey)}" placeholder="0"></div>
+                        <div class="form-group"><label class="form-label">Bảo hiểm thân vỏ /năm</label><input type="text" class="form-control money" id="v-fc-hull" value="${val(fc.hullInsurance)}" placeholder="0"></div>
+                    </div>`; })()}
                     <div class="modal-footer"><button type="submit" class="btn btn-primary" style="width:100%;">Lưu thay đổi</button></div>
                 </form>
             </div>
@@ -2883,6 +2894,7 @@ const Views = {
                         <tr><td>12. Lãi vay (Phân bổ)</td><td style="text-align: right; color: var(--warning);">${AppData.formatCurrency(s.costs.loanInterest || 0)}</td></tr>
                         <tr><td>13. Phân bổ chi phí khác từ Cty</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.monthlyOther || 0)}</td></tr>
                         <tr><td>14. Chi phí khác tàu chi tại chuyến</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.others || 0)}</td></tr>
+                        <tr><td>15. Chi phí cố định phân bổ (lên đà, khấu hao, đăng kiểm, BH thân vỏ)</td><td style="text-align: right; color: var(--info);">${AppData.formatCurrency(s.costs.fixedCost || 0)}</td></tr>
                         <tr style="font-weight: bold; background: rgba(255,0,100,0.05);">
                             <td>TỔNG CHI PHÍ</td>
                             <td style="text-align: right; color: var(--rose-light);">${AppData.formatCurrency(costSum)}</td>

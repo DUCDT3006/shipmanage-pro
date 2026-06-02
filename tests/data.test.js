@@ -64,5 +64,15 @@ const get = (expr) => { vm.runInContext('globalThis.__r = (' + expr + ');', ctx)
   check('Fix#3: agent C1 vẫn đúng sau recalc toàn bộ',
     get("AppData.state.shipments.find(s => s.id === 'S1').costs.agent") === 4500000);
 
+  // 4) Lớn#A: chi phí cố định/năm = 365tr -> 1tr/ngày; S1 10 ngày (01->10/05) = 10tr
+  vm.runInContext(`
+    AppData.state.vessels[0].fixedCosts = { drydockPeriodic: 200000000, drydockIntermediate: 0, depreciation: 100000000, annualSurvey: 65000000, hullInsurance: 0 };
+    AppData.recalcVesselFixedCosts('VG01');
+  `, ctx);
+  check('Lớn#A: chi phí cố định phân bổ theo ngày (365tr/năm × 10 ngày = 10tr)',
+    get("AppData.state.shipments.find(s => s.id === 'S1').costs.fixedCost") === 10000000);
+  check('Lớn#A: cờ _agentAuto KHÔNG nằm trong costs (tránh hỏng tổng chi phí)',
+    get("'_agentAuto' in AppData.state.shipments.find(s => s.id === 'S1').costs") === false);
+
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();
