@@ -129,8 +129,9 @@ function buildSandbox(mock, appdata) {
       head: { appendChild: () => {} },
       body: { appendChild: () => {} }
     },
-    window: {},
-    console, setTimeout, clearTimeout, Promise, JSON, Object, Array, Date, String, Set, Map
+    window: { location: { search: '' } },
+    URLSearchParams,
+    console, setTimeout, clearTimeout, Promise, JSON, Object, Array, Date, String, Set, Map, isNaN, Number
   };
   vm.createContext(sandbox);
   vm.runInContext(code, sandbox);
@@ -282,6 +283,43 @@ function buildSandbox(mock, appdata) {
   check('isFinanceRole=true cho accountant', sb.isFinanceRole() === true);
   vm.runInContext("currentUser = { uid:'u1', role:'owner', tenantId:'u1', vesselIds:[] };", sb);
   check('owner sync tất cả', sb.canSyncCollection('transactions') && sb.canSyncCollection('fuelLogs'));
+
+  // ---------- Field-level merge (xung đột đồng thời offline) ----------
+  console.log('[Group] Field-level merge khi 2 user sửa cùng bản ghi');
+  // Reset về owner
+  vm.runInContext("currentUser = { uid:'u1', role:'owner', tenantId:'u1', vesselIds:[] };", sb);
+  // Thêm bản ghi cơ sở, đồng bộ để lastSynced có baseline
+  appdata.AppData.state.transactions.push({ id: 'TXMERGE', thu: 100, content: 'goc', note: 'abc' });
+  await sb.pushDiff();
+  // Giờ local và cloud đều có { thu:100, content:'goc', note:'abc' }
+  const txM = appdata.AppData.state.transactions.find(t => t.id === 'TXMERGE');
+  // User A (local) sửa thu -> 999 (vẫn online, lastSynced cập nhật)
+  txM.thu = 999;
+  await sb.pushDiff();  // đẩy lên cloud, lastSynced cập nhật baseline = {thu:999,content:'goc',note:'abc'}
+  // Giả lập: user B (remote) sửa content -> 'remote-edit' (timestamp mới hơn local)
+  const remoteTs = new Date(Date.now() + 5000).toISOString();
+  mock.fireColl('tenants/u1/sm3_transactions', [{
+    type: 'modified',
+    doc: { id: 'TXMERGE', data: () => ({ id: 'TXMERGE', thu: 999, content: 'remote-edit', note: 'abc', updatedAt: remoteTs }) }
+  }]);
+  const merged = appdata.AppData.state.transactions.find(t => t.id === 'TXMERGE');
+  check('field-level merge: thu giữ nguyên (không ai đổi so với baseline)', merged && merged.thu === 999);
+  check('field-level merge: content lấy remote (chỉ remote đổi)', merged && merged.content === 'remote-edit');
+  check('field-level merge: note giữ nguyên', merged && merged.note === 'abc');
+
+  // Xung đột thật: cả 2 cùng sửa một trường
+  // Baseline hiện tại: {thu:999, content:'remote-edit', note:'abc'}
+  const txM2 = appdata.AppData.state.transactions.find(t => t.id === 'TXMERGE');
+  txM2.note = 'local-note'; txM2.updatedAt = new Date(Date.now() + 1000).toISOString();
+  await sb.pushDiff(); // local push -> baseline = {..., note:'local-note'}
+  // Remote cũng sửa note khác nhau -> xung đột thật (server-wins)
+  const remoteTs2 = new Date(Date.now() + 10000).toISOString();
+  mock.fireColl('tenants/u1/sm3_transactions', [{
+    type: 'modified',
+    doc: { id: 'TXMERGE', data: () => ({ id: 'TXMERGE', thu: 999, content: 'remote-edit', note: 'remote-note', updatedAt: remoteTs2 }) }
+  }]);
+  const conflict = appdata.AppData.state.transactions.find(t => t.id === 'TXMERGE');
+  check('xung đột thật (cả 2 sửa note): remote thắng (server-wins)', conflict && conflict.note === 'remote-note');
 
   // ---------- Tách grouped public/private — vá rò rỉ lương (task #17) ----------
   console.log('[Group] Tách grouped public/private (lương/số dư)');

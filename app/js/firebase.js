@@ -123,6 +123,14 @@ const lastSynced = {
 // ---------------------------------------------------------------
 function initFirebase() {
   try {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('local') === 'true' || params.get('mockAuth') === 'true') {
+        console.warn('[Sync V3] Bỏ qua Firebase Auth để chạy local/offline.');
+        updateServerStatus('offline', 'Ngoại tuyến (Lưu cục bộ)');
+        return;
+      }
+    }
     if (typeof firebase !== 'undefined') {
       firebase.initializeApp(firebaseConfig);
       if (typeof firebase.analytics === 'function') {
@@ -907,7 +915,12 @@ function attachListeners() {
   });
 }
 
-// Áp dụng 1 thay đổi từ cloud vào state local (newest-wins)
+// Áp dụng 1 thay đổi từ cloud vào state local.
+// Thuật toán: field-level merge dùng baseline (lastSynced) làm tổ tiên chung.
+//   - Trường chỉ đổi ở local  → giữ local
+//   - Trường chỉ đổi ở remote → lấy remote
+//   - Trường cả 2 cùng đổi khác nhau → remote thắng (server-wins), ghi cảnh báo
+// Nếu không có baseline (record mới hoàn toàn) → dùng newest-wins như cũ.
 function applyRemoteRecord(coll, id, data, removed) {
   if (!AppData.state[coll]) AppData.state[coll] = [];
   const arr = AppData.state[coll];
@@ -922,9 +935,67 @@ function applyRemoteRecord(coll, id, data, removed) {
   }
 
   const local = idx >= 0 ? arr[idx] : null;
-  // Nếu bản local MỚI HƠN remote -> giữ local và buộc đẩy lại lên cloud
+
+  // Thử field-level merge nếu có cả local lẫn baseline (tổ tiên chung)
+  // Chỉ merge khi remote KHÔNG cũ hơn local (nếu remote cũ hơn rõ ràng -> newest-wins như cũ).
+  if (local && last.has(sid)) {
+    let baseline;
+    try { baseline = JSON.parse(last.get(sid)); } catch (e) { baseline = null; }
+    const localNewer = local.updatedAt && data.updatedAt && local.updatedAt > data.updatedAt;
+
+    if (baseline && !localNewer) {
+      const merged = {};
+      const allKeys = new Set([
+        ...Object.keys(baseline),
+        ...Object.keys(local),
+        ...Object.keys(data)
+      ]);
+      const conflicts = [];
+
+      for (const k of allKeys) {
+        const bStr = JSON.stringify(baseline[k]);
+        const lStr = JSON.stringify(local[k]);
+        const rStr = JSON.stringify(data[k]);
+        const localChanged  = lStr !== bStr;
+        const remoteChanged = rStr !== bStr;
+
+        if (localChanged && remoteChanged && lStr !== rStr) {
+          // Xung đột thật: cả 2 sửa khác nhau -> remote thắng (đã được server commit)
+          merged[k] = data[k];
+          conflicts.push(k);
+        } else if (localChanged) {
+          merged[k] = local[k];   // chỉ local đổi -> giữ local
+        } else {
+          merged[k] = data[k];    // remote đổi hoặc không ai đổi -> lấy remote
+        }
+      }
+
+      // updatedAt lấy bản mới hơn
+      merged.updatedAt = (data.updatedAt || '') > (local.updatedAt || '')
+        ? data.updatedAt : local.updatedAt;
+
+      if (conflicts.length) {
+        console.warn('[Sync] Xung đột merge tự động (server-wins):', coll, sid,
+          '| trường xung đột:', conflicts.join(', '));
+      }
+
+      if (idx >= 0) arr[idx] = merged; else arr.push(merged);
+      last.set(sid, JSON.stringify(merged));
+      // Nếu có field local thắng -> đánh dấu để đẩy lại lên cloud
+      const hasLocalWins = Array.from(allKeys).some(k => {
+        const bStr = JSON.stringify(baseline[k]);
+        const lStr = JSON.stringify(local[k]);
+        const rStr = JSON.stringify(data[k]);
+        return lStr !== bStr && lStr !== rStr;
+      });
+      if (hasLocalWins) last.delete(sid);  // kích pushDiff ở lần save() tiếp theo
+      return;
+    }
+  }
+
+  // Fallback: không có baseline (record mới) -> newest-wins đơn giản
   if (local && local.updatedAt && data.updatedAt && data.updatedAt < local.updatedAt) {
-    last.delete(sid); // để lần save() sau diff thấy "khác" và đẩy bản local lên
+    last.delete(sid); // buộc đẩy lại bản local mới hơn
     return;
   }
 
