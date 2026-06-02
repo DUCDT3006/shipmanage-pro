@@ -2814,6 +2814,18 @@ const Views = {
                         <div class="form-group"><label class="form-label">Đăng kiểm hàng năm /năm</label><input type="text" class="form-control money" id="v-fc-survey" value="${val(fc.annualSurvey)}" placeholder="0"></div>
                         <div class="form-group"><label class="form-label">Bảo hiểm thân vỏ /năm</label><input type="text" class="form-control money" id="v-fc-hull" value="${val(fc.hullInsurance)}" placeholder="0"></div>
                     </div>`; })()}
+                    <h4 style="margin: 1.2rem 0 0.6rem; color: var(--secondary); font-size: 0.95rem;"><i class="fa-solid fa-oil-can"></i> Dầu nhờn LO — tự tính chi phí theo giờ chạy</h4>
+                    ${(() => { const lo = v.loConfig || {}; const val = (x) => (x || x === 0) && Number(x) ? Number(x).toLocaleString('vi-VN') : (x ? x : ''); return `
+                    <div class="grid-3">
+                        <div class="form-group"><label class="form-label">Giờ chạy chu kỳ</label><input type="number" class="form-control" id="v-lo-cycle" value="${lo.cycleHours != null ? lo.cycleHours : 800}" placeholder="800"></div>
+                        <div class="form-group"><label class="form-label">Phi thay định kỳ</label><input type="number" class="form-control" id="v-lo-drums" value="${lo.drumsPerCycle != null ? lo.drumsPerCycle : 11}" placeholder="11"></div>
+                        <div class="form-group"><label class="form-label">Phi bổ sung</label><input type="number" class="form-control" id="v-lo-supp" value="${lo.supplement != null ? lo.supplement : 0}" placeholder="0"></div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group"><label class="form-label">Đơn giá (đồng/phi)</label><input type="text" class="form-control money" id="v-lo-price" value="${val(lo.unitPrice)}" placeholder="0"></div>
+                        <div class="form-group"><label class="form-label">Quy đổi (lít/phi)</label><input type="number" class="form-control" id="v-lo-liters" value="${lo.litersPerDrum != null ? lo.litersPerDrum : 209}" placeholder="209"></div>
+                    </div>
+                    <p style="font-size:0.75rem; color:var(--text-muted); margin:0 0 0.5rem;">Chi phí LO mỗi chuyến = Giờ chạy × (Phi thay + Phi bổ sung) ÷ Giờ chu kỳ × Đơn giá. Tự điền vào ô "Nhiên liệu LO" của chuyến khi ô đó để trống.</p>`; })()}
                     <div class="modal-footer"><button type="submit" class="btn btn-primary" style="width:100%;">Lưu thay đổi</button></div>
                 </form>
             </div>

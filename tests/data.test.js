@@ -74,5 +74,28 @@ const get = (expr) => { vm.runInContext('globalThis.__r = (' + expr + ');', ctx)
   check('Lớn#A: cờ _agentAuto KHÔNG nằm trong costs (tránh hỏng tổng chi phí)',
     get("'_agentAuto' in AppData.state.shipments.find(s => s.id === 'S1').costs") === false);
 
+  // 5) Lớn#B: LO. cycle 800h, 11 phi/cycle, đơn giá 2tr/phi, 200 L/phi.
+  //    S1 fuelHours = 400 -> drums = 400*11/800 = 5.5 -> cost = 11.000.000, liters = 1100
+  vm.runInContext(`
+    AppData.state.vessels[0].loConfig = { cycleHours: 800, drumsPerCycle: 11, supplement: 0, unitPrice: 2000000, litersPerDrum: 200 };
+    AppData.state.shipments.find(s => s.id === 'S1').fuelHours = 400;
+    AppData.state.shipments.find(s => s.id === 'S1').costs.fuelLO = 0;
+    delete AppData.state.shipments.find(s => s.id === 'S1')._loAuto;
+    AppData.recalcVesselFixedCosts('VG01');
+  `, ctx);
+  check('Lớn#B: chi phí LO = 400h × 11/800 × 2tr = 11.000.000',
+    get("AppData.state.shipments.find(s => s.id === 'S1').costs.fuelLO") === 11000000);
+  check('Lớn#B: LO quy ra lít = 5.5 phi × 200 = 1100 L',
+    get("AppData.state.shipments.find(s => s.id === 'S1').loLiters") === 1100);
+  check('Lớn#B: KHÔNG đè fuelLO nhập tay', (() => {
+    vm.runInContext(`
+      AppData.state.shipments.find(s => s.id === 'S2').fuelHours = 400;
+      AppData.state.shipments.find(s => s.id === 'S2').costs.fuelLO = 7000000;
+      delete AppData.state.shipments.find(s => s.id === 'S2')._loAuto;
+      AppData.recalcVesselFixedCosts('VG01');
+    `, ctx);
+    return get("AppData.state.shipments.find(s => s.id === 'S2').costs.fuelLO") === 7000000;
+  })());
+
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();

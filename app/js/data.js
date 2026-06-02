@@ -1414,8 +1414,27 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         if (days <= 0) return 0;
         return Math.round(annual / 365 * days);
     },
+    // Lớn#B: chi phí dầu LO theo công thức giờ chạy.
+    //   tiêu thụ (phi) = giờ chạy × (phi thay + phi bổ sung) / giờ chu kỳ
+    //   chi phí = tiêu thụ × đơn giá/phi ; lít = tiêu thụ × lít/phi
+    calcLO(s, vesselId) {
+        const v = this.getVessel(vesselId || (s && s.vesselId));
+        const cfg = v && v.loConfig;
+        if (!cfg) return { cost: 0, drums: 0, liters: 0 };
+        const cycle = Number(cfg.cycleHours) || 0;
+        if (cycle <= 0) return { cost: 0, drums: 0, liters: 0 };
+        const perCycle = (Number(cfg.drumsPerCycle) || 0) + (Number(cfg.supplement) || 0);
+        const hours = Number(s.fuelHours) || 0;
+        const drums = hours * perCycle / cycle;
+        return {
+            cost: Math.round(drums * (Number(cfg.unitPrice) || 0)),
+            drums: drums,
+            liters: Math.round(drums * (Number(cfg.litersPerDrum) || 0))
+        };
+    },
     // Áp các chi phí TỰ ĐỘNG cho 1 chuyến (không đụng tới crew/material nhập tay):
     //  - agent: gộp giao dịch "2.Chi Phí Cảng" (chỉ khi trống/đã auto)
+    //  - fuelLO: chi phí dầu LO theo công thức (chỉ khi trống/đã auto)
     //  - fixedCost: phân bổ chi phí cố định theo ngày
     applyAutoCostsToShipment(s) {
         if (!s) return;
@@ -1427,6 +1446,11 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
                 .reduce((sum, t) => sum + (Number(t.chi) || 0), 0);
             if (portSum > 0) { s.costs.agent = portSum; s._agentAuto = true; }
             else if (s._agentAuto) { s.costs.agent = 0; delete s._agentAuto; }
+        }
+        if (!Number(s.costs.fuelLO) || s._loAuto) {
+            const lo = this.calcLO(s, s.vesselId);
+            if (lo.cost > 0) { s.costs.fuelLO = lo.cost; s.loLiters = lo.liters; s._loAuto = true; }
+            else if (s._loAuto) { s.costs.fuelLO = 0; delete s.loLiters; delete s._loAuto; }
         }
         s.costs.fixedCost = this.calcFixedCostForShipment(s, s.vesselId);
     },

@@ -4018,6 +4018,13 @@ const app = {
                 depreciation: this.parseNum(document.getElementById('v-fc-depr')?.value),
                 annualSurvey: this.parseNum(document.getElementById('v-fc-survey')?.value),
                 hullInsurance: this.parseNum(document.getElementById('v-fc-hull')?.value)
+            },
+            loConfig: {
+                cycleHours: Number(document.getElementById('v-lo-cycle')?.value) || 0,
+                drumsPerCycle: Number(document.getElementById('v-lo-drums')?.value) || 0,
+                supplement: Number(document.getElementById('v-lo-supp')?.value) || 0,
+                unitPrice: this.parseNum(document.getElementById('v-lo-price')?.value),
+                litersPerDrum: Number(document.getElementById('v-lo-liters')?.value) || 0
             }
         };
         this._clearFieldErrors();
