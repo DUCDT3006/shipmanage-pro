@@ -826,3 +826,60 @@ a:hover {
     }
     .table-card-mobile td:empty { display: none; }
 }
+
+/* ==========================================================================
+   Loading states, Skeletons & Empty states (P1 / #28)
+   ========================================================================== */
+
+/* Thanh loading mảnh ở đỉnh trang */
+.sm-top-loading {
+    position: fixed; top: 0; left: 0; right: 0; height: 3px;
+    z-index: 99999; background: rgba(255, 255, 255, 0.06); overflow: hidden;
+    pointer-events: none;
+}
+.sm-top-loading-fill {
+    position: absolute; top: 0; left: 0; height: 100%; width: 40%;
+    background: var(--gradient-primary);
+    animation: sm-indeterminate 1.1s ease-in-out infinite;
+}
+@keyframes sm-indeterminate {
+    0%   { left: -40%; width: 40%; }
+    50%  { left: 30%;  width: 55%; }
+    100% { left: 100%; width: 40%; }
+}
+
+/* Skeleton shimmer */
+.sm-skeleton {
+    position: relative; overflow: hidden;
+    background: rgba(255, 255, 255, 0.05); border-radius: 8px;
+}
+.sm-skeleton::after {
+    content: ''; position: absolute; inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent,
+        rgba(255, 255, 255, 0.08), transparent);
+    animation: sm-shimmer 1.3s infinite;
+}
+@keyframes sm-shimmer { 100% { transform: translateX(100%); } }
+.sm-skeleton-line { height: 14px; margin: 8px 0; }
+.sm-skeleton-card { height: 96px; margin: 0; }
+
+/* Empty state */
+.sm-empty {
+    text-align: center; padding: 2.5rem 1.5rem;
+    color: var(--text-muted);
+}
+.sm-empty .sm-empty-icon {
+    font-size: 2.4rem; margin-bottom: 0.75rem; opacity: 0.45;
+    color: var(--primary-light);
+}
+.sm-empty .sm-empty-title {
+    font-size: 1rem; font-weight: 600; color: var(--text-main);
+    margin: 0 0 0.35rem;
+}
+.sm-empty .sm-empty-hint {
+    font-size: 0.85rem; margin: 0 auto 1rem; max-width: 420px; line-height: 1.5;
+}
+.sm-empty .btn { display: inline-flex; align-items: center; gap: 0.4rem; }
+/* Khi empty state nằm trong <td> của bảng */
+td > .sm-empty { padding: 1.75rem 1rem; }

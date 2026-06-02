@@ -3,6 +3,35 @@
  */
 
 const Views = {
+    /**
+     * Empty state tái sử dụng (icon + tiêu đề + gợi ý + nút CTA tuỳ chọn).
+     * opts: { icon, title, hint, ctaLabel, ctaOnClick }
+     * ctaOnClick là chuỗi JS (vd: "app.openTransModal()").
+     */
+    emptyState(opts = {}) {
+        const icon = opts.icon || 'fa-inbox';
+        const title = opts.title || 'Chưa có dữ liệu';
+        const hint = opts.hint || '';
+        const cta = (opts.ctaLabel && opts.ctaOnClick)
+            ? `<button class="btn btn-primary" onclick="${opts.ctaOnClick}"><i class="fa-solid fa-plus"></i> ${opts.ctaLabel}</button>`
+            : '';
+        return `<div class="sm-empty">
+            <div class="sm-empty-icon"><i class="fa-solid ${icon}"></i></div>
+            <p class="sm-empty-title">${title}</p>
+            ${hint ? `<p class="sm-empty-hint">${hint}</p>` : ''}
+            ${cta}
+        </div>`;
+    },
+    /** Skeleton vài dòng cho bảng/khối đang tải. */
+    skeletonLines(n = 3) {
+        let s = '';
+        for (let i = 0; i < n; i++) {
+            const w = [100, 85, 70, 90][i % 4];
+            s += `<div class="sm-skeleton sm-skeleton-line" style="width:${w}%"></div>`;
+        }
+        return `<div style="padding:0.5rem 0;">${s}</div>`;
+    },
+
     dashboard: (filterMonth = '') => {
         const company = AppData.getCompany();
         const allShips = AppData.getShipments();
@@ -518,7 +547,11 @@ const Views = {
                                         filtered = filtered.filter(t => t.partner === selectedPartner);
                                     }
                                     if (filtered.length === 0) {
-                                        return `<tr><td colspan="9" style="text-align:center; padding: 3rem; color: var(--text-muted); font-style: italic;">Không tìm thấy giao dịch nào khớp với bộ lọc.</td></tr>`;
+                                        // Phân biệt: chưa có giao dịch nào vs bộ lọc không khớp
+                                        if (!trans || trans.length === 0) {
+                                            return `<tr><td colspan="9">${Views.emptyState({ icon: 'fa-receipt', title: 'Chưa có giao dịch', hint: 'Bắt đầu ghi nhận thu/chi để theo dõi dòng tiền và lập báo cáo tài chính.', ctaLabel: 'Thêm giao dịch', ctaOnClick: 'app.openTransactionModal()' })}</td></tr>`;
+                                        }
+                                        return `<tr><td colspan="9">${Views.emptyState({ icon: 'fa-filter-circle-xmark', title: 'Không khớp bộ lọc', hint: 'Không có giao dịch nào khớp với bộ lọc hiện tại. Thử đổi tháng/tàu/hạng mục.' })}</td></tr>`;
                                     }
                                     return filtered.map(t => `
                                         <tr style="${t.category === 'Luân chuyển' ? 'opacity: 0.6; font-style: italic;' : ''}">
@@ -625,10 +658,7 @@ const Views = {
         const vessels = AppData.getVessels();
         if (!vessels || vessels.length === 0) {
             return `<div class="view-section"><div class="page-header"><div><h1 class="page-title">Quản lý Nhiên liệu</h1></div></div>
-                <div class="glass-card" style="text-align:center; padding:3rem;">
-                    <i class="fa-solid fa-ship" style="font-size:2.5rem; color:var(--primary-light); margin-bottom:1rem;"></i>
-                    <p>Chưa có tàu nào. Vui lòng thêm tàu trong mục <strong>Master Data</strong> (Thiết lập) trước khi quản lý nhiên liệu.</p>
-                </div></div>`;
+                <div class="glass-card">${Views.emptyState({ icon: 'fa-ship', title: 'Chưa có tàu nào', hint: 'Bạn cần thêm tàu trong mục Master Data (Thiết lập) trước khi quản lý nhiên liệu.', ctaLabel: 'Đến Master Data', ctaOnClick: "app.navigate('company')" })}</div></div>`;
         }
         const selectedVesselId = vesselId || vessels[0].id;
         const selectedVessel = AppData.getVessel(selectedVesselId);
@@ -860,13 +890,13 @@ const Views = {
                         <table class="table">
                             <thead><tr><th>Tên đối tác</th><th>Địa chỉ</th><th>Số điện thoại</th><th>Thao tác</th></tr></thead>
                             <tbody>
-                                ${activeTab === 'vendor' ? 
-                                    (AppData.getVendors().length === 0 ? '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Chưa có nhà cung cấp nào. Nhấn "Thêm NCC" để bắt đầu.</td></tr>' :
+                                ${activeTab === 'vendor' ?
+                                    (AppData.getVendors().length === 0 ? `<tr><td colspan="4">${Views.emptyState({ icon: 'fa-truck-field', title: 'Chưa có nhà cung cấp', hint: 'Thêm nhà cung cấp (đại lý dầu, vật tư...) để theo dõi công nợ và chi phí.', ctaLabel: 'Thêm NCC', ctaOnClick: "app.openPartnerModal('vendor')" })}</td></tr>` :
                                     AppData.getVendors().map(v => `<tr><td><strong>${esc(v.name)}</strong> <span class="badge badge-outline">NCC</span></td><td>${esc(v.address) || '---'}</td><td>${esc(v.contact) || '---'}</td><td>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.editVendor('${v.id}')"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.deleteVendor('${v.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
                                     </td></tr>`).join('')) :
-                                    (AppData.getCustomers().length === 0 ? '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Chưa có khách hàng nào. Nhấn "Thêm Khách hàng" để bắt đầu.</td></tr>' :
+                                    (AppData.getCustomers().length === 0 ? `<tr><td colspan="4">${Views.emptyState({ icon: 'fa-handshake', title: 'Chưa có khách hàng', hint: 'Thêm khách hàng để lập báo cáo công nợ và theo dõi doanh thu vận chuyển.', ctaLabel: 'Thêm Khách hàng', ctaOnClick: "app.openPartnerModal('customer')" })}</td></tr>` :
                                     AppData.getCustomers().map(c => `<tr><td><strong>${esc(c.name)}</strong> <span class="badge badge-outline">KH</span></td><td>${esc(c.address) || '---'}</td><td>${esc(c.contact) || '---'}</td><td>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.editCustomer('${c.id}')"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
                                         <button class="btn btn-outline" style="padding:0.2rem 0.5rem;" onclick="app.deleteCustomer('${c.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
@@ -1353,7 +1383,7 @@ const Views = {
                                         </td>
                                     </tr>
                                 `).join('')}
-                                ${employees.length === 0 ? `<tr><td colspan="${activeTab === 'all' ? 13 : 12}" style="text-align:center;">Chưa có dữ liệu nhân sự</td></tr>` : ''}
+                                ${employees.length === 0 ? `<tr><td colspan="${activeTab === 'all' ? 13 : 12}">${Views.emptyState({ icon: 'fa-users', title: 'Chưa có nhân sự', hint: 'Thêm thuyền viên/nhân viên để chấm công và tính lương hằng tháng.', ctaLabel: 'Thêm nhân sự', ctaOnClick: 'app.openEmployeeModal()' })}</td></tr>` : ''}
                             </tbody>
                         </table>
                     </div>

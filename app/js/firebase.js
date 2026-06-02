@@ -184,6 +184,27 @@ function updateServerStatus(status, text) {
     "></span>
     <span style="font-size: 0.85rem; font-weight: 500;">${text}</span>
   `;
+
+  // Thanh loading mảnh ở đỉnh trang: bật khi đang kết nối/đồng bộ, tắt khi xong.
+  toggleTopLoadingBar(status === 'connecting');
+}
+
+// Thanh tiến trình mảnh (top progress bar) — báo hiệu app đang tải/đồng bộ.
+function toggleTopLoadingBar(show) {
+  if (typeof document === 'undefined') return;
+  let bar = document.getElementById('sm-top-loading');
+  if (show) {
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'sm-top-loading';
+      bar.className = 'sm-top-loading';
+      bar.innerHTML = '<div class="sm-top-loading-fill"></div>';
+      (document.body || document.documentElement).appendChild(bar);
+    }
+    bar.style.display = 'block';
+  } else if (bar) {
+    bar.style.display = 'none';
+  }
 }
 
 function handleSyncError(err, action) {
@@ -575,6 +596,9 @@ async function smUndo(auditId) {
 }
 async function smListAudit(max) {
   if (!db || !tenantId) return [];
+  // Defense-in-depth: nhật ký chứa before/after lương -> chỉ owner/accountant.
+  // Rules đã chặn read phía server; chặn thêm ở client để không gọi thừa + không lỗi console cho sub.
+  if (!isFinanceRole()) return [];
   try {
     const snap = await tenantRoot().collection('auditLog').get();
     const items = snap.docs.map(d => Object.assign({ _id: d.id }, d.data()));
