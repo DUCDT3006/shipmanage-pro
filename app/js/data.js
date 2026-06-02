@@ -1610,6 +1610,34 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         this.state.vessels = this.state.vessels.filter(v => v.id !== id);
         this.save();
     },
+    // X1: đếm dữ liệu liên quan tới 1 tàu (để cảnh báo trước khi xóa).
+    getVesselRelatedCounts(id) {
+        const s = this.state;
+        const voyIds = new Set((s.fuelVoyages || []).filter(v => v.vesselId === id).map(v => v.id));
+        return {
+            shipments: (s.shipments || []).filter(x => x.vesselId === id).length,
+            transactions: (s.transactions || []).filter(x => x.vessel === id).length,
+            fuelVoyages: voyIds.size,
+            fuelLogs: (s.fuelLogs || []).filter(l => voyIds.has(l.fuelVoyageId)).length,
+            vesselExpenses: (s.vesselExpenses || []).filter(x => x.vesselId === id).length,
+            captainReports: (s.captainReports || []).filter(x => x.vesselId === id).length,
+            monthlyCosts: (s.monthlyCosts || []).filter(x => x.vesselId === id).length
+        };
+    },
+    // X1: xóa tàu + DỌN mọi dữ liệu liên quan (tránh orphaned records).
+    deleteVesselCascade(id) {
+        const s = this.state;
+        const voyIds = new Set((s.fuelVoyages || []).filter(v => v.vesselId === id).map(v => v.id));
+        s.shipments = (s.shipments || []).filter(x => x.vesselId !== id);
+        s.transactions = (s.transactions || []).filter(x => x.vessel !== id);
+        s.fuelLogs = (s.fuelLogs || []).filter(l => !voyIds.has(l.fuelVoyageId));
+        s.fuelVoyages = (s.fuelVoyages || []).filter(v => v.vesselId !== id);
+        s.vesselExpenses = (s.vesselExpenses || []).filter(x => x.vesselId !== id);
+        s.captainReports = (s.captainReports || []).filter(x => x.vesselId !== id);
+        s.monthlyCosts = (s.monthlyCosts || []).filter(x => x.vesselId !== id);
+        s.vessels = (s.vessels || []).filter(v => v.id !== id);
+        this.save();
+    },
     
     addTransaction(t) { 
         t.id = t.id || ('TR' + Date.now()); 

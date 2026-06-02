@@ -3994,9 +3994,22 @@ const app = {
     deleteVessel(id) {
         const v = AppData.getVessel(id);
         if (!v) return;
-        if (!confirm(`Xóa tàu "${v.name}"? Lưu ý: các dữ liệu chuyến/dầu/chi phí đã gắn tàu này sẽ không còn tàu tham chiếu.`)) return;
-        AppData.deleteVessel(id);
-        this.toast('Đã xóa tàu ' + v.name, 'success');
+        const c = AppData.getVesselRelatedCounts(id);
+        const total = c.shipments + c.transactions + c.fuelVoyages + c.fuelLogs + c.vesselExpenses + c.captainReports + c.monthlyCosts;
+        let msg = `Xóa tàu "${v.name}"?`;
+        if (total > 0) {
+            msg += `\n\n⚠️ Tàu này đang có dữ liệu liên quan sẽ BỊ XÓA THEO:\n`
+                + `• ${c.shipments} chuyến hàng\n`
+                + `• ${c.transactions} giao dịch\n`
+                + `• ${c.fuelVoyages} chuyến dầu, ${c.fuelLogs} chặng dầu\n`
+                + `• ${c.vesselExpenses} chi phí tàu\n`
+                + `• ${c.captainReports} báo cáo thuyền trưởng\n`
+                + `• ${c.monthlyCosts} bản ghi chi phí tháng\n\n`
+                + `Thao tác này KHÔNG thể hoàn tác. Tiếp tục?`;
+        }
+        if (!confirm(msg)) return;
+        AppData.deleteVesselCascade(id);
+        this.toast('Đã xóa tàu ' + v.name + (total > 0 ? ' và toàn bộ dữ liệu liên quan' : ''), 'success');
         this.navigate('company');
     },
     saveVessel() {

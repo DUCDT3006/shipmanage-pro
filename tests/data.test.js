@@ -97,5 +97,35 @@ const get = (expr) => { vm.runInContext('globalThis.__r = (' + expr + ');', ctx)
     return get("AppData.state.shipments.find(s => s.id === 'S2').costs.fuelLO") === 7000000;
   })());
 
+  // 6) X1: cascade-delete khi xóa tàu — dọn chuyến + giao dịch + dầu liên quan
+  vm.runInContext(`
+    AppData.state.vessels = [{ id: 'VG01', name: 'Tàu 01' }, { id: 'VG02', name: 'Tàu 02' }];
+    AppData.state.shipments = [
+      { id: 'S1', vesselId: 'VG01', voyageNo: 'C1', costs: {} },
+      { id: 'S2', vesselId: 'VG02', voyageNo: 'C1', costs: {} }
+    ];
+    AppData.state.transactions = [
+      { id: 'T1', vessel: 'VG01', chi: 1 }, { id: 'T2', vessel: 'VG02', chi: 1 }
+    ];
+    AppData.state.fuelVoyages = [{ id: 'FV1', vesselId: 'VG01' }];
+    AppData.state.fuelLogs = [{ id: 'FL1', fuelVoyageId: 'FV1' }, { id: 'FL2', fuelVoyageId: 'FVX' }];
+    AppData.state.vesselExpenses = [{ id: 'E1', vesselId: 'VG01' }];
+    AppData.state.captainReports = [{ id: 'R1', vesselId: 'VG01', month: '2026-05' }];
+    AppData.state.monthlyCosts = [{ id: 'M1', vesselId: 'VG01', month: '2026-05' }];
+  `, ctx);
+  const cnt = get("JSON.stringify(AppData.getVesselRelatedCounts('VG01'))");
+  check('X1: đếm đúng dữ liệu liên quan tàu VG01',
+    JSON.parse(cnt).shipments === 1 && JSON.parse(cnt).fuelLogs === 1 && JSON.parse(cnt).transactions === 1);
+  vm.runInContext("AppData.deleteVesselCascade('VG01');", ctx);
+  check('X1: tàu VG01 đã xóa', get("AppData.state.vessels.some(v => v.id === 'VG01')") === false);
+  check('X1: chuyến/giao dịch/dầu của VG01 đã dọn',
+    get("AppData.state.shipments.length") === 1 &&
+    get("AppData.state.transactions.length") === 1 &&
+    get("AppData.state.fuelVoyages.length") === 0 &&
+    get("AppData.state.vesselExpenses.length") === 0);
+  check('X1: KHÔNG đụng dữ liệu tàu VG02',
+    get("AppData.state.shipments[0].vesselId") === 'VG02' &&
+    get("AppData.state.fuelLogs.some(l => l.id === 'FL2')") === true);
+
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();
