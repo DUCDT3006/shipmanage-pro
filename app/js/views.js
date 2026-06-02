@@ -63,6 +63,108 @@ const Views = {
             ${rows}
         </div>`;
     },
+    /**
+     * Panel phân tích nâng cao (#41): so sánh tháng này/trước, top khách hàng, xếp hạng tàu.
+     * Tính trực tiếp từ shipments (không dùng Chart.js -> bền, không cần quản lý canvas).
+     */
+    analyticsPanel(filterMonth = '') {
+        const ships = AppData.getShipments() || [];
+        if (!ships.length) return '';
+        const C = (typeof Calc !== 'undefined') ? Calc : null;
+        const fmt = (n) => (AppData.formatCurrency ? AppData.formatCurrency(n) : Math.round(n).toLocaleString('vi-VN'));
+        const monthOf = (s) => s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : '');
+        const pnl = (s) => {
+            const rev = Number(s.revenueReal || 0);
+            const vat = C ? C.vat(s.revenueInvoice, s.revenueReal, s.costs && s.costs.fuelDO) : 0;
+            const base = Object.assign({}, s.costs); delete base.vat;
+            const cost = Object.values(base).reduce((a, v) => a + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
+            return { rev, cost, profit: rev - cost };
+        };
+
+        // ---- 1) So sánh tháng (MoM) ----
+        const byMonth = {};
+        ships.forEach(s => {
+            const m = monthOf(s); if (!m) return;
+            const p = pnl(s);
+            if (!byMonth[m]) byMonth[m] = { rev: 0, profit: 0 };
+            byMonth[m].rev += p.rev; byMonth[m].profit += p.profit;
+        });
+        const months = Object.keys(byMonth).sort();
+        const curM = filterMonth && byMonth[filterMonth] ? filterMonth : months[months.length - 1];
+        const curIdx = months.indexOf(curM);
+        const prevM = curIdx > 0 ? months[curIdx - 1] : null;
+        const cur = byMonth[curM] || { rev: 0, profit: 0 };
+        const prev = prevM ? byMonth[prevM] : null;
+        const margin = (o) => o.rev > 0 ? (o.profit / o.rev * 100) : 0;
+        const delta = (c, p) => (p === null || p === 0) ? null : ((c - p) / Math.abs(p) * 100);
+        const mlabel = (m) => m ? `Tháng ${m.split('-')[1]}/${m.split('-')[0]}` : '—';
+        const arrow = (d) => d === null ? '' :
+            `<span style="color:${d >= 0 ? 'var(--secondary)' : 'var(--accent)'}; font-size:0.8rem; font-weight:600;">
+                <i class="fa-solid fa-arrow-${d >= 0 ? 'up' : 'down'}"></i> ${Math.abs(d).toFixed(1)}%</span>`;
+        const card = (title, valueHtml, d) => `
+            <div class="glass-card" style="padding:1rem;">
+                <p style="margin:0 0 0.3rem; font-size:0.78rem; color:var(--text-muted); text-transform:uppercase;">${title}</p>
+                <div style="font-size:1.15rem; font-weight:700; color:var(--text-main);">${valueHtml}</div>
+                <div style="margin-top:0.25rem;">${arrow(d)} ${d === null ? '<span style="font-size:0.75rem;color:var(--text-muted);">chưa có kỳ trước</span>' : `<span style="font-size:0.72rem;color:var(--text-muted);">so với ${mlabel(prevM)}</span>`}</div>
+            </div>`;
+
+        // ---- 2) Top khách hàng theo doanh thu (theo filter) ----
+        const inScope = filterMonth ? ships.filter(s => monthOf(s) === filterMonth) : ships;
+        const byCust = {};
+        inScope.forEach(s => { const k = (s.customer || '—').trim() || '—'; byCust[k] = (byCust[k] || 0) + Number(s.revenueReal || 0); });
+        const topCust = Object.entries(byCust).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const maxCust = topCust.length ? topCust[0][1] : 1;
+        const custRows = topCust.map(([name, rev]) => `
+            <div style="margin:0.4rem 0;">
+                <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:2px;">
+                    <span>${esc(name)}</span><strong>${fmt(rev)}</strong>
+                </div>
+                <div style="height:6px; background:rgba(255,255,255,0.06); border-radius:99px; overflow:hidden;">
+                    <div style="height:100%; width:${maxCust > 0 ? (rev / maxCust * 100) : 0}%; background:var(--gradient-primary);"></div>
+                </div>
+            </div>`).join('') || '<p style="font-size:0.82rem;color:var(--text-muted);">Chưa có dữ liệu khách hàng.</p>';
+
+        // ---- 3) Xếp hạng tàu theo lợi nhuận ----
+        const byVessel = {};
+        inScope.forEach(s => {
+            const v = AppData.getVessel(s.vesselId);
+            const name = v ? v.name : s.vesselId;
+            const p = pnl(s);
+            if (!byVessel[name]) byVessel[name] = 0;
+            byVessel[name] += p.profit;
+        });
+        const ranked = Object.entries(byVessel).sort((a, b) => b[1] - a[1]);
+        const best = ranked[0], worst = ranked.length > 1 ? ranked[ranked.length - 1] : null;
+        const vBox = (label, entry, color) => entry ? `
+            <div style="flex:1; min-width:140px; padding:0.8rem 1rem; background:rgba(255,255,255,0.03); border-radius:10px; border-left:3px solid ${color};">
+                <p style="margin:0; font-size:0.72rem; color:var(--text-muted); text-transform:uppercase;">${label}</p>
+                <div style="font-weight:700; margin:0.2rem 0;">${esc(entry[0])}</div>
+                <div style="color:${entry[1] >= 0 ? 'var(--secondary)' : 'var(--accent)'}; font-weight:600; font-size:0.9rem;">${fmt(entry[1])}</div>
+            </div>` : '';
+
+        return `
+        <div class="view-section" style="margin-bottom:2rem;">
+            <h3 style="margin:0 0 1rem;"><i class="fa-solid fa-chart-line" style="color:var(--primary-light);"></i> Phân tích nâng cao <span style="font-size:0.8rem; color:var(--text-muted); font-weight:400;">· ${mlabel(curM)}</span></h3>
+            <div class="kpi-grid" style="margin-bottom:1.5rem;">
+                ${card('Doanh thu kỳ', fmt(cur.rev), prev ? delta(cur.rev, prev.rev) : null)}
+                ${card('Lợi nhuận kỳ', fmt(cur.profit), prev ? delta(cur.profit, prev.profit) : null)}
+                ${card('Biên lợi nhuận', margin(cur).toFixed(1) + '%', prev ? (margin(cur) - margin(prev)) : null)}
+            </div>
+            <div class="grid-2" style="gap:1.5rem;">
+                <div class="glass-card">
+                    <h4 style="margin:0 0 0.5rem;"><i class="fa-solid fa-trophy" style="color:var(--warning);"></i> Top khách hàng theo doanh thu</h4>
+                    ${custRows}
+                </div>
+                <div class="glass-card">
+                    <h4 style="margin:0 0 0.8rem;"><i class="fa-solid fa-ranking-star" style="color:var(--info);"></i> Xếp hạng tàu theo lợi nhuận</h4>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                        ${vBox('Tàu lãi nhất', best, 'var(--secondary)')}
+                        ${vBox('Tàu cần chú ý', worst, 'var(--accent)')}
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    },
     /** Skeleton vài dòng cho bảng/khối đang tải. */
     skeletonLines(n = 3) {
         let s = '';
@@ -207,6 +309,8 @@ const Views = {
                         </div>
                     </div>
                 </div>
+
+                ${Views.analyticsPanel(filterMonth)}
 
                 <!-- Cảnh báo đăng kiểm/chứng chỉ sắp hết hạn (task #25) -->
                 ${(() => {
