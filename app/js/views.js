@@ -2646,8 +2646,18 @@ const Views = {
         const profit = s.revenueReal - costSum;
         const vessel = AppData.getVessel(s.vesselId);
         
+        const co = (AppData.getCompany && AppData.getCompany()) || {};
         return `
             <div class="report-container glass-panel" style="padding: 2rem; color: var(--text-main); font-family: 'Inter', sans-serif;">
+                ${(co.name || co.address || co.taxId) ? `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:1rem; flex-wrap:wrap;">
+                    <div style="font-size:0.85rem;">
+                        ${co.name ? `<strong style="font-size:1rem;">${esc(co.name)}</strong><br>` : ''}
+                        ${co.address ? `<span style="color:var(--text-muted);">${esc(co.address)}</span><br>` : ''}
+                        ${co.taxId ? `<span style="color:var(--text-muted);">MST: ${esc(co.taxId)}</span>` : ''}
+                    </div>
+                    <div style="font-size:0.8rem; color:var(--text-muted); text-align:right;">Ngày in: ${new Date().toLocaleDateString('vi-VN')}</div>
+                </div>` : ''}
                 <div style="text-align: center; border-bottom: 2px solid var(--primary-light); padding-bottom: 1rem; margin-bottom: 2rem;">
                     <h2 style="color: var(--primary-light); text-transform: uppercase;">Báo cáo Kết quả Kinh doanh Chuyến hàng</h2>
                     <p>Mã chuyến: <strong>${esc(s.voyageNo)}</strong> | Tàu: <strong>${vessel ? vessel.name : s.vesselId}</strong></p>
