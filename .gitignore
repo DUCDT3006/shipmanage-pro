@@ -34,3 +34,9 @@ extracted_data.txt
 bc_dong_tien_full.txt
 bc_headers.txt
 debts_sheet.txt
+
+# Dữ liệu nhạy cảm (lương/tài chính) — KHÔNG đưa vào repo public
+*.xlsx
+*.docx
+allowances.json
+backups/
