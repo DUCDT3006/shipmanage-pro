@@ -1,0 +1,122 @@
+rules_version = '2';
+
+// =============================================================================
+// ShipManage — Firestore Security Rules (X2: VALIDATE GHI + default-deny chặt)
+// Dán toàn bộ file này vào Firebase Console → Firestore → Rules → Publish.
+//
+// QUAN TRỌNG: Rules của Firestore kết hợp các match theo "OR" — nếu có một match
+// catch-all rộng (vd `/{document=**}` cho mọi member), nó sẽ VÔ HIỆU HÓA các match
+// chặt hơn (vd chỉ finance) cho cùng tài liệu. Vì vậy bên dưới KHÔNG dùng catch-all
+// rộng; mọi collection được liệt kê TƯỜNG MINH, còn lại mặc định bị chặn.
+//
+// Lớp bảo vệ:
+//  1) Xác thực: phải đăng nhập.   2) Cách ly tenant theo users/{uid}.tenantId (server).
+//  3) Phân quyền: lương/tài chính chỉ owner+accountant.   4) Validate ghi (số ≥ 0, đúng kiểu).
+// =============================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() { return request.auth != null; }
+    function me()        { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function myTenant()  { return me().tenantId; }
+    function myRole()    { return me().role; }
+    function isOwner()   { return isSignedIn() && myRole() == 'owner'; }
+    function isFinance() { return isSignedIn() && (myRole() == 'owner' || myRole() == 'accountant'); }
+    function inTenant(tid) { return isSignedIn() && myTenant() == tid; }
+
+    // ---------- Validate helpers ----------
+    function nonNegOpt(d, k) { return !(k in d) || (d[k] is number && d[k] >= 0); }
+    function strOpt(d, k)    { return !(k in d) || d[k] is string; }
+
+    function validTransaction() {
+      let d = request.resource.data;
+      return nonNegOpt(d, 'thu') && nonNegOpt(d, 'chi')
+        && strOpt(d, 'vessel') && strOpt(d, 'category') && strOpt(d, 'date')
+        && strOpt(d, 'voyageNo') && strOpt(d, 'partner');
+    }
+    function validShipment() {
+      let d = request.resource.data;
+      return nonNegOpt(d, 'revenueReal') && nonNegOpt(d, 'revenueInvoice')
+        && nonNegOpt(d, 'qty') && nonNegOpt(d, 'fuelHours')
+        && (!('costs' in d) || d.costs is map)
+        && strOpt(d, 'vesselId') && strOpt(d, 'voyageNo');
+    }
+    function validTimesheet() {
+      let d = request.resource.data;
+      return nonNegOpt(d, 'voyageCount') && strOpt(d, 'month');
+    }
+
+    // =========================================================================
+    // users
+    // =========================================================================
+    match /users/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || (isOwner() && resource.data.tenantId == myTenant()));
+      allow create: if isSignedIn() && (request.auth.uid == uid || (isOwner() && request.resource.data.tenantId == myTenant()));
+      allow update: if isSignedIn() && (request.auth.uid == uid || (isOwner() && resource.data.tenantId == myTenant()));
+      allow delete: if isOwner() && resource.data.tenantId == myTenant();
+    }
+
+    // =========================================================================
+    // licenses
+    // =========================================================================
+    match /licenses/{key} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (resource.data.get('activatedBy', null) == null || resource.data.activatedBy == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // tenants/{tid}  — doc gốc
+    // =========================================================================
+    match /tenants/{tid} {
+      allow read: if inTenant(tid);
+      allow create, update: if isSignedIn() && (tid == request.auth.uid || inTenant(tid));
+      allow delete: if false;
+
+      // ----- Audit log -----
+      match /auditLog/{id} {
+        allow read:   if inTenant(tid) && isFinance();
+        allow create, update: if inTenant(tid);
+        allow delete: if false;
+      }
+
+      // ===== NHẠY CẢM — chỉ owner/accountant =====
+      match /sm3_grouped_private/{doc} {
+        allow read, write: if inTenant(tid) && isFinance();
+      }
+      match /sm3_transactions/{doc} {
+        allow read: if inTenant(tid) && isFinance();
+        allow create, update: if inTenant(tid) && isFinance() && validTransaction();
+        allow delete: if inTenant(tid) && isFinance();
+      }
+      match /sm3_timesheets/{doc} {
+        allow read: if inTenant(tid) && isFinance();
+        allow create, update: if inTenant(tid) && isFinance() && validTimesheet();
+        allow delete: if inTenant(tid) && isFinance();
+      }
+
+      // ===== VẬN HÀNH + grouped public — mọi member trong tenant =====
+      match /sm3_grouped/{doc} {
+        allow read, write: if inTenant(tid);
+      }
+      match /sm3_shipments/{doc} {
+        allow read: if inTenant(tid);
+        allow create, update: if inTenant(tid) && validShipment();
+        allow delete: if inTenant(tid);
+      }
+      match /sm3_fuelVoyages/{doc}    { allow read, write: if inTenant(tid); }
+      match /sm3_fuelLogs/{doc}       { allow read, write: if inTenant(tid); }
+      match /sm3_captainReports/{doc} { allow read, write: if inTenant(tid); }
+      match /sm3_vesselExpenses/{doc} { allow read, write: if inTenant(tid); }
+
+      // (Cố ý KHÔNG có catch-all rộng ở đây — tránh vô hiệu hóa các rule chặt phía trên.)
+    }
+
+    // ---------- Mặc định: chặn mọi thứ khác ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
