@@ -1,0 +1,40 @@
+name: CI
+
+# Chạy test + kiểm tra build mỗi khi push hoặc mở PR vào main.
+# KHÔNG đụng tới deploy: GitHub Pages vẫn tự phục vụ nhánh main như cũ.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    name: Test & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Verify production build
+        run: npm run build
+
+      - name: Check syntax of all app scripts
+        run: |
+          for f in app/js/*.js; do
+            echo "checking $f"
+            node --check "$f"
+          done
