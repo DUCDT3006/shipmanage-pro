@@ -59,13 +59,13 @@ const SM3 = {
   sensitivePerRecord: ['transactions', 'timesheets'],
   // Vận hành: sub được sync nhưng filter theo vesselId
   operationalPerRecord: ['fuelLogs', 'fuelVoyages', 'shipments', 'captainReports', 'vesselExpenses'],
-  // Grouped: tách thành 2 doc -> public (vessels/vendors/customers/tên cty) ai cũng đọc,
-  // private (employees/monthlyCosts/openingBalances) chỉ owner+accountant
-  groupedPublicKeys: ['vessels', 'vendors', 'customers'],   // company name/address tách riêng
+  // Grouped tách theo độ nhạy cảm (task #17):
+  //  - PUBLIC = doc sm3_grouped/state (cũ): mọi key TRỪ private; company KHÔNG kèm openingBalances.
+  //  - PRIVATE = doc sm3_grouped_private/state (mới): lương + số dư đầu kỳ -> chỉ owner/accountant
+  //    được Firestore Rules cho đọc/ghi => sub KHÔNG nhận về máy (vá rò rỉ qua snapshot/F12).
   groupedPrivateKeys: ['employees', 'monthlyCosts']
 };
-// Doc grouped MỚI (tách theo nhạy cảm)
-function groupedPublicRef() { return tenantRoot().collection('sm3_grouped_public').doc(SM3.groupedDocId); }
+// Doc grouped PRIVATE (lương/số dư) — tách riêng, rules chỉ cho owner/accountant.
 function groupedPrivateRef() { return tenantRoot().collection('sm3_grouped_private').doc(SM3.groupedDocId); }
 // Vai trò có quyền xem dữ liệu nhạy cảm
 function isFinanceRole() {
@@ -114,7 +114,7 @@ if (typeof window !== 'undefined') window.APP_MODULES = APP_MODULES;
 
 // Bộ nhớ "đã đồng bộ" để tính diff (tránh đẩy lại dữ liệu không đổi)
 const lastSynced = {
-  grouped: null,                     // JSON string của phần grouped
+  grouped: null,                     // JSON string của grouped (public + private nếu là finance)
   records: {}                        // records[collection] = Map(id -> JSON string)
 };
 
@@ -208,6 +208,38 @@ function buildGrouped() {
   const o = {};
   groupedKeys().forEach(k => { o[k] = AppData.state[k]; });
   return o;
+}
+
+// ----- Tách grouped theo độ nhạy cảm (task #17) -----
+// PUBLIC: mọi key trừ private; company KHÔNG kèm openingBalances (số dư ngân hàng).
+function buildGroupedPublic() {
+  const o = {};
+  groupedKeys().forEach(k => {
+    if (SM3.groupedPrivateKeys.includes(k)) return;            // lương -> không vào doc public
+    if (k === 'company' && AppData.state.company) {
+      const c = Object.assign({}, AppData.state.company);
+      delete c.openingBalances;                                // số dư đầu kỳ -> doc private
+      o[k] = c;
+    } else {
+      o[k] = AppData.state[k];
+    }
+  });
+  return o;
+}
+// PRIVATE: employees, monthlyCosts (lương) + openingBalances của company.
+function buildGroupedPrivate() {
+  const o = {};
+  SM3.groupedPrivateKeys.forEach(k => { o[k] = AppData.state[k]; });
+  if (AppData.state.company && AppData.state.company.openingBalances != null) {
+    o._companyOpeningBalances = AppData.state.company.openingBalances;
+  }
+  return o;
+}
+// Chuỗi cơ sở để so diff + ghi nhớ đã-đồng-bộ. Sub không tính phần private (vì state không có).
+function groupedSyncBasis() {
+  const g = buildGrouped();
+  if (!isFinanceRole()) SM3.groupedPrivateKeys.forEach(k => { delete g[k]; });
+  return JSON.stringify(g);
 }
 
 // Re-render khi có dữ liệu mới từ cloud — debounce + GIỮ trải nghiệm:
@@ -662,7 +694,7 @@ function mapAuthError(err) {
 function setupHybridSync() {
   patchSaveForPush();
   attachListeners();
-  runMigrationIfNeeded();
+  runMigrationIfNeeded().then(() => migrateGroupedSplitIfNeeded());
 }
 
 // Vá AppData.save(): vẫn ghi localStorage trước (nhanh), rồi đẩy diff lên cloud.
@@ -687,16 +719,22 @@ async function pushDiff() {
     const pendingLast = [];         // [{coll, id, str}] áp dụng sau khi commit thành công
     const auditEntries = [];        // nhật ký kèm before/after để hoàn tác
 
-    // 1) GROUPED — sub không được động vào grouped private (employees/monthlyCosts)
+    // 1) GROUPED — tách public/private theo độ nhạy cảm (task #17).
+    //    Sub chỉ ghi doc public; lương/số dư đi vào doc private (chỉ finance, rules chặn server-side).
     const curGrouped = buildGrouped();
     if (!isFinanceRole()) {
       SM3.groupedPrivateKeys.forEach(k => { delete curGrouped[k]; });
     }
-    const groupedStr = JSON.stringify(curGrouped);
-    let groupedToWrite = null;
+    const groupedStr = groupedSyncBasis();
+    let publicToWrite = null, privateToWrite = null;
     if (groupedStr !== lastSynced.grouped) {
-      groupedToWrite = Object.assign({}, curGrouped);
-      groupedToWrite._groupedUpdatedAt = new Date().toISOString();
+      const nowG = new Date().toISOString();
+      publicToWrite = buildGroupedPublic();
+      publicToWrite._groupedUpdatedAt = nowG;
+      if (isFinanceRole()) {
+        privateToWrite = buildGroupedPrivate();
+        privateToWrite._groupedUpdatedAt = nowG;
+      }
       changedAnything = true;
       // audit cho thay đổi master data (gộp)
       let gBefore = null; try { gBefore = lastSynced.grouped ? JSON.parse(lastSynced.grouped) : null; } catch (e) {}
@@ -761,9 +799,13 @@ async function pushDiff() {
     // Lưu lại localStorage để các dấu updatedAt vừa đóng được giữ ở local
     originalSave();
 
-    // 3) Commit lên Firestore
-    if (groupedToWrite) {
-      await groupedDocRef().set(groupedToWrite, { merge: true });
+    // 3) Commit lên Firestore.
+    //    Doc public dùng FULL set (không merge) -> tự xóa sạch key private cũ còn sót trong doc gộp.
+    if (publicToWrite) {
+      await groupedDocRef().set(publicToWrite);
+    }
+    if (privateToWrite) {
+      await groupedPrivateRef().set(privateToWrite);
     }
     for (let i = 0; i < ops.length; i += 450) {
       const batch = db.batch();
@@ -776,7 +818,7 @@ async function pushDiff() {
     }
 
     // 4) Cập nhật bộ nhớ đồng bộ SAU KHI commit thành công
-    if (groupedToWrite) lastSynced.grouped = JSON.stringify(buildGrouped());
+    if (publicToWrite || privateToWrite) lastSynced.grouped = groupedSyncBasis();
     pendingLast.forEach(p => {
       const last = lastSynced.records[p.coll] || (lastSynced.records[p.coll] = new Map());
       if (p.str === null) last.delete(p.id);
@@ -804,16 +846,35 @@ function attachListeners() {
     Object.keys(data).forEach(k => {
       if (k.startsWith('_')) return;
       if (SM3.perRecord.includes(k)) return;
-      // Sub: chỉ áp dụng các key PUBLIC (vessels/vendors/customers/company tên...)
-      if (!isFinanceRole() && SM3.groupedPrivateKeys.includes(k)) return;
+      // Phòng vệ: bỏ qua key private nếu doc public cũ còn sót (trước khi dọn tách).
+      if (SM3.groupedPrivateKeys.includes(k)) return;
       AppData.state[k] = data[k];
     });
-    lastSynced.grouped = JSON.stringify(buildGrouped());
+    lastSynced.grouped = groupedSyncBasis();
     originalSave();
     suppressPush = false;
     updateServerStatus('online', 'Đã đồng bộ đám mây');
     scheduleRerender();
   }, err => handleSyncError(err, 'grouped.onSnapshot'));
+
+  // ===== GROUPED PRIVATE (lương + số dư đầu kỳ) — chỉ owner/accountant mới listen =====
+  if (isFinanceRole()) {
+    groupedPrivateRef().onSnapshot(doc => {
+      if (!doc.exists) return;
+      const data = doc.data() || {};
+      suppressPush = true;
+      SM3.groupedPrivateKeys.forEach(k => { if (data[k] !== undefined) AppData.state[k] = data[k]; });
+      if (data._companyOpeningBalances !== undefined) {
+        if (!AppData.state.company) AppData.state.company = {};
+        AppData.state.company.openingBalances = data._companyOpeningBalances;
+      }
+      lastSynced.grouped = groupedSyncBasis();
+      originalSave();
+      suppressPush = false;
+      updateServerStatus('online', 'Đã đồng bộ đám mây');
+      scheduleRerender();
+    }, err => handleSyncError(err, 'groupedPrivate.onSnapshot'));
+  }
 
   // PER-RECORD — theo vai trò + filter vesselId cho sub
   SM3.perRecord.forEach(coll => {
@@ -887,13 +948,19 @@ async function runMigrationIfNeeded() {
     console.log('[Sync V3] Bắt đầu migration local -> v3 (không phá huỷ, giữ doc cũ shipmanage/state)...');
     updateServerStatus('connecting', 'Đang nâng cấp cấu trúc đám mây...');
 
-    // GROUPED
-    const grouped = buildGrouped();
+    // GROUPED — tách public/private ngay từ migration (task #17)
     const nowIso = new Date().toISOString();
-    grouped._groupedUpdatedAt = nowIso;
-    grouped._migratedAt = nowIso;
-    await ref.set(grouped);
-    lastSynced.grouped = JSON.stringify(buildGrouped());
+    const pub = buildGroupedPublic();
+    pub._groupedUpdatedAt = nowIso;
+    pub._migratedAt = nowIso;
+    await ref.set(pub);
+    if (isFinanceRole()) {
+      const priv = buildGroupedPrivate();
+      priv._groupedUpdatedAt = nowIso;
+      priv._migratedAt = nowIso;
+      await groupedPrivateRef().set(priv);
+    }
+    lastSynced.grouped = groupedSyncBasis();
 
     // PER-RECORD
     let total = 0;
@@ -919,6 +986,39 @@ async function runMigrationIfNeeded() {
     updateServerStatus('online', 'Đã đồng bộ đám mây');
   } catch (err) {
     handleSyncError(err, 'migration');
+  }
+}
+
+// Dọn rò rỉ cho tenant ĐÃ migrate TRƯỚC khi tách public/private (task #17):
+// nếu doc private chưa tồn tại -> tạo từ state + ghi đè doc public sạch (xóa lương còn sót).
+// Chỉ owner/accountant chạy được (rules chỉ cho finance ghi doc private).
+async function migrateGroupedSplitIfNeeded() {
+  try {
+    if (!isFinanceRole()) return;
+    const privRef = groupedPrivateRef();
+    const privSnap = await privRef.get();
+    if (privSnap.exists) return;                       // đã tách trước đó
+
+    const pubSnap = await groupedDocRef().get();
+    const pubData = pubSnap.exists ? (pubSnap.data() || {}) : {};
+    const hasLegacyPrivate = SM3.groupedPrivateKeys.some(k => pubData[k] !== undefined)
+      || (pubData.company && pubData.company.openingBalances !== undefined);
+
+    const nowIso = new Date().toISOString();
+    const priv = buildGroupedPrivate();
+    priv._groupedUpdatedAt = nowIso;
+    priv._splitAt = nowIso;
+    await privRef.set(priv);
+
+    if (!pubSnap.exists || hasLegacyPrivate) {
+      const pub = buildGroupedPublic();               // FULL set -> xóa key private còn sót
+      pub._groupedUpdatedAt = nowIso;
+      await groupedDocRef().set(pub);
+    }
+    lastSynced.grouped = groupedSyncBasis();
+    console.log('[Sync V3] Đã tách grouped public/private (vá rò rỉ lương #17).');
+  } catch (e) {
+    console.warn('[Sync V3] migrateGroupedSplit lỗi (sẽ thử lại lần sau):', e);
   }
 }
 

@@ -283,5 +283,40 @@ function buildSandbox(mock, appdata) {
   vm.runInContext("currentUser = { uid:'u1', role:'owner', tenantId:'u1', vesselIds:[] };", sb);
   check('owner sync tất cả', sb.canSyncCollection('transactions') && sb.canSyncCollection('fuelLogs'));
 
+  // ---------- Tách grouped public/private — vá rò rỉ lương (task #17) ----------
+  console.log('[Group] Tách grouped public/private (lương/số dư)');
+  // currentUser đang là owner
+  appdata.AppData.state.employees = [{ id: 'E1', name: 'Thuyền trưởng', salary: 30000000 }];
+  appdata.AppData.state.monthlyCosts = [{ id: 'MC1', type: 'Bảo hiểm', amount: 5000000 }];
+  appdata.AppData.state.company.openingBalances = { 'ABbank': 1000000 };
+  await sb.pushDiff();
+  const pubDoc = mock.store['tenants/u1/sm3_grouped'].get('state');
+  const privColl = mock.store['tenants/u1/sm3_grouped_private'];
+  const privDoc = privColl && privColl.get('state');
+  check('doc PRIVATE được tạo', !!privDoc);
+  check('lương (employees) nằm trong doc PRIVATE', !!privDoc && Array.isArray(privDoc.employees) && privDoc.employees[0].salary === 30000000);
+  check('chi phí tháng nằm trong doc PRIVATE', !!privDoc && Array.isArray(privDoc.monthlyCosts) && privDoc.monthlyCosts.length === 1);
+  check('số dư đầu kỳ nằm trong doc PRIVATE', !!privDoc && privDoc._companyOpeningBalances && privDoc._companyOpeningBalances.ABbank === 1000000);
+  check('doc PUBLIC KHÔNG chứa employees (lương)', !!pubDoc && !('employees' in pubDoc));
+  check('doc PUBLIC KHÔNG chứa monthlyCosts', !!pubDoc && !('monthlyCosts' in pubDoc));
+  check('doc PUBLIC: company KHÔNG kèm openingBalances', !!pubDoc && pubDoc.company && !('openingBalances' in pubDoc.company));
+
+  // Sub thay đổi dữ liệu public -> KHÔNG được ghi vào doc private (rules + client đều chặn)
+  console.log('[Group] Sub không ghi doc private');
+  const privBefore = JSON.stringify(privColl.get('state'));
+  vm.runInContext("currentUser = { uid:'sub1', role:'sub', tenantId:'u1', vesselIds:['VG05'] };", sb);
+  appdata.AppData.state.vendors = [{ id: 'V1', name: 'NCC A' }];   // dữ liệu public
+  await sb.pushDiff();
+  check('sub sửa dữ liệu public -> doc private KHÔNG đổi', JSON.stringify(privColl.get('state')) === privBefore);
+  check('sub vẫn ghi được dữ liệu public (vendors)', (() => {
+    const g = mock.store['tenants/u1/sm3_grouped'].get('state');
+    return g.vendors && g.vendors[0] && g.vendors[0].name === 'NCC A';
+  })());
+  check('doc PUBLIC vẫn không lộ lương sau khi sub ghi', (() => {
+    const g = mock.store['tenants/u1/sm3_grouped'].get('state');
+    return !('employees' in g) && !('monthlyCosts' in g);
+  })());
+  vm.runInContext("currentUser = { uid:'u1', role:'owner', tenantId:'u1', vesselIds:[] };", sb);
+
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();
