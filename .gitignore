@@ -40,3 +40,6 @@ debts_sheet.txt
 *.docx
 allowances.json
 backups/
+
+# Build artifacts
+app/dist/

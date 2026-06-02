@@ -1,5 +1,16 @@
 {
+  "name": "shipmanage-pro",
+  "version": "2.1.0",
+  "description": "Hệ thống quản lý vận tải biển (multi-tenant SaaS)",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "serve": "npx --yes serve app -l 5173"
+  },
   "dependencies": {
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.5"
   }
 }
