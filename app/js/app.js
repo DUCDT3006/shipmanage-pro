@@ -1425,7 +1425,14 @@ const app = {
         // Tự thêm dấu chấm phân cách nghìn cho mọi input có class "money" khi gõ
         document.addEventListener('input', (e) => {
             const el = e.target;
-            if (!el || !el.classList || !el.classList.contains('money')) return;
+            if (!el || !el.classList) return;
+            // Xóa đánh dấu lỗi ngay khi người dùng sửa lại field
+            if (el.classList.contains('field-error')) {
+                el.classList.remove('field-error');
+                const next = el.nextSibling;
+                if (next && next.classList && next.classList.contains('field-error-msg')) next.remove();
+            }
+            if (!el.classList.contains('money')) return;
             const neg = el.value.trim().startsWith('-');
             const digits = el.value.replace(/\D/g, '');
             el.value = (neg ? '-' : '') + (digits ? Number(digits).toLocaleString('vi-VN') : '');
@@ -2414,8 +2421,14 @@ const app = {
             completionBonus: this.parseNum(document.getElementById('emp-completion-bonus').value),
             notes: document.getElementById('emp-notes').value
         };
+        // --- Validate (inline) ---
+        this._clearFieldErrors();
+        if (!emp.name || !emp.name.trim()) return this._vErr('Vui lòng nhập Họ tên nhân sự.', 'emp-name');
+        if (emp.joinDate && !this._isValidDate(emp.joinDate)) return this._vErr('Ngày vào làm không hợp lệ.', 'emp-join');
+        if (emp.basicSalary < 0) return this._vErr('Lương cơ bản không được âm.', 'emp-basic-salary');
         AppData.saveEmployee(emp);
         this.closeModal('employee-modal');
+        this.toast('Đã lưu nhân sự ' + emp.name, 'success');
         this.navigate('hr');
     },
     deleteEmployee(id) {
@@ -2662,8 +2675,48 @@ const app = {
             .catch(e => alert('Không thể hoàn tác: ' + (e.message || e)));
     },
 
+    // === Toast (thông báo không chặn) ===
+    toast(msg, type = 'info', ms = 3200) {
+        let wrap = document.getElementById('sm-toast-wrap');
+        if (!wrap) {
+            wrap = document.createElement('div');
+            wrap.id = 'sm-toast-wrap';
+            wrap.className = 'sm-toast-wrap';
+            document.body.appendChild(wrap);
+        }
+        const icons = { info: 'fa-circle-info', success: 'fa-circle-check', error: 'fa-circle-exclamation', warning: 'fa-triangle-exclamation' };
+        const el = document.createElement('div');
+        el.className = 'sm-toast ' + type;
+        el.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i><span>${esc(String(msg))}</span>`;
+        wrap.appendChild(el);
+        setTimeout(() => {
+            el.classList.add('hide');
+            setTimeout(() => el.remove(), 220);
+        }, ms);
+    },
+
     // === Validation helpers (chống nhập sai dữ liệu tài chính) ===
-    _vErr(msg) { alert('⚠️ ' + msg); return false; },
+    // Xóa mọi đánh dấu lỗi field trước mỗi lần validate.
+    _clearFieldErrors() {
+        document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+        document.querySelectorAll('.field-error-msg').forEach(el => el.remove());
+    },
+    // Báo lỗi: highlight field (nếu có id) + chèn message dưới field + toast. Không chặn (không alert).
+    _vErr(msg, fieldId) {
+        if (fieldId) {
+            const el = document.getElementById(fieldId);
+            if (el) {
+                el.classList.add('field-error');
+                const m = document.createElement('small');
+                m.className = 'field-error-msg';
+                m.textContent = msg;
+                (el.parentNode || el).insertBefore(m, el.nextSibling);
+                try { el.focus({ preventScroll: false }); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+            }
+        }
+        this.toast(msg, 'error');
+        return false;
+    },
     _isNumeric(raw) { return raw !== '' && raw !== null && raw !== undefined && isFinite(Number(raw)); },
     _isValidDate(v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) && !isNaN(new Date(v).getTime()); },
 
@@ -2722,17 +2775,19 @@ const app = {
             chi: this.parseNum(document.getElementById('t-chi').value),
             account: document.getElementById('t-acc').value
         };
-        // --- Validate ---
-        if (!this._isValidDate(t.date)) return this._vErr('Vui lòng nhập Ngày hợp lệ.');
-        if (!t.category) return this._vErr('Vui lòng chọn Hạng mục.');
-        if (!t.partner || !t.partner.trim()) return this._vErr('Vui lòng nhập Đối tác.');
-        if (!t.content || !t.content.trim()) return this._vErr('Vui lòng nhập Nội dung chi tiết.');
-        if (t.thu < 0 || t.chi < 0) return this._vErr('Khoản Thu/Chi không được âm.');
-        if (t.thu === 0 && t.chi === 0) return this._vErr('Phải nhập ít nhất một khoản Thu hoặc Chi lớn hơn 0.');
+        // --- Validate (inline: highlight field + toast) ---
+        this._clearFieldErrors();
+        if (!this._isValidDate(t.date)) return this._vErr('Vui lòng nhập Ngày hợp lệ.', 't-date');
+        if (!t.category) return this._vErr('Vui lòng chọn Hạng mục.', 't-cat');
+        if (!t.partner || !t.partner.trim()) return this._vErr('Vui lòng nhập Đối tác.', 't-partner');
+        if (!t.content || !t.content.trim()) return this._vErr('Vui lòng nhập Nội dung chi tiết.', 't-content');
+        if (t.thu < 0 || t.chi < 0) return this._vErr('Khoản Thu/Chi không được âm.', t.thu < 0 ? 't-thu' : 't-chi');
+        if (t.thu === 0 && t.chi === 0) return this._vErr('Phải nhập ít nhất một khoản Thu hoặc Chi lớn hơn 0.', 't-thu');
         AppData.addTransaction(t);
         if (window.smLogAudit) window.smLogAudit(tId ? 'Sửa giao dịch' : 'Thêm giao dịch',
             `${t.content || ''} · ${t.partner || ''} · Thu ${t.thu || 0} / Chi ${t.chi || 0} · ${t.vessel || ''}`);
         this.closeModal('trans-modal');
+        this.toast(tId ? 'Đã cập nhật giao dịch' : 'Đã thêm giao dịch mới', 'success');
         if (this.currentView === 'debts') {
             this.navigate('debts', this.currentDebtTab || 'customer');
         } else {
@@ -3908,14 +3963,17 @@ const app = {
             contact: document.getElementById('p-contact').value.trim(),
             address: document.getElementById('p-address').value.trim()
         };
-        if (!partner.name) { alert('Vui lòng nhập tên đối tác!'); return; }
+        this._clearFieldErrors();
+        if (!partner.name) return this._vErr('Vui lòng nhập tên đối tác.', 'p-name');
         if (type === 'vendor') {
             AppData.addVendor(partner);
             this.closeModal('partner-modal');
+            this.toast('Đã lưu nhà cung cấp ' + partner.name, 'success');
             this.navigate('partners', 'vendor');
         } else {
             AppData.addCustomer(partner);
             this.closeModal('partner-modal');
+            this.toast('Đã lưu khách hàng ' + partner.name, 'success');
             this.navigate('partners', 'customer');
         }
     },

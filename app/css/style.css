@@ -883,3 +883,42 @@ a:hover {
 .sm-empty .btn { display: inline-flex; align-items: center; gap: 0.4rem; }
 /* Khi empty state nằm trong <td> của bảng */
 td > .sm-empty { padding: 1.75rem 1rem; }
+
+/* ==========================================================================
+   Inline validation + Toast (P1 / #29)
+   ========================================================================== */
+.field-error,
+input.field-error, select.field-error, textarea.field-error {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.18) !important;
+}
+.field-error-msg {
+    display: block; color: var(--accent);
+    font-size: 0.76rem; margin-top: 4px; font-weight: 500;
+}
+.field-error-msg::before { content: '\26A0'; margin-right: 4px; }
+
+/* Toast (thông báo không chặn) */
+.sm-toast-wrap {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    z-index: 100000; display: flex; flex-direction: column; gap: 8px;
+    align-items: center; pointer-events: none; width: max-content; max-width: 92vw;
+}
+.sm-toast {
+    background: rgba(20, 23, 31, 0.96); color: var(--text-main);
+    border: 1px solid var(--border-color); border-left: 3px solid var(--primary-light);
+    border-radius: 10px; padding: 0.7rem 1rem; font-size: 0.88rem;
+    box-shadow: var(--glass-shadow); backdrop-filter: blur(8px);
+    display: flex; align-items: center; gap: 0.55rem;
+    animation: sm-toast-in 0.22s ease both; max-width: 92vw;
+}
+.sm-toast.error   { border-left-color: var(--accent); }
+.sm-toast.success { border-left-color: var(--secondary); }
+.sm-toast.warning { border-left-color: var(--warning); }
+.sm-toast i { font-size: 1rem; }
+.sm-toast.error i   { color: var(--accent); }
+.sm-toast.success i { color: var(--secondary); }
+.sm-toast.warning i { color: var(--warning); }
+.sm-toast.hide { animation: sm-toast-out 0.2s ease forwards; }
+@keyframes sm-toast-in  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes sm-toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(8px); } }
