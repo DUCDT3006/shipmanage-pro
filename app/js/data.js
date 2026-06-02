@@ -812,15 +812,27 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         this.save();
             } catch (e) {
                 console.error("Error in AppData.init:", e);
-                this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
-                this.state.shipments.forEach(s => this.syncShipmentFuelFromLogs(s));
+                // X4: lỗi -> state TRẮNG (không seed dữ liệu Vũ Gia). Cloud sẽ hydrate nếu đã đăng nhập.
+                this.state = this.blankState();
                 this.save();
             }
         } else {
-            this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
-            this.state.shipments.forEach(s => this.syncShipmentFuelFromLogs(s));
+            // X4: cài đặt mới / chưa có dữ liệu cục bộ -> state TRẮNG, KHÔNG seed dữ liệu Vũ Gia.
+            // Khách thật đăng nhập sẽ được đồng bộ dữ liệu của họ từ đám mây.
+            this.state = this.blankState();
             this.save();
         }
+    },
+
+    // State trắng cho cài đặt mới / khách mới (bản SaaS sạch, không lộ dữ liệu cũ).
+    blankState() {
+        return {
+            company: { name: '', taxId: '', bankInfo: '', address: '',
+                openingBalances: { 'ABbank': 0, 'Viettinbank': 0, 'Tài khoản cá nhân': 0, 'Tiền mặt': 0 } },
+            vessels: [], vendors: [], customers: [], employees: [], monthlyCosts: [],
+            transactions: [], fuelLogs: [], fuelVoyages: [], shipments: [],
+            captainReports: [], vesselExpenses: [], timesheets: []
+        };
     },
 
     mergeDefaultTransactions() {
