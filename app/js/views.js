@@ -22,6 +22,47 @@ const Views = {
             ${cta}
         </div>`;
     },
+    /**
+     * Onboarding checklist cho tenant mới (chỉ chủ tài khoản, ẩn khi đã xong/đã tắt).
+     * Hướng dẫn 4 bước thiết lập ban đầu.
+     */
+    onboardingChecklist() {
+        if (typeof window === 'undefined' || !window.SM_USER || window.SM_USER.role !== 'owner') return '';
+        try { if (localStorage.getItem('sm_onboarding_dismissed') === '1') return ''; } catch (e) {}
+        const c = (AppData.getCompany && AppData.getCompany()) || {};
+        const st = AppData.state || {};
+        const steps = [
+            { done: !!(c.name && String(c.name).trim()), icon: 'fa-building', label: 'Nhập thông tin công ty', cta: 'Thiết lập', onclick: "app.navigate('company')" },
+            { done: (st.vessels || []).length > 0, icon: 'fa-ship', label: 'Thêm tàu đầu tiên', cta: 'Thêm tàu', onclick: 'app.openVesselModal()' },
+            { done: ((st.customers || []).length + (st.vendors || []).length) > 0, icon: 'fa-handshake', label: 'Thêm khách hàng / nhà cung cấp', cta: 'Thêm đối tác', onclick: "app.navigate('partners','customer')" },
+            { done: (st.employees || []).length > 0, icon: 'fa-users', label: 'Thêm nhân sự (chấm công & tính lương)', cta: 'Thêm nhân sự', onclick: 'app.openEmployeeModal()' }
+        ];
+        const doneCount = steps.filter(s => s.done).length;
+        if (doneCount === steps.length) return '';   // đã hoàn tất -> không hiện
+        const pct = Math.round((doneCount / steps.length) * 100);
+        const rows = steps.map(s => `
+            <div style="display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0; border-bottom:1px solid var(--border-color);">
+                <span style="width:26px; height:26px; flex:0 0 26px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+                    background:${s.done ? 'var(--secondary)' : 'rgba(255,255,255,0.08)'}; color:${s.done ? '#062b22' : 'var(--text-muted)'};">
+                    <i class="fa-solid ${s.done ? 'fa-check' : s.icon}"></i>
+                </span>
+                <span style="flex:1; ${s.done ? 'text-decoration:line-through; color:var(--text-muted);' : 'color:var(--text-main);'}">${s.label}</span>
+                ${s.done ? '<span class="badge badge-success" style="font-size:0.72rem;">Xong</span>'
+                         : `<button class="btn btn-primary" style="padding:0.25rem 0.7rem; font-size:0.8rem;" onclick="${s.onclick}">${s.cta}</button>`}
+            </div>`).join('');
+        return `
+        <div class="glass-card" style="margin-bottom:1.5rem; border:1px solid var(--primary-light);">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                <h3 style="margin:0;"><i class="fa-solid fa-rocket" style="color:var(--primary-light);"></i> Bắt đầu nhanh — thiết lập hệ thống</h3>
+                <button class="btn btn-outline" style="padding:0.2rem 0.6rem; font-size:0.78rem;" onclick="app.dismissOnboarding()">Ẩn hướng dẫn</button>
+            </div>
+            <p style="margin:0.4rem 0 0.8rem; font-size:0.85rem; color:var(--text-muted);">Hoàn tất ${doneCount}/${steps.length} bước để dùng đầy đủ tính năng.</p>
+            <div style="height:8px; background:rgba(255,255,255,0.07); border-radius:99px; overflow:hidden; margin-bottom:0.5rem;">
+                <div style="height:100%; width:${pct}%; background:var(--gradient-primary); transition:width 0.3s;"></div>
+            </div>
+            ${rows}
+        </div>`;
+    },
     /** Skeleton vài dòng cho bảng/khối đang tải. */
     skeletonLines(n = 3) {
         let s = '';
@@ -85,6 +126,8 @@ const Views = {
                         </select>
                     </div>
                 </div>
+
+                ${Views.onboardingChecklist()}
 
                 <!-- KPI Section -->
                 <div class="kpi-grid" style="margin-bottom: 2rem;">
@@ -1789,7 +1832,10 @@ const Views = {
                         </form>
                     </div>
                     <div class="glass-card">
-                        <h3>Danh sách Tàu & Thuyền trưởng</h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <h3 style="margin:0;">Danh sách Tàu & Thuyền trưởng</h3>
+                            <button class="btn btn-primary" onclick="app.openVesselModal()"><i class="fa-solid fa-plus"></i> Thêm tàu</button>
+                        </div>
                         <div class="table-container" style="margin-top:1rem;">
                             <table class="table">
                                 <thead>
@@ -1803,6 +1849,7 @@ const Views = {
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    ${AppData.state.vessels.length === 0 ? `<tr><td colspan="6">${Views.emptyState({ icon: 'fa-ship', title: 'Chưa có tàu nào', hint: 'Thêm tàu đầu tiên để bắt đầu quản lý nhiên liệu, chuyến hàng và chi phí.', ctaLabel: 'Thêm tàu', ctaOnClick: 'app.openVesselModal()' })}</td></tr>` : ''}
                                     ${AppData.state.vessels.map(v => `
                                         <tr>
                                             <td><strong>${esc(v.name)}</strong></td>
@@ -1818,6 +1865,7 @@ const Views = {
                                             <td><span class="badge badge-outline">${Math.round(v.fuelRate)} L/h</span></td>
                                             <td>
                                                 <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.editVessel('${v.id}')" title="Sửa thông tin tàu"><i class="fa-solid fa-pen" style="color:var(--info)"></i></button>
+                                                <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.deleteVessel('${v.id}')" title="Xóa tàu"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
                                             </td>
                                         </tr>
                                     `).join('')}
@@ -2552,15 +2600,15 @@ const Views = {
         `;
     },
     vesselModal: (id) => {
-        const v = AppData.getVessel(id);
-        if (!v) return '';
+        const v = AppData.getVessel(id) || {};   // id rỗng -> thêm tàu mới
+        const isNew = !v.id;
         return `
-            <div class="modal-header"><h3>Cập nhật thông tin Tàu ${esc(v.name)}</h3><button class="modal-close" onclick="app.closeModal('vessel-modal')">&times;</button></div>
+            <div class="modal-header"><h3>${isNew ? '<i class="fa-solid fa-ship"></i> Thêm tàu mới' : 'Cập nhật thông tin Tàu ' + esc(v.name)}</h3><button class="modal-close" onclick="app.closeModal('vessel-modal')">&times;</button></div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault(); app.saveVessel();">
-                    <input type="hidden" id="v-id" value="${v.id}">
+                    <input type="hidden" id="v-id" value="${v.id || ''}">
                     <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Tên tàu</label><input type="text" class="form-control" id="v-name" value="${esc(v.name)}" disabled style="background:rgba(0,0,0,0.3); font-weight:bold; color:var(--success);"></div>
+                        <div class="form-group"><label class="form-label">Tên tàu</label><input type="text" class="form-control" id="v-name" value="${esc(v.name || '')}" ${isNew ? 'required placeholder="Ví dụ: Vũ Gia 09"' : 'disabled style="background:rgba(0,0,0,0.3); font-weight:bold; color:var(--success);"'}></div>
                         <div class="form-group"><label class="form-label">Tải trọng (Tấn)</label><input type="number" class="form-control" id="v-capacity" value="${v.capacity || ''}" required placeholder="Ví dụ: 3500"></div>
                     </div>
                     <div class="grid-2">

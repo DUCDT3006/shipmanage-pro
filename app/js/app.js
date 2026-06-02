@@ -3925,6 +3925,24 @@ const app = {
         document.getElementById('vessel-modal-content').innerHTML = Views.vesselModal(id);
         this.openModal('vessel-modal');
     },
+    dismissOnboarding() {
+        try { localStorage.setItem('sm_onboarding_dismissed', '1'); } catch (e) {}
+        this.toast('Đã ẩn hướng dẫn. Bạn vẫn thiết lập được trong Master Data.', 'info');
+        this.navigate('dashboard');
+    },
+    openVesselModal() {   // thêm tàu mới
+        document.getElementById('vessel-modal-content').innerHTML = Views.vesselModal(null);
+        this.openModal('vessel-modal');
+        setTimeout(() => { const el = document.getElementById('v-name'); if (el) el.focus(); }, 100);
+    },
+    deleteVessel(id) {
+        const v = AppData.getVessel(id);
+        if (!v) return;
+        if (!confirm(`Xóa tàu "${v.name}"? Lưu ý: các dữ liệu chuyến/dầu/chi phí đã gắn tàu này sẽ không còn tàu tham chiếu.`)) return;
+        AppData.deleteVessel(id);
+        this.toast('Đã xóa tàu ' + v.name, 'success');
+        this.navigate('company');
+    },
     saveVessel() {
         const id = document.getElementById('v-id').value;
         const get = (k) => { const el = document.getElementById(k); return el ? el.value.trim() : ''; };
@@ -3939,7 +3957,18 @@ const app = {
             certLicense: get('v-cert-license'),
             certInsurance: get('v-cert-insurance')
         };
-        AppData.updateVessel(id, data);
+        this._clearFieldErrors();
+        if (id) {
+            AppData.updateVessel(id, data);
+            this.toast('Đã cập nhật tàu', 'success');
+        } else {
+            // Thêm tàu mới: bắt buộc tên
+            const name = get('v-name');
+            if (!name) return this._vErr('Vui lòng nhập Tên tàu.', 'v-name');
+            data.name = name;
+            AppData.addVessel(data);
+            this.toast('Đã thêm tàu ' + name, 'success');
+        }
         this.closeModal('vessel-modal');
         this.navigate('company');
     },

@@ -1509,6 +1509,19 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
             this.save();
         }
     },
+    // Thêm tàu mới (cho khách hàng SaaS tự lập đội tàu). Trả về id.
+    addVessel(v) {
+        v.id = v.id || ('VS' + Date.now());
+        const idx = this.state.vessels.findIndex(x => x.id === v.id);
+        if (idx >= 0) this.state.vessels[idx] = { ...this.state.vessels[idx], ...v };
+        else this.state.vessels.push(v);
+        this.save();
+        return v.id;
+    },
+    deleteVessel(id) {
+        this.state.vessels = this.state.vessels.filter(v => v.id !== id);
+        this.save();
+    },
     
     addTransaction(t) { 
         t.id = t.id || ('TR' + Date.now()); 
