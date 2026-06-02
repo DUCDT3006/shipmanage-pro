@@ -834,7 +834,16 @@ const Views = {
                                         }
                                         return `<tr><td colspan="9">${Views.emptyState({ icon: 'fa-filter-circle-xmark', title: 'Không khớp bộ lọc', hint: 'Không có giao dịch nào khớp với bộ lọc hiện tại. Thử đổi tháng/tàu/hạng mục.' })}</td></tr>`;
                                     }
-                                    return filtered.map(t => `
+                                    // X3: phân trang — sắp xếp mới nhất trước + giới hạn dòng render (bảo vệ hiệu năng)
+                                    const sorted = [...filtered].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+                                    const limit = (typeof app !== 'undefined' && app.transLimit) ? app.transLimit : 100;
+                                    const shown = sorted.slice(0, limit);
+                                    const moreRow = sorted.length > limit
+                                        ? `<tr><td colspan="9" style="text-align:center; padding:1rem;">
+                                            <button class="btn btn-outline" onclick="app.showMoreTrans()"><i class="fa-solid fa-chevron-down"></i> Xem thêm (còn ${sorted.length - limit})</button>
+                                            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">Đang hiển thị ${shown.length}/${sorted.length} giao dịch (mới nhất trước)</div></td></tr>`
+                                        : '';
+                                    return shown.map(t => `
                                         <tr style="${t.category === 'Luân chuyển' ? 'opacity: 0.6; font-style: italic;' : ''}">
                                             <td data-label="Ngày">${esc(t.date)}</td>
                                             <td data-label="Tàu"><span class="badge badge-outline">${esc(t.vessel)}</span></td>
@@ -849,7 +858,7 @@ const Views = {
                                                 <button class="btn btn-outline" style="padding: 0.2rem 0.5rem;" onclick="app.deleteTransaction('${t.id}')"><i class="fa-solid fa-trash" style="color:var(--accent)"></i></button>
                                             </td>
                                         </tr>
-                                    `).join('');
+                                    `).join('') + moreRow;
                                 })()}
                             </tbody>
                         </table>

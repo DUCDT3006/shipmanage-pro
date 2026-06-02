@@ -1460,8 +1460,14 @@ const app = {
         if (bd) bd.classList.toggle('show', open);
     },
 
+    showMoreTrans() {
+        this.transLimit = (this.transLimit || 100) + 200;
+        this.navigate('financials');
+    },
     navigate(viewName, ...args) {
         if (!Views[viewName]) return;
+        // X3: vào lại Theo dõi Tài chính từ view khác -> reset giới hạn phân trang
+        if (viewName === 'financials' && this.currentView !== 'financials') this.transLimit = 100;
         this.currentView = viewName;
         if (viewName === 'debts' && args.length > 0) {
             this.currentDebtTab = args[0];
