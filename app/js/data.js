@@ -68,14 +68,20 @@ const SMStore = (() => {
     let dbp = null;
     function open() {
         if (dbp) return dbp;
-        dbp = new Promise((resolve, reject) => {
+        dbp = new Promise((resolve) => {
+            let settled = false;
+            const done = (v) => { if (!settled) { settled = true; resolve(v); } };
             try {
-                if (typeof indexedDB === 'undefined') return resolve(null);
+                if (typeof indexedDB === 'undefined') return done(null);
                 const req = indexedDB.open('shipmanage_db', 1);
                 req.onupgradeneeded = () => { try { req.result.createObjectStore('kv'); } catch (e) {} };
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => resolve(null);
-            } catch (e) { resolve(null); }
+                req.onsuccess = () => done(req.result);
+                req.onerror = () => done(null);
+                // Safari (đặc biệt chế độ riêng tư) đôi khi open() treo không phát onsuccess/onerror,
+                // hoặc bị 'blocked' -> dùng timeout để fallback về localStorage thay vì treo app.
+                req.onblocked = () => done(null);
+                setTimeout(() => done(null), 3000);
+            } catch (e) { done(null); }
         });
         return dbp;
     }
