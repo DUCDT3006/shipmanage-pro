@@ -1377,6 +1377,24 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         this.recalculateAllShipmentAllocations(vesselId, monthStr);
     },
 
+    // Fix#3: tính lại TẤT CẢ phân bổ dẫn xuất (vật tư cty, lãi vay, chi phí cảng, phân bổ ngày...)
+    // cho mọi (tàu, tháng) suy ra từ chuyến + giao dịch. Dùng để "heal" sau khi tải dữ liệu từ cloud.
+    recalcAllAllocations() {
+        if (!this.state) return;
+        const pairs = new Set();
+        (this.state.shipments || []).forEach(s => {
+            const m = s.reportMonth || (s.dateStart ? String(s.dateStart).substring(0, 7) : '');
+            if (s.vesselId && m) pairs.add(s.vesselId + '|' + m);
+        });
+        (this.state.transactions || []).forEach(t => {
+            if (t.vessel && t.vessel !== 'VP' && t.date) pairs.add(t.vessel + '|' + String(t.date).substring(0, 7));
+        });
+        pairs.forEach(k => {
+            const i = k.indexOf('|');
+            this.recalculateVesselAllocations(k.slice(0, i), k.slice(i + 1));
+        });
+    },
+
     recalculateAllShipmentAllocations(vesselId, monthStr) {
         this.state.shipments.forEach(s => {
             const sMonth = s.reportMonth || (s.dateStart && typeof s.dateStart === 'string' ? s.dateStart.substring(0, 7) : '');
@@ -1389,6 +1407,18 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
                 s.costs.materialVessel = this.calcExactAllocation(s.dateStart, s.dateEnd, vesselId, 'materialVessel');
                 s.costs.loanInterest = this.calcExactAllocation(s.dateStart, s.dateEnd, vesselId, 'loanInterest');
                 s.costs.monthlyOther = this.calcExactAllocation(s.dateStart, s.dateEnd, vesselId, 'other');
+
+                // Fix#2: gộp giao dịch "2.Chi Phí Cảng" gán cho chuyến này vào agent.
+                // Tự gộp khi ô agent đang trống HOẶC giá trị trước đó cũng do tự gộp (_agentAuto)
+                // -> cộng dồn được nhiều giao dịch; KHÔNG đè giá trị người dùng nhập tay.
+                if (!Number(s.costs.agent) || s.costs._agentAuto) {
+                    const portSum = (this.state.transactions || [])
+                        .filter(t => t.category === '2.Chi Phí Cảng' && t.vessel === vesselId
+                            && t.voyageNo && s.voyageNo && String(t.voyageNo) === String(s.voyageNo))
+                        .reduce((sum, t) => sum + (Number(t.chi) || 0), 0);
+                    if (portSum > 0) { s.costs.agent = portSum; s.costs._agentAuto = true; }
+                    else if (s.costs._agentAuto) { s.costs.agent = 0; delete s.costs._agentAuto; }
+                }
             }
         });
         this.save();
@@ -1533,17 +1563,23 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         } else {
             this.state.transactions.push(t); 
         }
-        this.save(); 
+        this.save();
 
-        // Auto-recalculate if vessel/date/category changed
-        if (t.vessel && t.vessel !== 'VP' && t.date && (t.category === '9.Vật Tư' || t.category === '6.Lãi Vay')) {
-            this.recalculateVesselAllocations(t.vessel, t.date.substring(0, 7));
-        }
-        if (oldTx && oldTx.vessel && oldTx.vessel !== 'VP' && oldTx.date && (oldTx.category === '9.Vật Tư' || oldTx.category === '6.Lãi Vay')) {
-            if (oldTx.vessel !== t.vessel || oldTx.date.substring(0,7) !== t.date.substring(0,7) || oldTx.category !== t.category) {
-                this.recalculateVesselAllocations(oldTx.vessel, oldTx.date.substring(0, 7));
+        // Auto-recalculate khi giao dịch ảnh hưởng phân bổ.
+        // - 9.Vật Tư / 6.Lãi Vay: recalc theo THÁNG của giao dịch.
+        // - 2.Chi Phí Cảng: recalc theo THÁNG của CHUYẾN (theo voyageNo) vì chi phí cảng gắn theo chuyến.
+        const recalcForTxn = (tx) => {
+            if (!tx || !tx.vessel || tx.vessel === 'VP') return;
+            if (tx.category === '9.Vật Tư' || tx.category === '6.Lãi Vay') {
+                if (tx.date) this.recalculateVesselAllocations(tx.vessel, tx.date.substring(0, 7));
+            } else if (tx.category === '2.Chi Phí Cảng' && tx.voyageNo) {
+                const sh = (this.state.shipments || []).find(s => s.vesselId === tx.vessel && String(s.voyageNo) === String(tx.voyageNo));
+                const m = sh ? (sh.reportMonth || (sh.dateStart ? sh.dateStart.substring(0, 7) : '')) : (tx.date ? tx.date.substring(0, 7) : '');
+                if (m) this.recalculateVesselAllocations(tx.vessel, m);
             }
-        }
+        };
+        recalcForTxn(t);
+        if (oldTx) recalcForTxn(oldTx);
     },
     deleteTransaction(id) {
         const t = this.state.transactions.find(x => x.id === id);

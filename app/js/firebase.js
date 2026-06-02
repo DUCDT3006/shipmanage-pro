@@ -290,6 +290,21 @@ function scheduleRerender() {
   }, 200);
 }
 
+// Fix#3: sau khi tải dữ liệu từ cloud, tính lại các số phân bổ dẫn xuất cho ĐÚNG (local-only,
+// KHÔNG đẩy ngược để tránh vòng lặp). Debounce để gộp nhiều snapshot liên tiếp.
+let recalcTimer = null;
+function scheduleRecalcAfterSync() {
+  if (recalcTimer) clearTimeout(recalcTimer);
+  recalcTimer = setTimeout(() => {
+    if (typeof AppData === 'undefined' || typeof AppData.recalcAllAllocations !== 'function') return;
+    const prev = suppressPush;
+    suppressPush = true;                 // recompute cục bộ, không phát sinh push
+    try { AppData.recalcAllAllocations(); } catch (e) { console.warn('[Sync] recalc heal lỗi:', e); }
+    suppressPush = prev;
+    scheduleRerender();
+  }, 900);
+}
+
 // ===============================================================
 // AUTHENTICATION GATE (Phase 1) — chặn cửa, phải đăng nhập mới vào
 // ===============================================================
@@ -905,6 +920,8 @@ function attachListeners() {
       suppressPush = false;
       updateServerStatus('online', 'Đã đồng bộ đám mây');
       scheduleRerender();
+      // Fix#3: monthlyCosts (chi phí tháng) thay đổi -> tính lại phân bổ cho chuyến
+      scheduleRecalcAfterSync();
     }, err => handleSyncError(err, 'groupedPrivate.onSnapshot'));
   }
 
@@ -935,6 +952,8 @@ function attachListeners() {
       if (touched) originalSave();
       suppressPush = false;
       if (touched) scheduleRerender();
+      // Fix#3: giao dịch / báo cáo TT thay đổi -> tính lại phân bổ dẫn xuất cho đúng
+      if (touched && (coll === 'transactions' || coll === 'captainReports')) scheduleRecalcAfterSync();
     }, err => handleSyncError(err, recordsColl(coll) + '.onSnapshot'));
   });
 }

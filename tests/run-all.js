@@ -10,6 +10,7 @@ const SUITES = [
   'calc.test.js',
   'backup.test.js',
   'idb.test.js',
+  'data.test.js',
 ];
 
 let failed = 0;
