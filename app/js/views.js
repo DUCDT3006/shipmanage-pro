@@ -165,6 +165,74 @@ const Views = {
             </div>
         </div>`;
     },
+    /**
+     * Bảng so sánh đội tàu (#42): doanh thu/chi phí/lợi nhuận/biên LN/số chuyến từng tàu.
+     * Quét cả đội cùng lúc, tô màu lãi/lỗ, có dòng tổng cộng.
+     */
+    fleetComparison(filterMonth = '') {
+        const ships = AppData.getShipments() || [];
+        const vessels = AppData.getVessels() || [];
+        if (!vessels.length || !ships.length) return '';
+        const C = (typeof Calc !== 'undefined') ? Calc : null;
+        const fmt = (n) => (AppData.formatCurrency ? AppData.formatCurrency(n) : Math.round(n).toLocaleString('vi-VN'));
+        const monthOf = (s) => s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : '');
+        const scope = filterMonth ? ships.filter(s => monthOf(s) === filterMonth) : ships;
+
+        const stats = {};
+        vessels.forEach(v => { stats[v.id] = { name: v.name, rev: 0, cost: 0, profit: 0, voyages: 0 }; });
+        scope.forEach(s => {
+            const id = s.vesselId;
+            if (!stats[id]) stats[id] = { name: id, rev: 0, cost: 0, profit: 0, voyages: 0 };
+            const rev = Number(s.revenueReal || 0);
+            const vat = C ? C.vat(s.revenueInvoice, s.revenueReal, s.costs && s.costs.fuelDO) : 0;
+            const base = Object.assign({}, s.costs); delete base.vat;
+            const cost = Object.values(base).reduce((a, x) => a + (Number(x) || 0), 0) + (vat > 0 ? vat : 0);
+            stats[id].rev += rev; stats[id].cost += cost; stats[id].profit += (rev - cost); stats[id].voyages += 1;
+        });
+
+        const rows = Object.values(stats).sort((a, b) => b.profit - a.profit);
+        const tot = rows.reduce((t, r) => { t.rev += r.rev; t.cost += r.cost; t.profit += r.profit; t.voyages += r.voyages; return t; },
+            { rev: 0, cost: 0, profit: 0, voyages: 0 });
+        const marginOf = (o) => o.rev > 0 ? (o.profit / o.rev * 100) : 0;
+        const pcolor = (p) => p >= 0 ? 'var(--secondary)' : 'var(--accent)';
+
+        const body = rows.map(r => `
+            <tr>
+                <td data-label="Tàu"><strong>${esc(r.name)}</strong></td>
+                <td data-label="Số chuyến" style="text-align:center;">${r.voyages}</td>
+                <td data-label="Doanh thu" style="text-align:right;">${fmt(r.rev)}</td>
+                <td data-label="Chi phí" style="text-align:right;">${fmt(r.cost)}</td>
+                <td data-label="Lợi nhuận" style="text-align:right; font-weight:700; color:${pcolor(r.profit)};">${fmt(r.profit)}</td>
+                <td data-label="Biên LN" style="text-align:right; color:${pcolor(r.profit)};">${marginOf(r).toFixed(1)}%</td>
+            </tr>`).join('');
+
+        return `
+        <div class="view-section" style="margin-bottom:2rem;">
+            <h3 style="margin:0 0 1rem;"><i class="fa-solid fa-table-list" style="color:var(--info);"></i> So sánh đội tàu</h3>
+            <div class="glass-card" style="padding:0; overflow:hidden;">
+                <div class="table-container">
+                    <table class="table table-card-mobile">
+                        <thead><tr>
+                            <th>Tàu</th><th style="text-align:center;">Số chuyến</th>
+                            <th style="text-align:right;">Doanh thu</th><th style="text-align:right;">Chi phí</th>
+                            <th style="text-align:right;">Lợi nhuận</th><th style="text-align:right;">Biên LN</th>
+                        </tr></thead>
+                        <tbody>
+                            ${body}
+                            <tr style="border-top:2px solid var(--border-color); font-weight:700;">
+                                <td data-label="Tàu">TỔNG CỘNG</td>
+                                <td data-label="Số chuyến" style="text-align:center;">${tot.voyages}</td>
+                                <td data-label="Doanh thu" style="text-align:right;">${fmt(tot.rev)}</td>
+                                <td data-label="Chi phí" style="text-align:right;">${fmt(tot.cost)}</td>
+                                <td data-label="Lợi nhuận" style="text-align:right; color:${pcolor(tot.profit)};">${fmt(tot.profit)}</td>
+                                <td data-label="Biên LN" style="text-align:right; color:${pcolor(tot.profit)};">${marginOf(tot).toFixed(1)}%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+    },
     /** Skeleton vài dòng cho bảng/khối đang tải. */
     skeletonLines(n = 3) {
         let s = '';
@@ -312,6 +380,8 @@ const Views = {
 
                 ${Views.analyticsPanel(filterMonth)}
 
+                ${Views.fleetComparison(filterMonth)}
+
                 <!-- Cảnh báo đăng kiểm/chứng chỉ sắp hết hạn (task #25) -->
                 ${(() => {
                     const today = new Date();
@@ -328,7 +398,10 @@ const Views = {
                     if (!alerts.length) return '';
                     alerts.sort((a,b) => a.days - b.days);
                     return `<div class="glass-card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--warning);">
-                        <h3 style="margin:0 0 0.8rem; font-size:1.05rem;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Sắp hết hạn (trong 30 ngày)</h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:0.8rem;">
+                            <h3 style="margin:0; font-size:1.05rem;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Sắp hết hạn (trong 30 ngày)</h3>
+                            <button class="btn btn-outline" style="padding:0.3rem 0.7rem; font-size:0.8rem;" onclick="app.enableCertNotifications()"><i class="fa-solid fa-bell"></i> Bật nhắc qua thông báo</button>
+                        </div>
                         <div style="display:flex; flex-wrap:wrap; gap:10px;">
                         ${alerts.map(a => {
                             const color = a.days < 0 ? 'var(--accent)' : (a.days <= 7 ? 'var(--accent)' : 'var(--warning)');

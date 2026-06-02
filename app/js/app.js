@@ -1446,6 +1446,8 @@ const app = {
             });
         });
         this.navigate(this.currentView);
+        // #36: nhắc đăng kiểm qua thông báo (chỉ khi đã được cấp quyền trước đó)
+        try { this.checkCertNotificationsOnBoot(); } catch (e) {}
     },
 
     // Mở/đóng sidebar dạng off-canvas trên mobile
@@ -2693,6 +2695,60 @@ const app = {
             el.classList.add('hide');
             setTimeout(() => el.remove(), 220);
         }, ms);
+    },
+
+    // === Nhắc hết hạn đăng kiểm/chứng chỉ qua thông báo trình duyệt (#36) ===
+    // Tính danh sách chứng chỉ sắp/đã hết hạn trong `days` ngày tới.
+    getExpiringCerts(days = 30) {
+        const today = new Date();
+        const out = [];
+        (AppData.state.vessels || []).forEach(v => {
+            [['certRegistry', 'Đăng kiểm'], ['certLicense', 'Cấp phép VT'], ['certInsurance', 'Bảo hiểm']].forEach(([k, label]) => {
+                const d = v[k]; if (!d) return;
+                const dt = new Date(d); if (isNaN(dt)) return;
+                const diff = Math.ceil((dt - today) / 86400000);
+                if (diff <= days) out.push({ vessel: v.name, kind: label, date: d, days: diff });
+            });
+        });
+        return out.sort((a, b) => a.days - b.days);
+    },
+    // Bật nhắc nhở: xin quyền thông báo, rồi bắn ngay nếu có cảnh báo.
+    enableCertNotifications() {
+        if (!('Notification' in window)) return this.toast('Trình duyệt không hỗ trợ thông báo.', 'warning');
+        Notification.requestPermission().then(perm => {
+            if (perm === 'granted') {
+                this.toast('Đã bật nhắc đăng kiểm qua thông báo.', 'success');
+                this._fireCertNotification(true);
+            } else {
+                this.toast('Bạn đã từ chối quyền thông báo.', 'warning');
+            }
+        });
+    },
+    // Bắn thông báo nếu có cảnh báo + đã được cấp quyền. Mặc định tối đa 1 lần/ngày.
+    _fireCertNotification(force) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        const alerts = this.getExpiringCerts(30);
+        if (!alerts.length) return;
+        if (!force) {
+            const today = new Date().toISOString().slice(0, 10);
+            try { if (localStorage.getItem('sm_cert_notified') === today) return; } catch (e) {}
+            try { localStorage.setItem('sm_cert_notified', today); } catch (e) {}
+        }
+        const top = alerts[0];
+        const more = alerts.length > 1 ? ` (+${alerts.length - 1} mục khác)` : '';
+        const body = top.days < 0
+            ? `${top.vessel} · ${top.kind} đã hết hạn ${Math.abs(top.days)} ngày${more}`
+            : `${top.vessel} · ${top.kind} còn ${top.days} ngày${more}`;
+        try {
+            const n = new Notification('⚠️ Sắp hết hạn đăng kiểm/chứng chỉ', { body, icon: 'icon.svg', tag: 'sm-cert' });
+            n.onclick = () => { window.focus(); n.close(); };
+        } catch (e) { /* một số trình duyệt cần SW để hiện -> bỏ qua êm */ }
+    },
+    // Gọi lúc khởi động: chỉ bắn nếu người dùng đã cấp quyền từ trước.
+    checkCertNotificationsOnBoot() {
+        if (('Notification' in window) && Notification.permission === 'granted') {
+            this._fireCertNotification(false);
+        }
     },
 
     // === Validation helpers (chống nhập sai dữ liệu tài chính) ===
