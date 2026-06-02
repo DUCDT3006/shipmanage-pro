@@ -233,6 +233,65 @@ const Views = {
             </div>
         </div>`;
     },
+    /**
+     * Lớn#C: KPI 3 cột — Chi phí LO (đ + lít) | Chi phí cố định phân bổ | Số chuyến — theo từng tàu + tổng.
+     */
+    loFixedKpi(filterMonth = '') {
+        const ships = AppData.getShipments() || [];
+        const vessels = AppData.getVessels() || [];
+        if (!vessels.length || !ships.length) return '';
+        const fmt = (n) => (AppData.formatCurrency ? AppData.formatCurrency(n) : Math.round(n).toLocaleString('vi-VN'));
+        const num = (n) => Math.round(n).toLocaleString('vi-VN');
+        const monthOf = (s) => s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : '');
+        const scope = filterMonth ? ships.filter(s => monthOf(s) === filterMonth) : ships;
+
+        const st = {};
+        vessels.forEach(v => { st[v.id] = { name: v.name, lo: 0, loL: 0, fixed: 0, voyages: 0 }; });
+        scope.forEach(s => {
+            if (!st[s.vesselId]) st[s.vesselId] = { name: s.vesselId, lo: 0, loL: 0, fixed: 0, voyages: 0 };
+            st[s.vesselId].lo += Number(s.costs && s.costs.fuelLO || 0);
+            st[s.vesselId].loL += Number(s.loLiters || 0);
+            st[s.vesselId].fixed += Number(s.costs && s.costs.fixedCost || 0);
+            st[s.vesselId].voyages += 1;
+        });
+        const rows = Object.values(st);
+        const tot = rows.reduce((t, r) => { t.lo += r.lo; t.loL += r.loL; t.fixed += r.fixed; t.voyages += r.voyages; return t; }, { lo: 0, loL: 0, fixed: 0, voyages: 0 });
+        if (tot.lo === 0 && tot.fixed === 0) return '';   // chưa cấu hình LO/chi phí cố định -> ẩn
+
+        const body = rows.map(r => `
+            <tr>
+                <td data-label="Tàu"><strong>${esc(r.name)}</strong></td>
+                <td data-label="Chi phí LO" style="text-align:right; color:var(--secondary);">${fmt(r.lo)}${r.loL ? `<br><small style="color:var(--text-muted);">${num(r.loL)} L</small>` : ''}</td>
+                <td data-label="CP cố định" style="text-align:right; color:var(--accent);">${fmt(r.fixed)}</td>
+                <td data-label="Số chuyến" style="text-align:center; color:var(--info); font-weight:700;">${r.voyages}</td>
+            </tr>`).join('');
+
+        return `
+        <div class="view-section" style="margin-bottom:2rem;">
+            <h3 style="margin:0 0 1rem;"><i class="fa-solid fa-oil-can" style="color:var(--secondary);"></i> Dầu LO &amp; Chi phí cố định theo tàu</h3>
+            <div class="glass-card" style="padding:0; overflow:hidden;">
+                <div class="table-container">
+                    <table class="table table-card-mobile">
+                        <thead><tr>
+                            <th>Tàu</th>
+                            <th style="text-align:right; color:var(--secondary);">Chi phí LO</th>
+                            <th style="text-align:right; color:var(--accent);">CP cố định phân bổ</th>
+                            <th style="text-align:center; color:var(--info);">Số chuyến</th>
+                        </tr></thead>
+                        <tbody>
+                            ${body}
+                            <tr style="border-top:2px solid var(--border-color); font-weight:700;">
+                                <td data-label="Tàu">TỔNG CỘNG</td>
+                                <td data-label="Chi phí LO" style="text-align:right; color:var(--secondary);">${fmt(tot.lo)}${tot.loL ? `<br><small style="color:var(--text-muted);">${num(tot.loL)} L</small>` : ''}</td>
+                                <td data-label="CP cố định" style="text-align:right; color:var(--accent);">${fmt(tot.fixed)}</td>
+                                <td data-label="Số chuyến" style="text-align:center; color:var(--info);">${tot.voyages}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+    },
     /** Skeleton vài dòng cho bảng/khối đang tải. */
     skeletonLines(n = 3) {
         let s = '';
@@ -381,6 +440,8 @@ const Views = {
                 ${Views.analyticsPanel(filterMonth)}
 
                 ${Views.fleetComparison(filterMonth)}
+
+                ${Views.loFixedKpi(filterMonth)}
 
                 <!-- Cảnh báo đăng kiểm/chứng chỉ sắp hết hạn (task #25) -->
                 ${(() => {
