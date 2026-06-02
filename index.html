@@ -3,158 +3,278 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ShipManage Pro V2.0 - Redirecting...</title>
-    <!-- Fonts -->
+    <title>ShipManage — Phần mềm quản lý vận tải biển cho doanh nghiệp</title>
+    <meta name="description" content="ShipManage: quản lý tài chính, nhiên liệu, chuyến hàng, lương thuyền viên và đội tàu trên một nền tảng. Đồng bộ đám mây, dùng trên mọi thiết bị.">
+
+    <!-- =====================================================================
+         CHỖ CẦN SỬA (tìm chữ "SỬA Ở ĐÂY"):
+           1. Số điện thoại / Zalo  -> thay 0900000000
+           2. Giá 3 gói             -> trong mục .pricing
+           3. Tên công ty / footer
+         ===================================================================== -->
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Meta Refresh for instant redirect -->
-    <meta http-equiv="refresh" content="0; url=app/">
-    
+    <link rel="icon" href="app/icon.svg" type="image/svg+xml">
+
     <style>
         :root {
-            --bg-color: #0b0f19;
-            --accent-color: #3b82f6;
-            --accent-glow: rgba(59, 130, 246, 0.4);
-            --text-color: #e2e8f0;
-            --card-bg: rgba(17, 24, 39, 0.7);
+            --bg-base: #0f111a;
+            --bg-surface: rgba(30, 33, 43, 0.6);
+            --primary: #4f46e5;
+            --primary-light: #6366f1;
+            --secondary: #10b981;
+            --warning: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
             --border-color: rgba(255, 255, 255, 0.08);
+            --gradient-primary: linear-gradient(135deg, #4f46e5, #6366f1);
+            --radius-lg: 16px;
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+            font-family: 'Inter', sans-serif; background: var(--bg-base); color: var(--text-main);
+            line-height: 1.6; overflow-x: hidden;
+            background-image:
+                radial-gradient(circle at 15% 10%, rgba(79,70,229,0.18), transparent 30%),
+                radial-gradient(circle at 85% 25%, rgba(16,185,129,0.12), transparent 30%);
+            background-attachment: fixed;
         }
-
-        .loader-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 3rem;
-            text-align: center;
-            max-width: 450px;
-            width: 90%;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 
-                        0 0 50px var(--accent-glow);
-            animation: fadeIn 0.8s ease-out;
+        a { text-decoration: none; color: inherit; }
+        .container { max-width: 1140px; margin: 0 auto; padding: 0 1.25rem; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;
+            padding: 0.8rem 1.5rem; border-radius: 10px; font-weight: 600; font-size: 0.95rem;
+            border: 1px solid transparent; transition: transform .15s, box-shadow .15s, background .15s;
         }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-primary { background: var(--gradient-primary); color: #fff; box-shadow: 0 6px 20px rgba(79,70,229,.35); }
+        .btn-outline { border-color: var(--border-color); color: var(--text-main); background: rgba(255,255,255,.03); }
+        .btn-lg { padding: 1rem 2rem; font-size: 1.05rem; }
 
-        .icon-container {
-            font-size: 4rem;
-            color: var(--accent-color);
-            margin-bottom: 2rem;
-            position: relative;
-            display: inline-block;
-            animation: pulse 2s infinite ease-in-out;
+        /* Nav */
+        header.nav {
+            position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px); background: rgba(15,17,26,.7);
+            border-bottom: 1px solid var(--border-color);
         }
+        .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+        .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.25rem; }
+        .logo i { color: var(--primary-light); font-size: 1.5rem; }
+        .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+        .nav-links a.link { color: var(--text-muted); font-weight: 500; font-size: 0.92rem; }
+        .nav-links a.link:hover { color: var(--text-main); }
 
-        .icon-container i {
-            filter: drop-shadow(0 0 15px var(--accent-color));
+        /* Hero */
+        .hero { padding: 5rem 0 4rem; text-align: center; }
+        .badge-pill {
+            display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 99px;
+            background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.3);
+            color: var(--primary-light); font-size: 0.82rem; font-weight: 600; margin-bottom: 1.5rem;
         }
-
-        .loading-ring {
-            position: absolute;
-            top: -10px;
-            left: -10px;
-            right: -10px;
-            bottom: -10px;
-            border: 2px solid transparent;
-            border-top: 2px solid var(--accent-color);
-            border-radius: 50%;
-            animation: spin 1.5s linear infinite;
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.4rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15;
+            margin-bottom: 1.2rem;
         }
-
-        h1 {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 0.75rem;
-            letter-spacing: -0.025em;
-            background: linear-gradient(135deg, #ffffff 0%, #a5f3fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .hero h1 .grad {
+            background: linear-gradient(135deg, #818cf8, #34d399);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
+        .hero p.sub { font-size: 1.15rem; color: var(--text-muted); max-width: 640px; margin: 0 auto 2rem; }
+        .hero-cta { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .hero-note { margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); }
 
-        p {
-            color: #94a3b8;
-            font-size: 0.95rem;
-            margin-bottom: 1.5rem;
-            line-height: 1.5;
+        /* Sections */
+        section { padding: 4rem 0; }
+        .section-head { text-align: center; margin-bottom: 3rem; }
+        .section-head h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 700; margin-bottom: 0.6rem; }
+        .section-head p { color: var(--text-muted); max-width: 560px; margin: 0 auto; }
+
+        /* Features */
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; }
+        .feature {
+            background: rgba(255,255,255,.03); border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg); padding: 1.5rem; transition: transform .15s, border-color .15s;
         }
-
-        .redirect-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: linear-gradient(135deg, var(--accent-color) 0%, #1d4ed8 100%);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        .feature:hover { transform: translateY(-3px); border-color: rgba(99,102,241,.4); }
+        .feature .ic {
+            width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            background: rgba(99,102,241,.12); color: var(--primary-light); font-size: 1.3rem; margin-bottom: 1rem;
         }
+        .feature h3 { font-size: 1.05rem; margin-bottom: 0.4rem; }
+        .feature p { color: var(--text-muted); font-size: 0.9rem; }
 
-        .redirect-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        /* Pricing */
+        .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; align-items: stretch; }
+        .plan {
+            background: rgba(255,255,255,.03); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            padding: 2rem 1.75rem; display: flex; flex-direction: column; position: relative;
         }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .plan.popular { border-color: var(--primary-light); box-shadow: 0 10px 40px -10px rgba(79,70,229,.5); }
+        .plan .tag-popular {
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            background: var(--gradient-primary); color: #fff; font-size: 0.72rem; font-weight: 700;
+            padding: 4px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: .03em;
         }
+        .plan h3 { font-size: 1.2rem; margin-bottom: 0.3rem; }
+        .plan .who { color: var(--text-muted); font-size: 0.86rem; margin-bottom: 1.2rem; min-height: 2.4em; }
+        .plan .price { font-size: 2rem; font-weight: 800; }
+        .plan .price small { font-size: 0.9rem; font-weight: 500; color: var(--text-muted); }
+        .plan ul { list-style: none; margin: 1.3rem 0; display: flex; flex-direction: column; gap: 0.7rem; flex: 1; }
+        .plan li { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.92rem; color: var(--text-main); }
+        .plan li i { color: var(--secondary); margin-top: 3px; }
+        .plan .btn { width: 100%; justify-content: center; }
 
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+        /* CTA / Contact */
+        .cta-box {
+            background: var(--gradient-primary); border-radius: 24px; padding: 3rem 2rem; text-align: center;
+            box-shadow: 0 20px 50px -20px rgba(79,70,229,.6);
         }
+        .cta-box h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); margin-bottom: 0.6rem; }
+        .cta-box p { color: rgba(255,255,255,.85); margin-bottom: 1.8rem; }
+        .cta-box .btn-white { background: #fff; color: var(--primary); }
+        .cta-box .btn-ghost { border-color: rgba(255,255,255,.5); color: #fff; }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+        /* Footer */
+        footer { padding: 2.5rem 0; border-top: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.88rem; }
+        .footer-inner { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; align-items: center; }
+
+        @media (max-width: 640px) {
+            .nav-links a.link { display: none; }
+            .hero { padding: 3rem 0; }
         }
     </style>
 </head>
 <body>
-    <div class="loader-card">
-        <div class="icon-container">
-            <div class="loading-ring"></div>
-            <i class="fa-solid fa-anchor"></i>
+    <!-- NAV -->
+    <header class="nav">
+        <div class="container nav-inner">
+            <div class="logo"><i class="fa-solid fa-anchor"></i> ShipManage</div>
+            <nav class="nav-links">
+                <a class="link" href="#features">Tính năng</a>
+                <a class="link" href="#pricing">Bảng giá</a>
+                <a class="link" href="#contact">Liên hệ</a>
+                <a class="btn btn-primary" href="app/"><i class="fa-solid fa-right-to-bracket"></i> Đăng nhập</a>
+            </nav>
         </div>
-        <h1>ShipManage Pro</h1>
-        <p>Đang chuyển hướng bạn đến ứng dụng quản lý tàu và tài chính...</p>
-        <a href="app/" class="redirect-btn" id="redirect-link">
-            Truy cập ngay <i class="fa-solid fa-arrow-right"></i>
-        </a>
-    </div>
+    </header>
 
-    <script>
-        // JS Fallback redirect
-        setTimeout(function() {
-            window.location.href = 'app/';
-        }, 100);
-    </script>
+    <!-- HERO -->
+    <section class="hero">
+        <div class="container">
+            <span class="badge-pill"><i class="fa-solid fa-cloud"></i> Đồng bộ đám mây · Dùng mọi thiết bị</span>
+            <h1>Quản lý <span class="grad">đội tàu &amp; tài chính</span><br>vận tải biển trên một nền tảng</h1>
+            <p class="sub">ShipManage giúp doanh nghiệp vận tải biển theo dõi thu chi, nhiên liệu, chuyến hàng, lương thuyền viên và đăng kiểm — chính xác, minh bạch, mọi lúc mọi nơi.</p>
+            <div class="hero-cta">
+                <a class="btn btn-primary btn-lg" href="app/"><i class="fa-solid fa-rocket"></i> Dùng thử ngay</a>
+                <a class="btn btn-outline btn-lg" href="#pricing"><i class="fa-solid fa-tags"></i> Xem bảng giá</a>
+            </div>
+            <p class="hero-note">Không cần cài đặt · Chạy trên trình duyệt · Cài như ứng dụng (PWA)</p>
+        </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features">
+        <div class="container">
+            <div class="section-head">
+                <h2>Mọi nghiệp vụ vận tải biển, một chỗ</h2>
+                <p>Thiết kế riêng cho doanh nghiệp vận tải biển vừa và nhỏ tại Việt Nam.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature"><div class="ic"><i class="fa-solid fa-chart-line"></i></div><h3>Theo dõi tài chính</h3><p>Thu chi từng tàu, báo cáo lãi/lỗ (P&amp;L) theo chuyến, số dư đầu kỳ, biên lợi nhuận thời gian thực.</p></div>
+                <div class="feature"><div class="ic"><i class="fa-solid fa-gas-pump"></i></div><h3>Quản lý nhiên liệu</h3><p>Định mức tiêu hao theo từng chặng, tồn dầu đầu/cuối, kiểm soát thất thoát chính xác.</p></div>
+                <div class="feature"><div class="ic"><i class="fa-solid fa-box"></i></div><h3>Chuyến hàng &amp; công nợ</h3><p>Quản lý hợp đồng, cảng đi/đến, khách hàng, theo dõi công nợ phải thu/phải trả.</p></div>
+                <div class="feature"><div class="ic"><i class="fa-solid fa-users"></i></div><h3>Chấm công &amp; tính lương</h3><p>Bảng công thuyền viên, phụ cấp, thuế TNCN, bảng lương theo tháng — tự động hóa.</p></div>
+                <div class="feature"><div class="ic"><i class="fa-solid fa-stamp"></i></div><h3>Cảnh báo đăng kiểm</h3><p>Tự nhắc khi đăng kiểm, giấy phép, bảo hiểm sắp hết hạn — không bỏ lỡ hạn quan trọng.</p></div>
+                <div class="feature"><div class="ic"><i class="fa-solid fa-user-shield"></i></div><h3>Phân quyền chặt chẽ</h3><p>Tạo tài khoản nhân viên, giới hạn theo module và theo tàu. Dữ liệu lương ẩn với nhân viên.</p></div>
+                <div class="feature"><div class="ic"><i class="fa-solid fa-cloud-arrow-up"></i></div><h3>Đồng bộ đám mây</h3><p>Dữ liệu lưu an toàn trên đám mây, đồng bộ tức thì giữa các thiết bị, dùng được cả khi offline.</p></div>
+                <div class="feature"><div class="ic"><i class="fa-solid fa-clock-rotate-left"></i></div><h3>Nhật ký &amp; hoàn tác</h3><p>Ghi lại mọi thay đổi kèm người thực hiện, hoàn tác chỉ một cú nhấp — minh bạch tuyệt đối.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING -->
+    <section id="pricing">
+        <div class="container">
+            <div class="section-head">
+                <h2>Bảng giá đơn giản, minh bạch</h2>
+                <p>Mỗi giấy phép dùng cho một công ty, kèm tài khoản nhân viên theo gói.</p>
+            </div>
+            <!-- SỬA Ở ĐÂY: giá và giới hạn từng gói -->
+            <div class="pricing-grid">
+                <div class="plan">
+                    <h3>Cơ bản</h3>
+                    <p class="who">Doanh nghiệp nhỏ, đội tàu 1–3 chiếc</p>
+                    <div class="price">3.000.000đ <small>/ năm</small></div>
+                    <ul>
+                        <li><i class="fa-solid fa-check"></i> Tối đa <strong>3 tàu</strong></li>
+                        <li><i class="fa-solid fa-check"></i> 3 tài khoản nhân viên</li>
+                        <li><i class="fa-solid fa-check"></i> Đầy đủ tài chính, nhiên liệu, chuyến hàng</li>
+                        <li><i class="fa-solid fa-check"></i> Đồng bộ đám mây + sao lưu</li>
+                        <li><i class="fa-solid fa-check"></i> Hỗ trợ qua điện thoại/Zalo</li>
+                    </ul>
+                    <a class="btn btn-outline" href="#contact">Chọn gói Cơ bản</a>
+                </div>
+                <div class="plan popular">
+                    <span class="tag-popular">Phổ biến nhất</span>
+                    <h3>Doanh nghiệp</h3>
+                    <p class="who">Đội tàu 4–10 chiếc, nhiều bộ phận</p>
+                    <div class="price">6.000.000đ <small>/ năm</small></div>
+                    <ul>
+                        <li><i class="fa-solid fa-check"></i> Tối đa <strong>10 tàu</strong></li>
+                        <li><i class="fa-solid fa-check"></i> 10 tài khoản nhân viên</li>
+                        <li><i class="fa-solid fa-check"></i> Toàn bộ tính năng gói Cơ bản</li>
+                        <li><i class="fa-solid fa-check"></i> Phân quyền theo module &amp; theo tàu</li>
+                        <li><i class="fa-solid fa-check"></i> Tính lương &amp; chấm công nâng cao</li>
+                        <li><i class="fa-solid fa-check"></i> Ưu tiên hỗ trợ</li>
+                    </ul>
+                    <a class="btn btn-primary" href="#contact">Chọn gói Doanh nghiệp</a>
+                </div>
+                <div class="plan">
+                    <h3>Không giới hạn</h3>
+                    <p class="who">Đội tàu lớn, tập đoàn vận tải</p>
+                    <div class="price">Liên hệ</div>
+                    <ul>
+                        <li><i class="fa-solid fa-check"></i> <strong>Không giới hạn</strong> tàu</li>
+                        <li><i class="fa-solid fa-check"></i> Không giới hạn nhân viên</li>
+                        <li><i class="fa-solid fa-check"></i> Toàn bộ tính năng</li>
+                        <li><i class="fa-solid fa-check"></i> Hỗ trợ cài đặt &amp; đào tạo</li>
+                        <li><i class="fa-solid fa-check"></i> Tùy chỉnh theo yêu cầu</li>
+                    </ul>
+                    <a class="btn btn-outline" href="#contact">Liên hệ báo giá</a>
+                </div>
+            </div>
+            <p style="text-align:center; color:var(--text-muted); font-size:0.85rem; margin-top:1.5rem;">* Giá tham khảo, chưa bao gồm VAT. Liên hệ để được tư vấn gói phù hợp.</p>
+        </div>
+    </section>
+
+    <!-- CONTACT / CTA -->
+    <section id="contact">
+        <div class="container">
+            <div class="cta-box">
+                <h2>Sẵn sàng số hóa đội tàu của bạn?</h2>
+                <p>Liên hệ ngay để được tư vấn và nhận giấy phép dùng thử.</p>
+                <div class="hero-cta">
+                    <!-- SỬA Ở ĐÂY: thay 0900000000 bằng số điện thoại/Zalo thật -->
+                    <a class="btn btn-white btn-lg" href="tel:0900000000"><i class="fa-solid fa-phone"></i> Gọi: 0900 000 000</a>
+                    <a class="btn btn-ghost btn-lg" href="https://zalo.me/0900000000" target="_blank" rel="noopener"><i class="fa-solid fa-comment-dots"></i> Nhắn Zalo</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="container footer-inner">
+            <div class="logo" style="font-size:1.1rem;"><i class="fa-solid fa-anchor"></i> ShipManage</div>
+            <div>© <span id="year"></span> ShipManage. Phần mềm quản lý vận tải biển.</div>
+            <a class="link" href="app/" style="color:var(--primary-light); font-weight:600;">Đăng nhập hệ thống →</a>
+        </div>
+    </footer>
+
+    <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
 </body>
 </html>
