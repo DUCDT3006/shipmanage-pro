@@ -1554,6 +1554,18 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
     },
     getFuelVoyage(id) { return this.state.fuelVoyages.find(v => v.id === id); },
     getFuelLogs(voyageId) { return this.state.fuelLogs.filter(l => l.fuelVoyageId === voyageId); },
+    // Tồn dầu DO hiện tại của 1 tàu = tồn đầu (chuyến đầu) + tổng cấp − tổng tiêu thụ.
+    getVesselDOInventory(vesselId) {
+        const voyages = this.sortVoyages(this.getFuelVoyages(vesselId), 'asc');
+        if (!voyages.length) return { current: 0, initial: 0, added: 0, consumed: 0, voyages: 0 };
+        const initial = Number(voyages[0].initialFuel || 0);
+        let added = 0, consumed = 0;
+        voyages.forEach(v => {
+            added += Number(v.addedFuel || 0);
+            consumed += Number((this.getFuelVoyageStats(v.id) || {}).totalFuel || 0);
+        });
+        return { current: initial + added - consumed, initial, added, consumed, voyages: voyages.length };
+    },
     
     getFuelVoyageStats(voyageId) {
         const logs = this.getFuelLogs(voyageId);

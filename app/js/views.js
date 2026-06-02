@@ -292,6 +292,92 @@ const Views = {
             </div>
         </div>`;
     },
+    /** Bảng tồn dầu DO toàn đội (Dashboard) — tồn đầu / đã cấp / đã dùng / tồn hiện tại. */
+    doInventory() {
+        const vessels = AppData.getVessels() || [];
+        if (!vessels.length || !(AppData.state.fuelVoyages || []).length) return '';
+        const num = (n) => Math.round(n).toLocaleString('vi-VN');
+        const rows = vessels.map(v => ({ name: v.name, inv: AppData.getVesselDOInventory(v.id) }))
+            .filter(r => r.inv.voyages > 0);
+        if (!rows.length) return '';
+        const tot = rows.reduce((t, r) => { t.initial += r.inv.initial; t.added += r.inv.added; t.consumed += r.inv.consumed; t.current += r.inv.current; return t; }, { initial: 0, added: 0, consumed: 0, current: 0 });
+        const body = rows.map(r => `
+            <tr>
+                <td data-label="Tàu"><strong>${esc(r.name)}</strong></td>
+                <td data-label="Tồn đầu" style="text-align:right;">${num(r.inv.initial)} L</td>
+                <td data-label="Đã cấp" style="text-align:right; color:var(--info);">${num(r.inv.added)} L</td>
+                <td data-label="Đã dùng" style="text-align:right; color:var(--accent);">${num(r.inv.consumed)} L</td>
+                <td data-label="Tồn hiện tại" style="text-align:right; font-weight:700; color:${r.inv.current < 0 ? 'var(--accent)' : 'var(--secondary)'};">${num(r.inv.current)} L</td>
+            </tr>`).join('');
+        return `
+        <div class="view-section" style="margin-bottom:2rem;">
+            <h3 style="margin:0 0 1rem;"><i class="fa-solid fa-gas-pump" style="color:var(--info);"></i> Tồn dầu DO theo tàu</h3>
+            <div class="glass-card" style="padding:0; overflow:hidden;">
+                <div class="table-container"><table class="table table-card-mobile">
+                    <thead><tr>
+                        <th>Tàu</th><th style="text-align:right;">Tồn đầu</th><th style="text-align:right;">Đã cấp</th>
+                        <th style="text-align:right;">Đã dùng</th><th style="text-align:right;">Tồn hiện tại</th>
+                    </tr></thead>
+                    <tbody>
+                        ${body}
+                        <tr style="border-top:2px solid var(--border-color); font-weight:700;">
+                            <td data-label="Tàu">TỔNG CỘNG</td>
+                            <td data-label="Tồn đầu" style="text-align:right;">${num(tot.initial)} L</td>
+                            <td data-label="Đã cấp" style="text-align:right; color:var(--info);">${num(tot.added)} L</td>
+                            <td data-label="Đã dùng" style="text-align:right; color:var(--accent);">${num(tot.consumed)} L</td>
+                            <td data-label="Tồn hiện tại" style="text-align:right; color:${tot.current < 0 ? 'var(--accent)' : 'var(--secondary)'};">${num(tot.current)} L</td>
+                        </tr>
+                    </tbody>
+                </table></div>
+            </div>
+        </div>`;
+    },
+
+    /** Bảng chi phí cố định chi tiết 5 hạng mục theo tàu (theo NĂM). */
+    fixedCostBreakdown() {
+        const vessels = AppData.getVessels() || [];
+        if (!vessels.length) return '';
+        const fmt = (n) => (AppData.formatCurrency ? AppData.formatCurrency(n) : Math.round(n).toLocaleString('vi-VN'));
+        const cats = [
+            ['drydockPeriodic', 'Lên đà định kỳ'], ['drydockIntermediate', 'Lên đà trung gian'],
+            ['depreciation', 'Khấu hao'], ['annualSurvey', 'Đăng kiểm năm'], ['hullInsurance', 'BH thân vỏ']
+        ];
+        const rows = vessels.map(v => {
+            const fc = v.fixedCosts || {};
+            const vals = cats.map(([k]) => Number(fc[k]) || 0);
+            return { name: v.name, vals, sum: vals.reduce((a, b) => a + b, 0) };
+        });
+        if (!rows.some(r => r.sum > 0)) return '';   // chưa cấu hình -> ẩn
+        const totCat = cats.map((_, i) => rows.reduce((a, r) => a + r.vals[i], 0));
+        const grand = totCat.reduce((a, b) => a + b, 0);
+        const body = rows.map(r => `
+            <tr>
+                <td data-label="Tàu"><strong>${esc(r.name)}</strong></td>
+                ${r.vals.map(x => `<td style="text-align:right;">${x ? fmt(x) : '—'}</td>`).join('')}
+                <td style="text-align:right; font-weight:700; color:var(--accent);">${fmt(r.sum)}</td>
+            </tr>`).join('');
+        return `
+        <div class="view-section" style="margin-bottom:2rem;">
+            <h3 style="margin:0 0 1rem;"><i class="fa-solid fa-coins" style="color:var(--accent);"></i> Chi phí cố định theo tàu (đồng/năm)</h3>
+            <div class="glass-card" style="padding:0; overflow:hidden;">
+                <div class="table-container"><table class="table table-card-mobile">
+                    <thead><tr>
+                        <th>Tàu</th>${cats.map(([, label]) => `<th style="text-align:right;">${label}</th>`).join('')}<th style="text-align:right;">Tổng/năm</th>
+                    </tr></thead>
+                    <tbody>
+                        ${body}
+                        <tr style="border-top:2px solid var(--border-color); font-weight:700;">
+                            <td data-label="Tàu">TỔNG CỘNG</td>
+                            ${totCat.map(x => `<td style="text-align:right;">${x ? fmt(x) : '—'}</td>`).join('')}
+                            <td style="text-align:right; color:var(--accent);">${fmt(grand)}</td>
+                        </tr>
+                    </tbody>
+                </table></div>
+                <p style="font-size:0.75rem; color:var(--text-muted); padding:0.5rem 1rem 0.8rem; margin:0;">Số liệu nhập theo năm trong Master Data → sửa tàu. Hệ thống tự chia theo ngày để phân bổ vào từng chuyến.</p>
+            </div>
+        </div>`;
+    },
+
     /** Skeleton vài dòng cho bảng/khối đang tải. */
     skeletonLines(n = 3) {
         let s = '';
@@ -442,6 +528,10 @@ const Views = {
                 ${Views.fleetComparison(filterMonth)}
 
                 ${Views.loFixedKpi(filterMonth)}
+
+                ${Views.doInventory()}
+
+                ${Views.fixedCostBreakdown()}
 
                 <!-- Cảnh báo đăng kiểm/chứng chỉ sắp hết hạn (task #25) -->
                 ${(() => {

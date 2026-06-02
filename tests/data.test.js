@@ -127,5 +127,21 @@ const get = (expr) => { vm.runInContext('globalThis.__r = (' + expr + ');', ctx)
     get("AppData.state.shipments[0].vesselId") === 'VG02' &&
     get("AppData.state.fuelLogs.some(l => l.id === 'FL2')") === true);
 
+  // 7) Tồn dầu DO: tồn đầu 1000 + cấp 500 - dùng 300 = 1200
+  vm.runInContext(`
+    AppData.state.vessels = [{ id: 'VG01', name: 'Tàu 01' }];
+    AppData.state.fuelVoyages = [
+      { id: 'FV1', vesselId: 'VG01', voyageNo: 'C1', initialFuel: 1000, addedFuel: 200 },
+      { id: 'FV2', vesselId: 'VG01', voyageNo: 'C2', initialFuel: 0, addedFuel: 300 }
+    ];
+    AppData.state.fuelLogs = [
+      { id: 'L1', fuelVoyageId: 'FV1', consumption: 100 },
+      { id: 'L2', fuelVoyageId: 'FV2', consumption: 200 }
+    ];
+  `, ctx);
+  const inv = JSON.parse(get("JSON.stringify(AppData.getVesselDOInventory('VG01'))"));
+  check('Tồn DO: đã cấp = 200+300 = 500', inv.added === 500);
+  check('Tồn DO: tồn hiện tại = 1000 + 500 - tiêu thụ', inv.current === (1000 + 500 - inv.consumed));
+
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();
