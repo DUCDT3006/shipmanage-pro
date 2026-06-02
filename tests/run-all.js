@@ -11,6 +11,7 @@ const SUITES = [
   'backup.test.js',
   'idb.test.js',
   'data.test.js',
+  'rules.sim.test.js',
 ];
 
 let failed = 0;
