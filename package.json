@@ -11,6 +11,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "esbuild": "^0.21.5"
+    "esbuild": "^0.21.5",
+    "fake-indexeddb": "^6.0.0"
   }
 }

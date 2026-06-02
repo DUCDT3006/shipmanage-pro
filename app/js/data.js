@@ -79,15 +79,30 @@ const SMStore = (() => {
         });
         return dbp;
     }
-    function tx(mode) { return open().then(db => db ? db.transaction('kv', mode).objectStore('kv') : null); }
     return {
         get(key) {
-            return tx('readonly').then(store => store ? new Promise(res => {
-                const r = store.get(key); r.onsuccess = () => res(r.result); r.onerror = () => res(undefined);
-            }) : undefined);
+            // Tạo transaction + đọc trong CÙNG khối đồng bộ (tránh TransactionInactiveError)
+            return open().then(db => db ? new Promise(res => {
+                try {
+                    const t = db.transaction('kv', 'readonly');
+                    const r = t.objectStore('kv').get(key);
+                    r.onsuccess = () => res(r.result);
+                    r.onerror = () => res(undefined);
+                } catch (e) { res(undefined); }
+            }) : undefined).catch(() => undefined);
         },
         set(key, val) {
-            return tx('readwrite').then(store => { if (store) { try { store.put(val, key); } catch (e) {} } }).catch(() => {});
+            return open().then(db => { if (!db) return;
+                return new Promise(res => {
+                    try {
+                        const t = db.transaction('kv', 'readwrite');
+                        t.objectStore('kv').put(val, key);   // put NGAY sau khi tạo tx (cùng task)
+                        t.oncomplete = () => res();
+                        t.onerror = () => res();
+                        t.onabort = () => res();
+                    } catch (e) { res(); }
+                });
+            }).catch(() => {});
         }
     };
 })();
