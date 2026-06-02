@@ -2660,9 +2660,9 @@ const Views = {
                     <h2 style="margin: 0; color: ${profit >= 0 ? 'var(--secondary)' : 'var(--rose-light)'};">${AppData.formatCurrency(profit)}</h2>
                 </div>
                 
-                <div style="margin-top: 2rem; text-align: center;">
+                <div class="no-print" style="margin-top: 2rem; text-align: center;">
                     <button class="btn btn-outline" onclick="app.closeModal('report-modal')">Đóng Báo Cáo</button>
-                    <button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> In Báo Cáo</button>
+                    <button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> In / Lưu PDF</button>
                 </div>
             </div>
         `;
