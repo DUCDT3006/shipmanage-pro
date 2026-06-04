@@ -1490,8 +1490,12 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         const idx = this.state.annualCosts.findIndex(c => c.year === data.year && c.vesselId === data.vesselId);
         if (idx >= 0) this.state.annualCosts[idx] = data;
         else this.state.annualCosts.push(data);
+        // Chỉ tính lại chi phí cho CHUYẾN CỦA TÀU NÀY rồi lưu MỘT lần.
+        // (Tránh recalcAllAllocations() gọi save() mỗi cặp tàu-tháng -> push cloud liên tục -> reload.)
+        (this.state.shipments || []).forEach(s => {
+            if (s.vesselId === data.vesselId) this.applyAutoCostsToShipment(s);
+        });
         this.save();
-        this.recalcAllAllocations();
     },
 
     // Phân bổ chi phí cố định hàng năm cho 1 chuyến (tích phân theo ngày, hỗ trợ chuyến vắt qua 2 năm).

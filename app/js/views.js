@@ -3613,8 +3613,6 @@ const Views = {
                     <span class="badge ${r.badgeClass}" style="font-size:0.8rem;padding:4px 8px;border-radius:4px;white-space:nowrap;">${r.text}</span>
                 </div>`).join('');
 
-        const fmtNum = n => (Number(n) || 0).toLocaleString('vi-VN');
-
         return `
             <div class="view-section">
                 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
@@ -3667,7 +3665,7 @@ const Views = {
                                     <i class="fa-solid fa-ship"></i> 1. Lên đà trung gian
                                 </h4>
                                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-                                    <div class="form-group" style="margin:0;"><label class="form-label">Chi phí (VNĐ)</label><input type="number" class="form-control" id="a-docking-int-cost" value="${fmtNum(config.dockingIntermediateCost)}"></div>
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Chi phí (VNĐ)</label><input type="number" class="form-control" id="a-docking-int-cost" value="${Number(config.dockingIntermediateCost)||0}"></div>
                                     <div class="form-group" style="margin:0;"><label class="form-label">Năm phân bổ</label><input type="number" step="any" class="form-control" id="a-docking-int-years" value="${config.dockingIntermediateYears||2.5}"></div>
                                     <div class="form-group" style="margin:0;"><label class="form-label">Ngày lên đà tiếp</label><input type="date" class="form-control" id="a-docking-int-date" value="${config.dockingIntermediateDate||''}"></div>
                                 </div>
@@ -3678,7 +3676,7 @@ const Views = {
                                     <i class="fa-solid fa-anchor"></i> 2. Lên đà định kỳ
                                 </h4>
                                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-                                    <div class="form-group" style="margin:0;"><label class="form-label">Chi phí (VNĐ)</label><input type="number" class="form-control" id="a-docking-per-cost" value="${fmtNum(config.dockingPeriodicCost)}"></div>
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Chi phí (VNĐ)</label><input type="number" class="form-control" id="a-docking-per-cost" value="${Number(config.dockingPeriodicCost)||0}"></div>
                                     <div class="form-group" style="margin:0;"><label class="form-label">Năm phân bổ</label><input type="number" step="any" class="form-control" id="a-docking-per-years" value="${config.dockingPeriodicYears||5}"></div>
                                     <div class="form-group" style="margin:0;"><label class="form-label">Ngày lên đà tiếp</label><input type="date" class="form-control" id="a-docking-per-date" value="${config.dockingPeriodicDate||''}"></div>
                                 </div>
@@ -3689,15 +3687,15 @@ const Views = {
                                     <i class="fa-solid fa-file-shield"></i> 3. Đăng kiểm hàng năm
                                 </h4>
                                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-                                    <div class="form-group" style="margin:0;"><label class="form-label">Chi phí (VNĐ)</label><input type="number" class="form-control" id="a-registry-ann-cost" value="${fmtNum(config.registryAnnualCost)}"></div>
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Chi phí (VNĐ)</label><input type="number" class="form-control" id="a-registry-ann-cost" value="${Number(config.registryAnnualCost)||0}"></div>
                                     <div class="form-group" style="margin:0;"><label class="form-label">Năm phân bổ</label><input type="number" step="any" class="form-control" id="a-registry-ann-years" value="${config.registryAnnualYears||1}"></div>
                                     <div class="form-group" style="margin:0;"><label class="form-label">Ngày đăng kiểm tiếp</label><input type="date" class="form-control" id="a-registry-ann-date" value="${config.registryAnnualDate||''}"></div>
                                 </div>
                             </div>
 
                             <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:1.5rem;">
-                                <div class="form-group" style="margin:0;"><label class="form-label"><i class="fa-solid fa-chart-line-down"></i> 4. Khấu hao năm (VNĐ)</label><input type="number" class="form-control" id="a-depreciation-cost" value="${fmtNum(config.depreciationCost)}"></div>
-                                <div class="form-group" style="margin:0;"><label class="form-label"><i class="fa-solid fa-shield-halved"></i> 5. Bảo hiểm thân vỏ năm (VNĐ)</label><input type="number" class="form-control" id="a-hull-ins-cost" value="${fmtNum(config.hullInsuranceCost)}"></div>
+                                <div class="form-group" style="margin:0;"><label class="form-label"><i class="fa-solid fa-chart-line-down"></i> 4. Khấu hao năm (VNĐ)</label><input type="number" class="form-control" id="a-depreciation-cost" value="${Number(config.depreciationCost)||0}"></div>
+                                <div class="form-group" style="margin:0;"><label class="form-label"><i class="fa-solid fa-shield-halved"></i> 5. Bảo hiểm thân vỏ năm (VNĐ)</label><input type="number" class="form-control" id="a-hull-ins-cost" value="${Number(config.hullInsuranceCost)||0}"></div>
                             </div>
 
                             <button type="submit" class="btn btn-primary" style="width:100%;font-weight:700;height:42px;">

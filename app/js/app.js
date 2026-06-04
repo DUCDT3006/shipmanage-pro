@@ -35,8 +35,12 @@ const app = {
                     if (idx >= 0) { AppData.state.annualCosts[idx] = cfg; updated++; }
                     else { AppData.state.annualCosts.push(cfg); added++; }
                 });
+                // Tính lại chi phí cho chuyến của các tàu bị ảnh hưởng rồi lưu MỘT lần
+                const affected = new Set(incoming.map(c => c.vesselId));
+                (AppData.state.shipments || []).forEach(s => {
+                    if (affected.has(s.vesselId)) AppData.applyAutoCostsToShipment(s);
+                });
                 AppData.save();
-                AppData.recalcAllAllocations();
 
                 let msg = `✅ Đã nhập cấu hình chi phí năm từ V5:\n• Thêm mới: ${added}\n• Cập nhật: ${updated}`;
                 if (skipped > 0) msg += `\n• Bỏ qua (tàu không khớp / thiếu dữ liệu): ${skipped}`;
