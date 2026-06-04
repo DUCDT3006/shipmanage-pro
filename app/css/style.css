@@ -1002,3 +1002,17 @@ input.field-error, select.field-error, textarea.field-error {
     background: var(--primary-light); border-radius: 6px;
 }
 .double-scroll-wrapper .top-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+
+/* ===== Thông tin công ty ở header (giống V5) ===== */
+.header-company-info { display:flex; flex-direction:column; justify-content:center; gap:2px; max-width:50%; }
+.header-company-info .company-name { font-size:0.95rem; font-weight:700; color:var(--primary-light); letter-spacing:0.5px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; text-transform:uppercase; }
+.header-company-info .company-address { display:flex; align-items:center; gap:4px; font-size:0.75rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.header-company-info .company-address i { color:var(--secondary); font-size:0.7rem; }
+.header-company-info .company-meta { display:flex; align-items:center; gap:0.75rem; font-size:0.75rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.header-company-info .detail-item { display:inline-flex; align-items:center; gap:4px; }
+.header-company-info .detail-item i { color:var(--secondary); font-size:0.7rem; }
+.header-company-info .detail-divider { color:var(--border-color); font-size:0.75rem; user-select:none; }
+@media (max-width: 768px) {
+    .header-company-info .company-address, .header-company-info .company-meta { display:none; }
+    .header-company-info .company-name { font-size:0.8rem; max-width:150px; }
+}

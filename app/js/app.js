@@ -1836,11 +1836,27 @@ const app = {
         this.transLimit = (this.transLimit || 100) + 200;
         this.navigate('financials');
     },
+    // Đổ thông tin công ty vào header (giống V5) — gọi mỗi lần điều hướng để luôn cập nhật.
+    renderHeaderCompanyInfo() {
+        const el = document.getElementById('header-company-info');
+        if (!el) return;
+        const c = (AppData.getCompany && AppData.getCompany()) || {};
+        el.innerHTML = `
+            <div class="company-name" title="${esc(c.name || '')}">${esc(c.name || 'CÔNG TY CHƯA CẬP NHẬT')}</div>
+            <div class="company-address" title="Địa chỉ"><i class="fa-solid fa-location-dot"></i> ${esc(c.address || 'Chưa có địa chỉ')}</div>
+            <div class="company-meta">
+                <span class="detail-item" title="Mã số thuế"><i class="fa-solid fa-receipt"></i> MST: ${esc(c.taxId || 'Chưa có MST')}</span>
+                <span class="detail-divider">|</span>
+                <span class="detail-item" title="Ngân hàng"><i class="fa-solid fa-credit-card"></i> ${esc(c.bankInfo || 'Chưa có thông tin ngân hàng')}</span>
+            </div>`;
+    },
+
     navigate(viewName, ...args) {
         if (!Views[viewName]) return;
         // X3: vào lại Theo dõi Tài chính từ view khác -> reset giới hạn phân trang
         if (viewName === 'financials' && this.currentView !== 'financials') this.transLimit = 100;
         this.currentView = viewName;
+        this.renderHeaderCompanyInfo();
         if (viewName === 'dashboard' && args.length > 0) {
             this.currentDashboardMonth = args[0];
         }
