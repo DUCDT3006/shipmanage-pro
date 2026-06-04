@@ -3474,7 +3474,7 @@ const Views = {
 
             content = `
                 <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1rem 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <label style="font-weight: bold; color: var(--text-main);">Lọc theo tháng hạch toán:</label>
                             <select class="form-control" style="width: 200px;" onchange="app.navigate('reports', 'voyage', this.value)">
@@ -3483,6 +3483,14 @@ const Views = {
                             </select>
                         </div>
                         <button class="btn btn-outline" onclick="app.exportShipmentReport()"><i class="fa-solid fa-file-excel"></i> Xuất Excel Tất Cả</button>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border-color);">
+                        <label style="font-weight:bold; color:var(--info);"><i class="fa-solid fa-file-invoice-dollar"></i> Báo cáo tháng theo tàu:</label>
+                        <select id="rep-vessel-select" class="form-control" style="width:200px;">
+                            ${(AppData.getVessels() || []).map(v => `<option value="${esc(v.id)}">${esc(v.id)} - ${esc(v.name)}</option>`).join('')}
+                        </select>
+                        <button class="btn btn-outline" style="border-color:var(--info); color:var(--info);" onclick="app.printMonthlyVesselReport(document.getElementById('rep-vessel-select').value, '${filterMonth}', false)"><i class="fa-solid fa-eye"></i> Xem báo cáo</button>
+                        <button class="btn btn-primary" onclick="app.printMonthlyVesselReport(document.getElementById('rep-vessel-select').value, '${filterMonth}', true)"><i class="fa-solid fa-print"></i> In A4</button>
                     </div>
                 </div>
 

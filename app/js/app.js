@@ -65,6 +65,259 @@ const app = {
         localStorage.setItem('sm3_excludeDockDepr', JSON.stringify(this.excludeDockingDepreciation));
         this.navigate('dashboard', this.currentDashboardMonth || '');
     },
+
+    // ===== BÁO CÁO THÁNG THEO TÀU (port từ V5) =====
+    getMonthlyVesselReportInputs(vesselId, monthStr) {
+        const key = `monthly_vessel_report_inputs_${vesselId}_${monthStr}`;
+        const stored = localStorage.getItem(key);
+        if (stored) { try { return JSON.parse(stored); } catch (e) {} }
+        return { openingBalance: 0, customExpenses: [] };
+    },
+    saveMonthlyVesselReportInputs(vesselId, monthStr, data) {
+        localStorage.setItem(`monthly_vessel_report_inputs_${vesselId}_${monthStr}`, JSON.stringify(data));
+    },
+
+    // Gom toàn bộ số liệu của 1 tàu trong 1 tháng (dạng dòng tiền: dư đầu + thu − chi = tồn cuối)
+    _monthlyVesselReportData(vesselId, monthStr) {
+        const [year, month] = monthStr.split('-').map(Number);
+        const catIs = (t, name) => (t.category || '').trim().toLowerCase() === name.toLowerCase();
+        const shipments = AppData.getShipments().filter(s => {
+            const m = s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : '');
+            return s.vesselId === vesselId && m === monthStr;
+        }).slice().sort((a, b) => (a.voyageNo || '').localeCompare(b.voyageNo || ''));
+        const txs = (AppData.state.transactions || []).filter(t => t.vessel === vesselId && t.date && t.date.substring(0, 7) === monthStr);
+
+        const doCost = (AppData.state.fuelVoyages || [])
+            .filter(v => v.vesselId === vesselId && v.fuelDate && v.fuelDate.substring(0, 7) === monthStr)
+            .reduce((sum, v) => sum + Math.round((Number(v.addedFuel) || 0) * (Number(v.fuelUnitPrice) || 0)), 0);
+        const loCost = txs.filter(t => catIs(t, '5.Dầu LO')).reduce((s, t) => s + (Number(t.chi) || 0), 0);
+        const vesselAdvances = txs.filter(t => catIs(t, '1.Tàu Ứng')).reduce((s, t) => s + (Number(t.chi) || 0), 0);
+        const monthlyCost = AppData.getMonthlyCosts(monthStr, vesselId);
+        const crewSalary = Number(monthlyCost.salary) || 0;
+        const interestTxs = txs.filter(t => catIs(t, '6.Lãi Vay'));
+        const totalInterest = interestTxs.reduce((s, t) => s + (Number(t.chi) || 0), 0);
+        const agentTxs = txs.filter(t => catIs(t, '2.Chi Phí Cảng'));
+        const totalAgent = agentTxs.reduce((s, t) => s + (Number(t.chi) || 0), 0);
+        const materialTxs = txs.filter(t => catIs(t, '9.Vật Tư'));
+        const totalMaterial = materialTxs.reduce((s, t) => s + (Number(t.chi) || 0), 0);
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const annualConfig = AppData.getAnnualCosts(year, vesselId);
+        const hullInsurance = Math.round(daysInMonth * (annualConfig.hullInsuranceDaily || 0));
+        const socialInsurance = Number(monthlyCost.insurance) || 0;
+        const totalInsurance = hullInsurance + socialInsurance;
+        const totalVat = shipments.reduce((s, sh) => s + (Number(sh.costs?.vat) || 0), 0);
+
+        const totalRevenueSum = shipments.reduce((sum, s) => {
+            let t = Number(s.revenueReal || 0);
+            if (s.revenueInvoice > s.revenueReal) t += Math.round((s.revenueInvoice - s.revenueReal) / 1.08 * 0.28);
+            return sum + t;
+        }, 0);
+
+        return { year, month, daysInMonth, shipments, interestTxs, agentTxs, materialTxs,
+            doCost, loCost, vesselAdvances, crewSalary, totalInterest, totalAgent, totalMaterial,
+            hullInsurance, socialInsurance, totalInsurance, totalVat, totalRevenueSum };
+    },
+
+    printMonthlyVesselReport(vesselId, monthStr, shouldPrint = false) {
+        if (!vesselId || !monthStr) return alert('Hãy chọn Tàu và Tháng trước khi xem báo cáo.');
+        const vessel = AppData.getVessel(vesselId);
+        const vesselName = vessel ? vessel.name : vesselId;
+        const d = this._monthlyVesselReportData(vesselId, monthStr);
+        const inputs = this.getMonthlyVesselReportInputs(vesselId, monthStr);
+        this.activeReportVessel = vesselId;
+        this.activeReportMonth = monthStr;
+        const fc = (n) => AppData.formatCurrency(n);
+
+        let customTotal = 0;
+        inputs.customExpenses.forEach(e => { customTotal += Number(e.amount) || 0; });
+        const totalCostSum = d.doCost + d.loCost + d.vesselAdvances + d.crewSalary + d.totalInterest + d.totalAgent + d.totalMaterial + d.totalInsurance + d.totalVat + customTotal;
+        const finalBalance = (Number(inputs.openingBalance) || 0) + d.totalRevenueSum - totalCostSum;
+
+        const boldRow = (label, val) => `<tr style="background:#f1f5f9;font-weight:bold;"><td class="pac"></td><td></td><td>${label}</td><td></td><td></td><td style="text-align:right;color:#b91c1c;">${fc(val)}</td><td></td><td></td></tr>`;
+        const subRow = (label, val) => `<tr class="psr"><td class="pac"></td><td></td><td style="padding-left:20px;color:#475569;">${esc(label)}</td><td></td><td></td><td style="text-align:right;">${fc(val)}</td><td></td><td></td></tr>`;
+
+        const html = `
+            <div class="print-container" id="report-data-holder"
+                 data-do="${d.doCost}" data-lo="${d.loCost}" data-adv="${d.vesselAdvances}" data-sal="${d.crewSalary}"
+                 data-int="${d.totalInterest}" data-agent="${d.totalAgent}" data-mat="${d.totalMaterial}"
+                 data-ins="${d.totalInsurance}" data-vat="${d.totalVat}" data-rev="${d.totalRevenueSum}">
+                <div class="print-actions no-print" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;">
+                    <strong style="color:var(--primary-light);">Bảng Xem Trước &amp; Điều Chỉnh Số Liệu</strong>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-outline" style="border-color:#10b981;color:#10b981;" onclick="app.exportMonthlyVesselReport('${vesselId}','${monthStr}')"><i class="fa-solid fa-file-excel"></i> Xuất Excel</button>
+                        <button class="btn btn-outline" onclick="app.closeModal('report-modal')">Đóng</button>
+                        <button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> In A4</button>
+                    </div>
+                </div>
+                <div class="print-header">
+                    <h2>BẢNG THEO DÕI DOANH THU - CHI PHÍ TÀU ${esc(vesselName.toUpperCase())}</h2>
+                    <h3>THÁNG ${d.month}/${d.year}</h3>
+                </div>
+                <table class="report-print-table" style="width:100%;border-collapse:collapse;margin-top:1.5rem;">
+                    <thead><tr style="background:#cbd5e1;font-weight:bold;">
+                        <th class="pac" style="width:40px;">Xóa</th><th style="width:50px;text-align:center;">STT</th>
+                        <th>CHI TIẾT HẠNG MỤC</th><th style="text-align:right;width:130px;">DƯ ĐẦU</th>
+                        <th style="text-align:right;width:130px;">DOANH THU</th><th style="text-align:right;width:130px;">CHI PHÍ</th>
+                        <th style="text-align:right;width:130px;">TỒN CUỐI</th><th style="width:90px;text-align:center;">GHI CHÚ</th>
+                    </tr></thead>
+                    <tbody>
+                        <tr style="background:#e2e8f0;font-weight:bold;">
+                            <td class="pac"></td><td></td><td>Tồn tháng trước chuyển sang</td>
+                            <td style="text-align:right;"><input type="number" id="rep-input-opening" class="print-input" value="${Number(inputs.openingBalance) || 0}" oninput="app.recalcMonthlyVesselReport()" style="font-weight:bold;text-align:right;"></td>
+                            <td></td><td></td><td></td><td></td>
+                        </tr>
+                        ${d.shipments.map(s => {
+                            const qtyStr = Math.round(Number(s.qty) || 0).toLocaleString('en-US');
+                            const rateStr = Math.round(Number(s.rate) || 0).toLocaleString('en-US');
+                            const details = `HĐ ${s.contractNo || ''} ${vesselName} ${s.portLoad || ''} - ${s.portDischarge || ''} (${s.customer || ''}) ${qtyStr} * ${rateStr}`;
+                            let vatRow = '';
+                            if (s.revenueInvoice > s.revenueReal) {
+                                const vatAmt = Math.round((s.revenueInvoice - s.revenueReal) / 1.08 * 0.28);
+                                vatRow = `<tr class="psr"><td class="pac"></td><td></td><td style="padding-left:20px;color:#475569;">VAT tính thêm chuyến này</td><td></td><td style="text-align:right;color:#15803d;">${fc(vatAmt)}</td><td></td><td></td><td></td></tr>`;
+                            }
+                            return `<tr class="psr"><td class="pac"></td><td style="text-align:center;"><strong>${esc(s.voyageNo || '')}</strong></td>
+                                <td style="font-weight:500;">${esc(details)}</td><td></td>
+                                <td style="text-align:right;color:#15803d;font-weight:bold;">${fc(s.revenueReal)}</td><td></td><td></td><td></td></tr>${vatRow}`;
+                        }).join('')}
+                        ${boldRow('Nhiên liệu (Dầu DO &amp; LO)', d.doCost + d.loCost)}
+                        ${subRow('Dầu DO cấp trong tháng', d.doCost)}
+                        ${subRow('Dầu LO chi trong tháng', d.loCost)}
+                        ${boldRow('Tàu ứng chi phí trong tháng', d.vesselAdvances)}
+                        ${boldRow('Chi phí lương thủy thủ', d.crewSalary)}
+                        ${boldRow('Lãi vay phân bổ', d.totalInterest)}
+                        ${d.interestTxs.map(t => subRow(t.content || 'Lãi vay', t.chi)).join('')}
+                        ${boldRow('Chi phí Cảng phát sinh', d.totalAgent)}
+                        ${d.agentTxs.map(t => subRow('+ ' + (t.content || 'Chi phí cảng'), t.chi)).join('')}
+                        ${boldRow('Vật tư mua cấp tàu', d.totalMaterial)}
+                        ${d.materialTxs.map(t => subRow(t.content || 'Vật tư', t.chi)).join('')}
+                        ${boldRow('Bảo hiểm (thân vỏ &amp; BHXH)', d.totalInsurance)}
+                        ${subRow(`Bảo hiểm thân vỏ phân bổ (${d.daysInMonth} ngày)`, d.hullInsurance)}
+                        ${subRow('Bảo hiểm xã hội tháng', d.socialInsurance)}
+                        ${boldRow('Thuế VAT phát sinh chuyến trong tháng', d.totalVat)}
+                    </tbody>
+                    <tbody id="rep-custom-expenses-body">
+                        <tr style="background:#f8fafc;border-top:2px solid #94a3b8;"><td class="pac"></td><td colspan="7" style="font-weight:bold;padding:6px;">Chi phí văn phòng, Thuế và chi phí tự chọn khác:</td></tr>
+                        ${inputs.customExpenses.map(exp => `
+                            <tr class="custom-expense-row psr">
+                                <td class="pac" style="text-align:center;"><button class="btn-delete-row" onclick="app.deleteReportCustomExpenseRow(this)"><i class="fa-solid fa-trash"></i></button></td>
+                                <td></td>
+                                <td style="padding-left:20px;"><input type="text" class="print-input-desc" value="${esc(exp.desc || '')}" placeholder="Nhập tên chi phí..." oninput="app.recalcMonthlyVesselReport()"></td>
+                                <td></td><td></td>
+                                <td style="text-align:right;"><input type="number" class="print-input print-input-amount" value="${Number(exp.amount) || 0}" oninput="app.recalcMonthlyVesselReport()" style="font-weight:bold;color:#b91c1c;"></td>
+                                <td></td><td></td>
+                            </tr>`).join('')}
+                    </tbody>
+                    <tbody>
+                        <tr class="no-print"><td class="pac"></td><td colspan="7" style="padding:8px;">
+                            <button class="btn btn-outline" style="padding:0.3rem 0.6rem;font-size:0.85rem;" onclick="app.addReportCustomExpenseRow()"><i class="fa-solid fa-plus"></i> Thêm chi phí tự nhập (VP, Thuế...)</button>
+                        </td></tr>
+                        <tr style="background:#cbd5e1;font-weight:bold;border-top:2px solid #000;">
+                            <td class="pac"></td><td></td><td style="text-align:center;color:#1e3a8a;font-size:1.05rem;">Cộng</td>
+                            <td style="text-align:right;color:#1e3a8a;" id="rep-total-opening">${fc(inputs.openingBalance)}</td>
+                            <td style="text-align:right;color:#15803d;" id="rep-total-revenue">${fc(d.totalRevenueSum)}</td>
+                            <td style="text-align:right;color:#b91c1c;" id="rep-total-cost">${fc(totalCostSum)}</td>
+                            <td style="text-align:right;color:#15803d;font-size:1.1rem;" id="rep-total-balance">${fc(finalBalance)}</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="margin-top:2rem;text-align:right;font-style:italic;">Lập ngày ${String(new Date().getDate()).padStart(2,'0')}/${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getFullYear()}</div>
+            </div>`;
+        document.getElementById('report-content').innerHTML = html;
+        this.openModal('report-modal');
+        if (shouldPrint) setTimeout(() => window.print(), 300);
+    },
+
+    recalcMonthlyVesselReport() {
+        const holder = document.getElementById('report-data-holder');
+        if (!holder) return;
+        const opening = Number(document.getElementById('rep-input-opening').value) || 0;
+        let customTotal = 0;
+        const customExpenses = [];
+        document.querySelectorAll('.custom-expense-row').forEach(row => {
+            const desc = row.querySelector('.print-input-desc').value.trim();
+            const amount = Number(row.querySelector('.print-input-amount').value) || 0;
+            customTotal += amount;
+            if (desc || amount) customExpenses.push({ desc, amount });
+        });
+        if (this.activeReportVessel && this.activeReportMonth) {
+            this.saveMonthlyVesselReportInputs(this.activeReportVessel, this.activeReportMonth, { openingBalance: opening, customExpenses });
+        }
+        const g = k => Number(holder.dataset[k]) || 0;
+        const totalCostSum = g('do') + g('lo') + g('adv') + g('sal') + g('int') + g('agent') + g('mat') + g('ins') + g('vat') + customTotal;
+        const finalBalance = opening + g('rev') - totalCostSum;
+        document.getElementById('rep-total-opening').innerText = AppData.formatCurrency(opening);
+        document.getElementById('rep-total-cost').innerText = AppData.formatCurrency(totalCostSum);
+        document.getElementById('rep-total-balance').innerText = AppData.formatCurrency(finalBalance);
+    },
+
+    addReportCustomExpenseRow() {
+        const tbody = document.getElementById('rep-custom-expenses-body');
+        if (!tbody) return;
+        const tr = document.createElement('tr');
+        tr.className = 'custom-expense-row psr';
+        tr.innerHTML = `
+            <td class="pac" style="text-align:center;"><button class="btn-delete-row" onclick="app.deleteReportCustomExpenseRow(this)"><i class="fa-solid fa-trash"></i></button></td>
+            <td></td>
+            <td style="padding-left:20px;"><input type="text" class="print-input-desc" value="" placeholder="Nhập tên chi phí..." oninput="app.recalcMonthlyVesselReport()"></td>
+            <td></td><td></td>
+            <td style="text-align:right;"><input type="number" class="print-input print-input-amount" value="0" oninput="app.recalcMonthlyVesselReport()" style="font-weight:bold;color:#b91c1c;"></td>
+            <td></td><td></td>`;
+        tbody.appendChild(tr);
+        this.recalcMonthlyVesselReport();
+    },
+    deleteReportCustomExpenseRow(btn) {
+        const tr = btn.closest('tr');
+        if (tr) { tr.remove(); this.recalcMonthlyVesselReport(); }
+    },
+
+    exportMonthlyVesselReport(vesselId, monthStr) {
+        if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện xuất Excel!');
+        const vessel = AppData.getVessel(vesselId);
+        const vesselName = vessel ? vessel.name : vesselId;
+        const d = this._monthlyVesselReportData(vesselId, monthStr);
+        const inputs = this.getMonthlyVesselReportInputs(vesselId, monthStr);
+        let customTotal = 0; inputs.customExpenses.forEach(e => customTotal += Number(e.amount) || 0);
+        const totalCostSum = d.doCost + d.loCost + d.vesselAdvances + d.crewSalary + d.totalInterest + d.totalAgent + d.totalMaterial + d.totalInsurance + d.totalVat + customTotal;
+        const finalBalance = (Number(inputs.openingBalance) || 0) + d.totalRevenueSum - totalCostSum;
+
+        const rows = [];
+        rows.push([`BẢNG THEO DÕI DOANH THU - CHI PHÍ TÀU ${vesselName.toUpperCase()}`]);
+        rows.push([`THÁNG ${d.month}/${d.year}`]); rows.push([]);
+        rows.push(['STT', 'CHI TIẾT HẠNG MỤC', 'DƯ ĐẦU THÁNG', 'DOANH THU', 'CHI PHÍ', 'TỒN CUỐI', 'GHI CHÚ']);
+        rows.push(['', 'Tồn tháng trước chuyển sang', Number(inputs.openingBalance) || 0, '', '', '', '']);
+        d.shipments.forEach(s => {
+            const qtyStr = Math.round(Number(s.qty) || 0).toLocaleString('en-US');
+            const rateStr = Math.round(Number(s.rate) || 0).toLocaleString('en-US');
+            rows.push([s.voyageNo || '', `HĐ ${s.contractNo || ''} ${vesselName} ${s.portLoad || ''} - ${s.portDischarge || ''} (${s.customer || ''}) ${qtyStr} * ${rateStr}`, '', Number(s.revenueReal) || 0, '', '', '']);
+            if (s.revenueInvoice > s.revenueReal) rows.push(['', 'VAT tính thêm chuyến này', '', Math.round((s.revenueInvoice - s.revenueReal) / 1.08 * 0.28), '', '', '']);
+        });
+        rows.push(['', 'Nhiên liệu (Dầu DO & LO)', '', '', d.doCost + d.loCost, '', '']);
+        rows.push(['', '  Dầu DO cấp trong tháng', '', '', d.doCost, '', '']);
+        rows.push(['', '  Dầu LO chi trong tháng', '', '', d.loCost, '', '']);
+        rows.push(['', 'Tàu ứng chi phí trong tháng', '', '', d.vesselAdvances, '', '']);
+        rows.push(['', 'Chi phí lương thủy thủ', '', '', d.crewSalary, '', '']);
+        rows.push(['', 'Lãi vay phân bổ', '', '', d.totalInterest, '', '']);
+        d.interestTxs.forEach(t => rows.push(['', '  ' + (t.content || 'Lãi vay'), '', '', Number(t.chi) || 0, '', '']));
+        rows.push(['', 'Chi phí Cảng phát sinh', '', '', d.totalAgent, '', '']);
+        d.agentTxs.forEach(t => rows.push(['', '  + ' + (t.content || 'Chi phí cảng'), '', '', Number(t.chi) || 0, '', '']));
+        rows.push(['', 'Vật tư mua cấp tàu', '', '', d.totalMaterial, '', '']);
+        d.materialTxs.forEach(t => rows.push(['', '  ' + (t.content || 'Vật tư'), '', '', Number(t.chi) || 0, '', '']));
+        rows.push(['', 'Bảo hiểm (thân vỏ & BHXH)', '', '', d.totalInsurance, '', '']);
+        rows.push(['', '  Bảo hiểm thân vỏ phân bổ', '', '', d.hullInsurance, '', '']);
+        rows.push(['', '  Bảo hiểm xã hội', '', '', d.socialInsurance, '', '']);
+        rows.push(['', 'Thuế VAT phát sinh chuyến trong tháng', '', '', d.totalVat, '', '']);
+        rows.push(['', 'Chi phí văn phòng, Thuế và khác', '', '', customTotal, '', '']);
+        inputs.customExpenses.forEach(exp => rows.push(['', '  ' + (exp.desc || ''), '', '', Number(exp.amount) || 0, '', '']));
+        rows.push(['', 'CỘNG', Number(inputs.openingBalance) || 0, d.totalRevenueSum, totalCostSum, finalBalance, '']);
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        for (let key in ws) { if (key[0] === '!') continue; const cell = ws[key]; if (typeof cell.v === 'number') { cell.t = 'n'; cell.z = '#,##0'; } }
+        ws['!cols'] = [{ wch: 8 }, { wch: 55 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'BaoCaoThang');
+        XLSX.writeFile(wb, `BaoCaoThang_${vesselId}_${monthStr}.xlsx`);
+    },
     
     exportFuelReport() {
         if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện xuất Excel!');

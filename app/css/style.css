@@ -969,3 +969,25 @@ input.field-error, select.field-error, textarea.field-error {
     @page { margin: 1.2cm; size: A4; }
     html, body { background: #fff !important; }
 }
+
+/* ===== Báo cáo tháng theo tàu (print-container) — port từ V5 ===== */
+.print-container { background:#fff; color:#1e293b; padding:1.5rem; border-radius:8px; }
+.print-container .print-header { text-align:center; margin-bottom:1rem; }
+.print-container .print-header h2 { color:#0f172a; margin:0 0 4px; font-size:1.25rem; }
+.print-container .print-header h3 { color:#334155; margin:0; font-size:1rem; }
+.report-print-table { font-size:0.85rem; border:1px solid #cbd5e1; }
+.report-print-table th, .report-print-table td { border:1px solid #cbd5e1; padding:6px 8px; color:#1e293b; }
+.report-print-table .psr td { background:#fff; }
+.print-input, .print-input-desc { width:100%; padding:4px 6px; border:1px solid #cbd5e1; border-radius:4px; background:#fff; color:#1e293b; font-size:0.85rem; }
+.print-input-amount { text-align:right; }
+.btn-delete-row { background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.9rem; }
+.report-print-table .pac { width:40px; text-align:center; }
+
+@media print {
+    .print-container, .print-container * { color:#111 !important; background:#fff !important; }
+    .print-container .print-input, .print-container .print-input-desc {
+        border:none !important; background:transparent !important; padding:0 !important; font-weight:inherit;
+    }
+    .report-print-table th, .report-print-table td { border:1px solid #999 !important; }
+    .btn-delete-row, .pac { display:none !important; }
+}
