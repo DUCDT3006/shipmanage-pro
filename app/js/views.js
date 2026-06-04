@@ -3617,10 +3617,16 @@ const Views = {
 
         return `
             <div class="view-section">
-                <div class="page-header">
+                <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
                     <div>
                         <h1 class="page-title">Chi phí Hàng năm &amp; Lịch lên đà</h1>
                         <p class="page-subtitle">Nhập chi phí cố định theo năm và theo dõi hạn đăng kiểm, lên đà của đội tàu</p>
+                    </div>
+                    <div>
+                        <input type="file" id="v5-annual-import" accept="application/json,.json" style="display:none;" onchange="app.importAnnualCostsFromV5(event)">
+                        <button class="btn btn-outline" onclick="document.getElementById('v5-annual-import').click()" title="Nhập cấu hình chi phí năm + lịch lên đà từ file JSON xuất bởi V5">
+                            <i class="fa-solid fa-file-import"></i> Nhập dữ liệu lịch lên đà từ V5 (JSON)
+                        </button>
                     </div>
                 </div>
 
