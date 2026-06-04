@@ -9,53 +9,6 @@ const app = {
     annualCostsYear: new Date().getFullYear(),
     annualCostsVesselId: '',
 
-    // Nhập riêng cấu hình chi phí năm (annualCosts) từ file JSON xuất bởi V5.
-    // CHỈ gộp annualCosts — KHÔNG đụng các dữ liệu khác của V3.
-    importAnnualCostsFromV5(event) {
-        const file = event.target.files && event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const obj = JSON.parse(e.target.result);
-                // Hỗ trợ cả file V5 ({appData:{annualCosts}}) lẫn file chỉ chứa state ({annualCosts})
-                const src = (obj && obj.appData) ? obj.appData : obj;
-                const incoming = (src && Array.isArray(src.annualCosts)) ? src.annualCosts : null;
-                if (!incoming) throw new Error('Tệp không chứa dữ liệu annualCosts (cấu hình chi phí năm).');
-                if (incoming.length === 0) throw new Error('Tệp có annualCosts nhưng đang RỖNG — bên V5 chưa lưu cấu hình nào.');
-
-                if (!AppData.state.annualCosts) AppData.state.annualCosts = [];
-                const validVesselIds = new Set((AppData.getVessels() || []).map(v => v.id));
-                let added = 0, updated = 0, skipped = 0;
-                incoming.forEach(cfg => {
-                    if (!cfg || !cfg.vesselId || cfg.year == null) { skipped++; return; }
-                    if (!validVesselIds.has(cfg.vesselId)) { skipped++; return; }   // tàu không có ở V3 -> bỏ
-                    cfg.year = Number(cfg.year);
-                    const idx = AppData.state.annualCosts.findIndex(c => c.year === cfg.year && c.vesselId === cfg.vesselId);
-                    if (idx >= 0) { AppData.state.annualCosts[idx] = cfg; updated++; }
-                    else { AppData.state.annualCosts.push(cfg); added++; }
-                });
-                // Tính lại chi phí cho chuyến của các tàu bị ảnh hưởng rồi lưu MỘT lần
-                const affected = new Set(incoming.map(c => c.vesselId));
-                (AppData.state.shipments || []).forEach(s => {
-                    if (affected.has(s.vesselId)) AppData.applyAutoCostsToShipment(s);
-                });
-                AppData.save();
-
-                let msg = `✅ Đã nhập cấu hình chi phí năm từ V5:\n• Thêm mới: ${added}\n• Cập nhật: ${updated}`;
-                if (skipped > 0) msg += `\n• Bỏ qua (tàu không khớp / thiếu dữ liệu): ${skipped}`;
-                msg += `\n\nLịch lên đà & đăng kiểm sẽ hiện ngay theo dữ liệu V5.`;
-                alert(msg);
-                this.navigate('annual-costs');
-            } catch (err) {
-                alert('❌ Lỗi nhập dữ liệu: ' + err.message);
-            } finally {
-                event.target.value = '';   // reset để chọn lại cùng file được
-            }
-        };
-        reader.readAsText(file);
-    },
-
     loadAnnualCosts() {
         const year = document.getElementById('a-year')?.value;
         const vesselId = document.getElementById('a-vessel')?.value;
