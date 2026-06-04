@@ -1129,6 +1129,30 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         this.state.employees = this.state.employees.filter(e => e.id !== id);
         this.save();
     },
+    // Công nợ khách hàng: doanh thu hóa đơn − đã thu (CVC) + công nợ đầu kỳ
+    getCustomerDebts() {
+        const shipments = this.getShipments();
+        const transactions = this.getTransactions();
+        const norm = (n) => n ? n.trim().toUpperCase().replace(/\s+/g, ' ') : 'KHÁC';
+        const namesSet = new Set();
+        shipments.forEach(s => { if (s.customer) namesSet.add(norm(s.customer)); });
+        const opening = this.state.company.customerOpeningDebts || {};
+        Object.keys(opening).forEach(k => namesSet.add(norm(k)));
+        let totalCustomerDebt = 0;
+        const list = Array.from(namesSet).sort().map(custName => {
+            const custShipments = shipments.filter(s => norm(s.customer) === custName);
+            const custTrans = transactions.filter(t => t.partner && norm(t.partner) === custName);
+            let totalInvoice = 0, totalPaid = 0;
+            custShipments.forEach(s => { totalInvoice += Number(s.revenueInvoice) || 0; });
+            custTrans.forEach(t => { if (t.category === 'CVC') { totalPaid += Number(t.thu) || 0; } });
+            const openDebt = Number(opening[custName]) || 0;
+            const debt = openDebt + totalInvoice - totalPaid;
+            totalCustomerDebt += debt;
+            return { name: custName, debt };
+        });
+        return { totalCustomerDebt, list };
+    },
+
     getSupplierDebts() {
         const suppliers = {};
         

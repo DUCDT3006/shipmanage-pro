@@ -391,13 +391,10 @@ const Views = {
     dashboard: (filterMonth = '') => {
         const company = AppData.getCompany();
         const allShips = AppData.getShipments();
-        
-        // Thu thập danh sách các tháng có dữ liệu chuyến hàng
+
+        // Danh sách tháng
         const monthsSet = new Set();
-        allShips.forEach(s => {
-            const m = s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : '');
-            if (m) monthsSet.add(m);
-        });
+        allShips.forEach(s => { const m = s.reportMonth || (s.dateStart ? s.dateStart.substring(0, 7) : ''); if (m) monthsSet.add(m); });
         const availableMonths = Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
 
         let filteredShips = allShips;
@@ -407,52 +404,211 @@ const Views = {
                 return m === filterMonth;
             });
         }
-        
-        let totalRevenue = 0;
-        let totalCost = 0;
 
         const excludeDepr = app.excludeDockingDepreciation;
+        let totalRevenue = 0, totalCost = 0;
         filteredShips.forEach(s => {
             totalRevenue += Number(s.revenueReal || 0);
             const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
             const baseCosts = { ...s.costs };
-            delete baseCosts.vat; // Tránh cộng dồn
-            if (excludeDepr) {
-                delete baseCosts.dockingIntermediate;
-                delete baseCosts.dockingPeriodic;
-                delete baseCosts.depreciation;
-            }
-            const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
-            totalCost += costSum;
+            delete baseCosts.vat;
+            if (excludeDepr) { delete baseCosts.dockingIntermediate; delete baseCosts.dockingPeriodic; delete baseCosts.depreciation; }
+            totalCost += Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
         });
-
         const totalProfit = totalRevenue - totalCost;
         const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0;
 
+        // --- Header widgets ---
+        const transAll = AppData.getTransactions() || [];
+        const opening = AppData.state.company.openingBalances || {};
+        const totalOpening = Object.values(opening).reduce((s, v) => s + (Number(v) || 0), 0);
+        const totalBalance = totalOpening + transAll.reduce((s, t) => s + (Number(t.thu) || 0) - (Number(t.chi) || 0), 0);
+        const accountNames = ['ABbank', 'Viettinbank', 'Tài khoản cá nhân', 'Tiền mặt'];
+        const accountHtml = accountNames.map(acc => {
+            const bal = (Number(opening[acc]) || 0) + transAll.filter(t => t.account === acc).reduce((s, t) => s + (Number(t.thu) || 0) - (Number(t.chi) || 0), 0);
+            const short = acc === 'Tài khoản cá nhân' ? 'Cá nhân' : acc;
+            return `<div style="display:flex;justify-content:space-between;font-size:0.75rem;"><span style="margin-right:6px;">${short}:</span><span style="font-weight:500;color:var(--text-main);">${AppData.formatCurrency(bal)}</span></div>`;
+        }).join('');
+
+        const { totalCustomerDebt } = AppData.getCustomerDebts();
+        const supplierList = AppData.getSupplierDebts();
+        const totalSupplierDebt = supplierList.reduce((s, x) => s + x.debt, 0);
+
+        // --- 3-cột KPI compact ---
+        const vesselsList = AppData.getVessels() || [];
+
+        // Cột xanh 1: Tồn dầu DO + giá trị
+        const blueRows = vesselsList.map(v => {
+            const sortedAsc = AppData.sortVoyages(AppData.getFuelVoyages(v.id), 'asc');
+            const qty = AppData.getVesselFuelBalance(v.id);
+            let val = 0;
+            if (sortedAsc.length > 0) {
+                const c1 = sortedAsc[0];
+                const initQty = Number(c1.initialFuel || 0);
+                const priceC1 = Number(c1.fuelUnitPrice || 0) || AppData.getLastFuelPrice(v.id, c1.voyageNo);
+                const latestPrice = AppData.getLastFuelPrice(v.id);
+                val = (qty * latestPrice) - (initQty * priceC1);
+            }
+            const tip = `Giá trị = Tồn × Đơn giá gần nhất − Tồn C1 × Đơn giá C1`;
+            return `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                <td style="padding:3px 6px;font-weight:500;border:none;">${esc(v.name)}</td>
+                <td style="padding:3px 6px;text-align:right;font-weight:600;color:var(--text-main);border:none;">${Math.round(qty).toLocaleString('vi-VN')} Lít</td>
+                <td style="padding:3px 6px;text-align:right;font-weight:600;color:${val>=0?'#10b981':'#ef4444'};border:none;" title="${tip}">${AppData.formatCurrency(val)}</td>
+            </tr>`;
+        }).join('');
+        const totQty = vesselsList.reduce((s, v) => s + AppData.getVesselFuelBalance(v.id), 0);
+        const totVal = vesselsList.reduce((s, v) => {
+            const sortedAsc = AppData.sortVoyages(AppData.getFuelVoyages(v.id), 'asc');
+            const qty = AppData.getVesselFuelBalance(v.id);
+            if (!sortedAsc.length) return s;
+            const c1 = sortedAsc[0];
+            const priceC1 = Number(c1.fuelUnitPrice || 0) || AppData.getLastFuelPrice(v.id, c1.voyageNo);
+            return s + (qty * AppData.getLastFuelPrice(v.id)) - (Number(c1.initialFuel || 0) * priceC1);
+        }, 0);
+
+        // Cột đỏ: Chi phí cố định phân bổ
+        const redRows = vesselsList.map(v => {
+            const vShips = filteredShips.filter(s => s.vesselId === v.id);
+            let dockInt = 0, dockPer = 0, depr = 0, reg = 0, hull = 0;
+            vShips.forEach(s => {
+                const c = s.costs || {};
+                dockInt  += excludeDepr ? 0 : Number(c.dockingIntermediate || 0);
+                dockPer  += excludeDepr ? 0 : Number(c.dockingPeriodic    || 0);
+                depr     += excludeDepr ? 0 : Number(c.depreciation        || 0);
+                reg      += Number(c.annualSurvey    || c.registryAnnual || 0);
+                hull     += Number(c.hullInsurance   || 0);
+            });
+            const tot = dockInt + dockPer + depr + reg + hull;
+            const tip = `Lên đà TG: ${AppData.formatCurrency(dockInt)}\nLên đà ĐK: ${AppData.formatCurrency(dockPer)}\nKhấu hao: ${AppData.formatCurrency(depr)}\nĐăng kiểm: ${AppData.formatCurrency(reg)}\nBảo hiểm: ${AppData.formatCurrency(hull)}`;
+            return `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                <td style="padding:3px 6px;font-weight:500;border:none;">${esc(v.name)}</td>
+                <td style="padding:3px 6px;text-align:right;font-weight:600;color:var(--accent);border:none;" title="${tip}">${AppData.formatCurrency(tot)}</td>
+            </tr>`;
+        }).join('');
+        const totFixed = vesselsList.reduce((s, v) => {
+            const vShips = filteredShips.filter(sh => sh.vesselId === v.id);
+            return s + vShips.reduce((ss, sh) => {
+                const c = sh.costs || {};
+                return ss + (excludeDepr ? 0 : Number(c.dockingIntermediate||0) + Number(c.dockingPeriodic||0) + Number(c.depreciation||0))
+                    + Number(c.annualSurvey || c.registryAnnual || 0) + Number(c.hullInsurance || 0);
+            }, 0);
+        }, 0);
+
+        // Cột xanh 2: Số chuyến
+        const voyRows = vesselsList.map(v => {
+            const vShips = filteredShips.filter(s => s.vesselId === v.id);
+            const tip = vShips.map(s => `Chuyến ${s.voyageNo}`).join(', ') || 'Không có chuyến nào';
+            return `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                <td style="padding:3px 6px;font-weight:500;border:none;">${esc(v.name)}</td>
+                <td style="padding:3px 6px;text-align:right;font-weight:600;color:#3b82f6;border:none;" title="${tip}">${vShips.length} chuyến</td>
+            </tr>`;
+        }).join('');
+        const totVoy = vesselsList.reduce((s, v) => s + filteredShips.filter(sh => sh.vesselId === v.id).length, 0);
+
+        const tbl = (rows, heads, totalRow) => `
+            <div class="table-container" style="margin:0;padding:0;background:transparent;border:none;box-shadow:none;">
+                <table class="table" style="width:100%;font-size:0.78rem;border-collapse:collapse;margin:0;">
+                    <thead><tr style="border-bottom:1px solid rgba(255,255,255,0.08);background:transparent;">
+                        ${heads.map(h => `<th style="text-align:${h.right?'right':'left'};padding:3px 6px;color:var(--text-muted);font-weight:600;background:transparent;border:none;font-size:0.72rem;">${h.label}</th>`).join('')}
+                    </tr></thead>
+                    <tbody>${rows}${totalRow}</tbody>
+                </table>
+            </div>`;
+
         return `
             <div class="view-section">
-                <!-- Page Header & Filter -->
-                <div class="page-header" style="flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+                <!-- Page Header: title + 2 widgets + bộ lọc -->
+                <div class="page-header" style="flex-wrap:wrap;gap:1rem;align-items:center;margin-bottom:1.5rem;">
                     <div>
-                        <h1 class="page-title">Bảng điều khiển</h1>
+                        <h1 class="page-title">Tổng quan</h1>
                         <p class="page-subtitle">${esc(company.name)}</p>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.75rem; background: rgba(255,255,255,0.03); padding: 8px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-                        <label style="font-weight: 600; color: var(--text-main); font-size: 0.9rem; margin: 0; display: flex; align-items: center; gap: 6px;">
+
+                    <!-- Widget: Tổng số dư tài khoản -->
+                    <div class="glass-card" style="display:flex;flex-direction:column;padding:10px 16px;gap:4px;font-size:0.8rem;border-left:3px solid var(--secondary);background:rgba(16,185,129,0.05);min-width:240px;">
+                        <div style="display:flex;justify-content:space-between;font-weight:bold;color:var(--secondary);border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:4px;margin-bottom:2px;">
+                            <span>TỔNG SỐ DƯ TÀI KHOẢN:</span><span>${AppData.formatCurrency(totalBalance)}</span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;color:var(--text-muted);">${accountHtml}</div>
+                    </div>
+
+                    <!-- Widget: Công nợ -->
+                    <div class="glass-card" style="display:flex;flex-direction:column;padding:10px 16px;gap:4px;font-size:0.8rem;border-left:3px solid var(--info);background:rgba(14,165,233,0.05);min-width:220px;justify-content:center;">
+                        <div style="display:flex;justify-content:space-between;padding-bottom:2px;">
+                            <span style="color:var(--text-muted);font-weight:500;">Công nợ Khách hàng:</span>
+                            <span style="color:var(--accent);font-weight:bold;">${AppData.formatCurrency(totalCustomerDebt)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.05);padding-top:4px;">
+                            <span style="color:var(--text-muted);font-weight:500;">Công nợ NCC (Dầu):</span>
+                            <span style="color:var(--warning);font-weight:bold;">${AppData.formatCurrency(totalSupplierDebt)}</span>
+                        </div>
+                    </div>
+
+                    <!-- Bộ lọc tháng -->
+                    <div style="display:flex;align-items:center;gap:0.75rem;background:rgba(255,255,255,0.03);padding:8px 16px;border-radius:var(--radius-md);border:1px solid var(--border-color);margin-left:auto;">
+                        <label style="font-weight:600;color:var(--text-main);font-size:0.9rem;margin:0;display:flex;align-items:center;gap:6px;">
                             <i class="fa-solid fa-filter" style="color:var(--primary-light);"></i> Lọc tháng hạch toán:
                         </label>
-                        <select class="form-control" style="width: 180px; height: 32px; padding: 4px 8px; font-size: 0.85rem;" onchange="app.navigate('dashboard', this.value)">
+                        <select class="form-control" style="width:180px;height:32px;padding:4px 8px;font-size:0.85rem;" onchange="app.navigate('dashboard', this.value)">
                             <option value="">-- Tất cả các tháng --</option>
-                            ${availableMonths.map(m => `<option value="${m}" ${m === filterMonth ? 'selected' : ''}>Tháng ${m.split('-')[1]}/${m.split('-')[0]}</option>`).join('')}
+                            ${availableMonths.map(m => `<option value="${m}" ${m===filterMonth?'selected':''}>Tháng ${m.split('-')[1]}/${m.split('-')[0]}</option>`).join('')}
                         </select>
                     </div>
-                    <label title="Loại bỏ chi phí lên đà trung gian, định kỳ và khấu hao khỏi tổng chi phí & lợi nhuận (giữ lại đăng kiểm và bảo hiểm thân vỏ)" style="display: flex; align-items: center; gap: 6px; cursor: pointer; background: rgba(255,255,255,0.03); padding: 8px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted); user-select: none;">
-                        <input type="checkbox" onchange="app.toggleExcludeDockingDepreciation(this.checked)" ${excludeDepr ? 'checked' : ''} style="width:14px; height:14px; cursor:pointer; accent-color:var(--accent);">
-                        <i class="fa-solid fa-ship" style="color:var(--accent);"></i> Bỏ đà & khấu hao
-                    </label>
                 </div>
 
                 ${Views.onboardingChecklist()}
+
+                <!-- 3-cột KPI compact -->
+                <div class="grid-3" style="margin-bottom:1.5rem;">
+
+                    <!-- Cột xanh: Lượng & Giá trị Dầu tồn DO -->
+                    <div class="glass-card" style="border-left:3px solid #3b82f6;background:rgba(59,130,246,0.02);padding:8px 12px;">
+                        <h3 style="margin:0 0 6px;font-size:0.85rem;color:#3b82f6;display:flex;align-items:center;gap:6px;">
+                            <i class="fa-solid fa-gas-pump"></i> Lượng &amp; Giá trị Dầu tồn DO
+                        </h3>
+                        ${tbl(blueRows,
+                            [{label:'Tàu'},{label:'Tồn (1)',right:true},{label:'Giá trị (2)',right:true}],
+                            `<tr style="border-top:1px solid rgba(255,255,255,0.15);font-weight:bold;">
+                                <td style="padding:4px 6px;color:var(--text-main);border:none;">Tổng cộng</td>
+                                <td style="padding:4px 6px;text-align:right;color:var(--text-main);border:none;">${Math.round(totQty).toLocaleString('vi-VN')} Lít</td>
+                                <td style="padding:4px 6px;text-align:right;color:${totVal>=0?'#10b981':'#ef4444'};border:none;">${AppData.formatCurrency(totVal)}</td>
+                            </tr>`
+                        )}
+                    </div>
+
+                    <!-- Cột đỏ: Chi phí Cố định -->
+                    <div class="glass-card" style="border-left:3px solid #ef4444;background:rgba(239,68,68,0.02);padding:8px 12px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <h3 style="margin:0;font-size:0.85rem;color:#ef4444;display:flex;align-items:center;gap:6px;">
+                                <i class="fa-solid fa-wrench"></i> Chi phí Cố định (Đà, Khấu hao, ĐK, BH)
+                            </h3>
+                            <label title="Bỏ lên đà trung gian, định kỳ, khấu hao. Giữ đăng kiểm + bảo hiểm." style="font-size:0.72rem;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:4px;margin:0;">
+                                <input type="checkbox" id="exclude-docking-depr-chk" onchange="app.toggleExcludeDockingDepreciation(this.checked)" ${excludeDepr?'checked':''} style="margin:0;width:12px;height:12px;"> Bỏ đà &amp; khấu hao
+                            </label>
+                        </div>
+                        ${tbl(redRows,
+                            [{label:'Tàu'},{label:'Tổng chi phí',right:true}],
+                            `<tr style="border-top:1px solid rgba(255,255,255,0.15);font-weight:bold;">
+                                <td style="padding:4px 6px;color:var(--text-main);border:none;">Tổng cộng</td>
+                                <td style="padding:4px 6px;text-align:right;color:#ef4444;border:none;">${AppData.formatCurrency(totFixed)}</td>
+                            </tr>`
+                        )}
+                    </div>
+
+                    <!-- Cột xanh 2: Số chuyến -->
+                    <div class="glass-card" style="border-left:3px solid #3b82f6;background:rgba(59,130,246,0.02);padding:8px 12px;">
+                        <h3 style="margin:0 0 6px;font-size:0.85rem;color:#3b82f6;display:flex;align-items:center;gap:6px;">
+                            <i class="fa-solid fa-route"></i> Số chuyến đã thực hiện
+                        </h3>
+                        ${tbl(voyRows,
+                            [{label:'Tàu'},{label:'Số chuyến',right:true}],
+                            `<tr style="border-top:1px solid rgba(255,255,255,0.15);font-weight:bold;">
+                                <td style="padding:4px 6px;color:var(--text-main);border:none;">Tổng cộng</td>
+                                <td style="padding:4px 6px;text-align:right;color:#3b82f6;border:none;">${totVoy} chuyến</td>
+                            </tr>`
+                        )}
+                    </div>
+                </div>
 
                 <!-- KPI Section -->
                 <div class="kpi-grid" style="margin-bottom: 2rem;">
@@ -536,12 +692,6 @@ const Views = {
                 ${Views.analyticsPanel(filterMonth)}
 
                 ${Views.fleetComparison(filterMonth)}
-
-                ${Views.loFixedKpi(filterMonth)}
-
-                ${Views.doInventory()}
-
-                ${Views.fixedCostBreakdown()}
 
                 <!-- Cảnh báo đăng kiểm/chứng chỉ sắp hết hạn (task #25) -->
                 ${(() => {
