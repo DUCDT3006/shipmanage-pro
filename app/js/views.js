@@ -1521,7 +1521,12 @@ const Views = {
                             <label class="form-label">Lãi vay (VND) <span style="font-size:0.75rem; color:var(--info); font-weight:normal;">(Tự động tính từ Giao dịch)</span></label>
                             <input type="number" step="any" class="form-control" id="m-loan-interest" value="${costs.loanInterest || 0}" readonly style="background:rgba(0,0,0,0.3); color:var(--text-muted);">
                         </div>
-                        
+
+                        <div class="form-group">
+                            <label class="form-label">Lãi vay ngoài (VND) <span style="font-size:0.75rem; color:var(--accent); font-weight:normal;">(Vay ngoài ngân hàng — tự nhập)</span></label>
+                            <input type="text" inputmode="numeric" class="form-control money" id="m-loan-interest-external" value="${app.fmtMoney(costs.loanInterestExternal || 0)}">
+                        </div>
+
                         <div class="form-group">
                             <label class="form-label">Vật tư, sửa chữa Tàu chi (VND) <span style="font-size:0.75rem; color:var(--warning); font-weight:normal;">(Tự động lấy từ Báo cáo Tàu)</span></label>
                             <input type="number" step="any" class="form-control" id="m-material-vessel" value="${costs.materialVessel || 0}" readonly style="background:rgba(0,0,0,0.3); color:var(--text-muted);">
@@ -1712,6 +1717,8 @@ const Views = {
                     </div>
                 </div>
                 <div class="glass-card">
+                  <div class="double-scroll-wrapper" id="shipments-scroll-wrapper">
+                    <div class="top-scrollbar"><div class="top-scrollbar-dummy"></div></div>
                     <div class="table-container">
                         <table class="table">
                             <thead>
@@ -1743,6 +1750,7 @@ const Views = {
                             </tbody>
                         </table>
                     </div>
+                  </div>
                 </div>
             </div>
         `;
@@ -3224,6 +3232,7 @@ const Views = {
                         <tr><td>10. Vật tư, sửa chữa Cty cấp (Phân bổ)</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.materialCompany || 0)}</td></tr>
                         <tr><td>11. Vật tư, sửa chữa Tàu chi (Phân bổ)</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.materialVessel || 0)}</td></tr>
                         <tr><td>12. Lãi vay (Phân bổ)</td><td style="text-align: right; color: var(--warning);">${AppData.formatCurrency(s.costs.loanInterest || 0)}</td></tr>
+                        <tr><td>12b. Lãi vay ngoài (Phân bổ)</td><td style="text-align: right; color: var(--warning);">${AppData.formatCurrency(s.costs.loanInterestExternal || 0)}</td></tr>
                         <tr><td>13. Phân bổ chi phí khác từ Cty</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.monthlyOther || 0)}</td></tr>
                         <tr><td>14. Chi phí khác tàu chi tại chuyến</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.others || 0)}</td></tr>
                         <tr><td>15. Chi phí cố định phân bổ (lên đà, khấu hao, đăng kiểm, BH thân vỏ)</td><td style="text-align: right; color: var(--info);">${AppData.formatCurrency(s.costs.fixedCost || 0)}</td></tr>

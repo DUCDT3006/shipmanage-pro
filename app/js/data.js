@@ -1226,7 +1226,8 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
     },
     getMonthlyCosts(month, vesselId) { 
         let cost = this.state.monthlyCosts.find(c => c.month === month && c.vesselId === vesselId);
-        let result = cost ? { ...cost } : { month, vesselId, salary: 0, insurance: 0, food: 0, materialCompany: 0, materialVessel: 0, other: 0 };
+        let result = cost ? { ...cost } : { month, vesselId, salary: 0, insurance: 0, food: 0, materialCompany: 0, materialVessel: 0, loanInterestExternal: 0, other: 0 };
+        if (result.loanInterestExternal === undefined) result.loanInterestExternal = 0;
         
         // Nếu chưa có lương và bảo hiểm (bằng 0), lấy từ tháng gần nhất trước đó
         if (!result.salary && !result.insurance) {
@@ -1608,6 +1609,7 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
                 s.costs.materialCompany = this.calcExactAllocation(s.dateStart, s.dateEnd, vesselId, 'materialCompany');
                 s.costs.materialVessel = this.calcExactAllocation(s.dateStart, s.dateEnd, vesselId, 'materialVessel');
                 s.costs.loanInterest = this.calcExactAllocation(s.dateStart, s.dateEnd, vesselId, 'loanInterest');
+                s.costs.loanInterestExternal = this.calcExactAllocation(s.dateStart, s.dateEnd, vesselId, 'loanInterestExternal');
                 s.costs.monthlyOther = this.calcExactAllocation(s.dateStart, s.dateEnd, vesselId, 'other');
 
                 // Fix#2 (chi phí cảng -> agent) + Lớn#A (chi phí cố định) — gom vào 1 helper.

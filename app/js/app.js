@@ -66,6 +66,36 @@ const app = {
         this.navigate('dashboard', this.currentDashboardMonth || '');
     },
 
+    // Thanh cuộn ngang phụ ở TRÊN bảng rộng, đồng bộ với thanh cuộn chính bên dưới.
+    initDoubleScroll(wrapperId) {
+        setTimeout(() => {
+            const wrapper = document.getElementById(wrapperId);
+            if (!wrapper) return;
+            const topScroll = wrapper.querySelector('.top-scrollbar');
+            const tableContainer = wrapper.querySelector('.table-container');
+            const dummy = wrapper.querySelector('.top-scrollbar-dummy');
+            const table = wrapper.querySelector('table');
+            if (!topScroll || !tableContainer || !dummy || !table) return;
+            const updateWidth = () => {
+                const tableWidth = table.scrollWidth;
+                if (tableWidth > tableContainer.clientWidth) {
+                    topScroll.style.display = 'block';
+                    dummy.style.width = tableWidth + 'px';
+                } else { topScroll.style.display = 'none'; }
+            };
+            updateWidth();
+            if (window.ResizeObserver) {
+                if (wrapper._scrollObs) wrapper._scrollObs.disconnect();
+                const obs = new ResizeObserver(updateWidth);
+                obs.observe(table); obs.observe(tableContainer);
+                wrapper._scrollObs = obs;
+            }
+            let active = null;
+            topScroll.onscroll = () => { if (active !== tableContainer) { active = topScroll; tableContainer.scrollLeft = topScroll.scrollLeft; } active = null; };
+            tableContainer.onscroll = () => { if (active !== topScroll) { active = tableContainer; topScroll.scrollLeft = tableContainer.scrollLeft; } active = null; };
+        }, 150);
+    },
+
     // ===== BÁO CÁO THÁNG THEO TÀU (port từ V5) =====
     getMonthlyVesselReportInputs(vesselId, monthStr) {
         const key = `monthly_vessel_report_inputs_${vesselId}_${monthStr}`;
@@ -1806,6 +1836,9 @@ const app = {
         if (viewName === 'financials') {
             this.renderFinancialChart();
         }
+        if (viewName === 'shipments') {
+            this.initDoubleScroll('shipments-scroll-wrapper');
+        }
         if (viewName === 'vessel-expenses') {
             this.loadVesselExpenses();
         }
@@ -3445,6 +3478,7 @@ const app = {
         document.getElementById('m-material-company').value = this.fmtMoney(costs.materialCompany || 0);
         document.getElementById('m-material-vessel').value = costs.materialVessel || 0;
         document.getElementById('m-loan-interest').value = costs.loanInterest || 0;
+        document.getElementById('m-loan-interest-external').value = this.fmtMoney(costs.loanInterestExternal || 0);
         document.getElementById('m-other').value = this.fmtMoney(costs.other || 0);
     },
     saveMonthlyCosts() {
@@ -3459,6 +3493,7 @@ const app = {
             materialCompany: this.parseNum(document.getElementById('m-material-company').value),
             materialVessel: Number(document.getElementById('m-material-vessel').value) || 0,
             loanInterest: Number(document.getElementById('m-loan-interest').value) || 0,
+            loanInterestExternal: this.parseNum(document.getElementById('m-loan-interest-external').value),
             other: this.parseNum(document.getElementById('m-other').value)
         };
         AppData.saveMonthlyCosts(data);

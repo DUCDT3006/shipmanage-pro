@@ -991,3 +991,14 @@ input.field-error, select.field-error, textarea.field-error {
     .report-print-table th, .report-print-table td { border:1px solid #999 !important; }
     .btn-delete-row, .pac { display:none !important; }
 }
+
+/* ===== Thanh cuộn kép cho bảng rộng (port từ V5) ===== */
+.double-scroll-wrapper .top-scrollbar {
+    overflow-x: auto; overflow-y: hidden; display: none;
+}
+.double-scroll-wrapper .top-scrollbar-dummy { height: 1px; }
+.double-scroll-wrapper .top-scrollbar::-webkit-scrollbar { height: 10px; }
+.double-scroll-wrapper .top-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--primary-light); border-radius: 6px;
+}
+.double-scroll-wrapper .top-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
