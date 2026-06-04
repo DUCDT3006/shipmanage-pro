@@ -109,9 +109,10 @@
                 <div style="display:flex; align-items:center; gap:1rem;">
                     <button class="mobile-menu-btn" onclick="app.toggleSidebar()" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
                     <div class="header-company-info" id="header-company-info"></div>
-                    <div class="header-search">
+                    <div class="header-search" style="position:relative;">
                         <i class="fa-solid fa-search"></i>
-                        <input type="text" placeholder="Tìm kiếm dữ liệu...">
+                        <input type="text" id="global-search-input" placeholder="Tìm kiếm tàu, chuyến, khách hàng, giao dịch..." autocomplete="off" oninput="app.globalSearch(this.value)" onkeydown="if(event.key==='Escape')app.closeSearch()">
+                        <div id="global-search-results" class="search-results" style="display:none;"></div>
                     </div>
                 </div>
                 <div class="header-actions">

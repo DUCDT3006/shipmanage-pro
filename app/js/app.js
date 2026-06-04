@@ -1796,6 +1796,11 @@ const app = {
         this.runAutoBackup();
         // Khôi phục trạng thái thu gọn sidebar (desktop)
         try { if (JSON.parse(localStorage.getItem('sm3_sidebarCollapsed') || 'false')) document.body.classList.add('sidebar-collapsed'); } catch (e) {}
+        // Đóng panel tìm kiếm khi bấm ra ngoài
+        document.addEventListener('click', (e) => {
+            const wrap = e.target.closest && e.target.closest('.header-search');
+            if (!wrap) { const box = document.getElementById('global-search-results'); if (box) box.style.display = 'none'; }
+        });
         // Tự thêm dấu chấm phân cách nghìn cho mọi input có class "money" khi gõ
         document.addEventListener('input', (e) => {
             const el = e.target;
@@ -1849,6 +1854,62 @@ const app = {
     showMoreTrans() {
         this.transLimit = (this.transLimit || 100) + 200;
         this.navigate('financials');
+    },
+
+    // ===== Tìm kiếm toàn cục =====
+    globalSearch(q) {
+        const box = document.getElementById('global-search-results');
+        if (!box) return;
+        q = (q || '').trim().toLowerCase();
+        if (q.length < 2) { box.style.display = 'none'; box.innerHTML = ''; return; }
+        const norm = s => (s == null ? '' : String(s)).toLowerCase();
+        const hit = (...fs) => fs.some(f => norm(f).includes(q));
+        const out = [];
+        const push = (type, icon, label, sub, action) => out.push({ type, icon, label, sub, action });
+
+        (AppData.getVessels() || []).forEach(v => {
+            if (hit(v.id, v.name, v.captain)) push('Tàu', 'fa-ship', `${v.name} (${v.id})`, v.captain ? 'Thuyền trưởng: ' + v.captain : '', `app.navigate('fuel','${v.id}')`);
+        });
+        (AppData.getShipments() || []).forEach(s => {
+            if (hit(s.contractNo, s.voyageNo, s.customer, s.cargo, s.portLoad, s.portDischarge, s.vesselId))
+                push('Chuyến', 'fa-route', `${s.contractNo || ''} · ${s.voyageNo || ''} · ${s.vesselId || ''}`, `${s.customer || ''} ${s.cargo ? '· ' + s.cargo : ''} ${s.portLoad || ''}→${s.portDischarge || ''}`, `app.navigate('shipments')`);
+        });
+        (AppData.getCustomers() || []).forEach(c => {
+            if (hit(c.name, c.contact, c.address)) push('Khách hàng', 'fa-user', c.name, c.contact || c.address || '', `app.navigate('debts','customer')`);
+        });
+        (AppData.getVendors() || []).forEach(v => {
+            if (hit(v.name, v.type, v.contact)) push('NCC', 'fa-truck', v.name, v.type || '', `app.navigate('partners')`);
+        });
+        (AppData.getTransactions() || []).forEach(t => {
+            if (hit(t.content, t.partner, t.category, t.voyageNo))
+                push('Giao dịch', 'fa-receipt', t.content || t.category || '(không nội dung)', `${t.partner || ''} ${t.date || ''} ${t.chi ? '· chi ' + AppData.formatCurrency(t.chi) : (t.thu ? '· thu ' + AppData.formatCurrency(t.thu) : '')}`, `app.navigate('financials')`);
+        });
+        (AppData.state.employees || []).forEach(e => {
+            if (hit(e.name, e.role, e.department)) push('Nhân sự', 'fa-id-badge', e.name, `${e.role || ''} ${e.department ? '· ' + e.department : ''}`, `app.navigate('hr')`);
+        });
+
+        const top = out.slice(0, 30);
+        if (!top.length) {
+            box.innerHTML = `<div class="search-empty">Không tìm thấy kết quả cho "${esc(q)}".</div>`;
+            box.style.display = 'block';
+            return;
+        }
+        box.innerHTML = top.map(r => `
+            <div class="search-item" onclick="app.closeSearch(); ${r.action}">
+                <i class="fa-solid ${r.icon}"></i>
+                <div class="search-item-main">
+                    <div class="search-item-label">${esc(r.label)}</div>
+                    ${r.sub ? `<div class="search-item-sub">${esc(r.sub)}</div>` : ''}
+                </div>
+                <span class="search-item-type">${esc(r.type)}</span>
+            </div>`).join('') + (out.length > 30 ? `<div class="search-empty">… và ${out.length - 30} kết quả khác — gõ cụ thể hơn.</div>` : '');
+        box.style.display = 'block';
+    },
+    closeSearch() {
+        const box = document.getElementById('global-search-results');
+        if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+        const inp = document.getElementById('global-search-input');
+        if (inp) inp.value = '';
     },
     // Đổ thông tin công ty vào header (giống V5) — gọi mỗi lần điều hướng để luôn cập nhật.
     renderHeaderCompanyInfo() {
