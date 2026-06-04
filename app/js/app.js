@@ -66,9 +66,18 @@ const app = {
         this.navigate('dashboard', this.currentDashboardMonth || '');
     },
 
-    // ===== Tồn kho dầu LO =====
-    loInventoryVesselId: '',
-    changeLOVessel(vId) { this.loInventoryVesselId = vId; this.navigate('lo-inventory'); },
+    // ===== Tồn kho dầu LO (tab trong Quản lý Nhiên liệu) =====
+    saveLOConfig(vesselId) {
+        const v = AppData.getVessel(vesselId);
+        if (!v) return;
+        const cfg = { ...(v.loConfig || {}) };
+        cfg.cycleHours   = Number(document.getElementById('lo-cfg-cycle').value) || 0;
+        cfg.drumsPerCycle = Number(document.getElementById('lo-cfg-drums').value) || 0;
+        cfg.supplement    = Number(document.getElementById('lo-cfg-supp').value) || 0;
+        AppData.updateVessel(vesselId, { loConfig: cfg });
+        AppData.recalcVesselFixedCosts(vesselId);   // cập nhật lại chi phí LO/chuyến
+        this.navigate('fuel', vesselId, 'LO');
+    },
     saveLOSupply(vesselId) {
         const qty = Number(document.getElementById('lo-supply-qty').value) || 0;
         const price = this.parseNum(document.getElementById('lo-supply-price').value);
@@ -77,13 +86,13 @@ const app = {
         if (qty <= 0 || price <= 0 || !date || !vendor) return alert('Nhập đủ ngày, NCC, số lượng và đơn giá (> 0).');
         AppData.addLOSupply({ vesselId, date, vendor, qty, price });
         if (window.smLogAudit) window.smLogAudit('Thêm phiếu cấp Dầu LO', `Tàu ${vesselId} · ${qty} phi × ${price} · ${vendor}`);
-        this.loInventoryVesselId = vesselId;
-        this.navigate('lo-inventory');
+        this.navigate('fuel', vesselId, 'LO');
     },
     deleteLOSupply(id) {
         if (!confirm('Xóa phiếu cấp Dầu LO này?')) return;
+        const s = (AppData.state.loSupplies || []).find(x => x.id === id);
         AppData.deleteLOSupply(id);
-        this.navigate('lo-inventory');
+        this.navigate('fuel', s ? s.vesselId : (AppData.getVessels()[0] || {}).id, 'LO');
     },
 
     // Thanh cuộn ngang phụ ở TRÊN bảng rộng, đồng bộ với thanh cuộn chính bên dưới.

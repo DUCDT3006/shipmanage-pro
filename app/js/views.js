@@ -1194,7 +1194,7 @@ const Views = {
         `;
     },
 
-    fuel: (vesselId) => {
+    fuel: (vesselId, tab = 'DO') => {
         const vessels = AppData.getVessels();
         if (!vessels || vessels.length === 0) {
             return `<div class="view-section"><div class="page-header"><div><h1 class="page-title">Quản lý Nhiên liệu</h1></div></div>
@@ -1202,7 +1202,14 @@ const Views = {
         }
         const selectedVesselId = vesselId || vessels[0].id;
         const selectedVessel = AppData.getVessel(selectedVesselId);
+        if (tab === 'LO') return Views.fuelLOTab(selectedVesselId, vessels);
         const voyages = AppData.getFuelVoyages(selectedVesselId);
+
+        const fuelTabs = `
+            <div style="display:flex; gap:10px; margin:0 0 1.5rem; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
+                <button class="btn btn-primary" onclick="app.navigate('fuel', '${selectedVesselId}', 'DO')"><i class="fa-solid fa-gas-pump"></i> Dầu DO</button>
+                <button class="btn btn-outline" onclick="app.navigate('fuel', '${selectedVesselId}', 'LO')"><i class="fa-solid fa-oil-can"></i> Dầu LO (Lube Oil)</button>
+            </div>`;
 
         return `
             <div class="view-section">
@@ -1211,7 +1218,7 @@ const Views = {
                         <h1 class="page-title">Quản lý Nhiên liệu</h1>
                         <p class="page-subtitle">Theo dõi theo từng Chuyến hàng (C1, C2...) cho tàu ${esc(selectedVessel.name)}</p>
                     </div>
-                    
+
                     ${(() => {
                         const sortedVoyages = AppData.sortVoyages(voyages, 'asc');
                         const firstVoy = sortedVoyages[0];
@@ -1235,7 +1242,7 @@ const Views = {
                     })()}
 
                     <div style="display:flex; gap:1rem;">
-                        <select class="form-control" onchange="app.navigate('fuel', this.value)" style="width:auto;">
+                        <select class="form-control" onchange="app.navigate('fuel', this.value, 'DO')" style="width:auto;">
                             ${vessels.map(v => `<option value="${v.id}" ${v.id === selectedVesselId ? 'selected' : ''}>${v.id}</option>`).join('')}
                         </select>
                         <button class="btn btn-primary" onclick="app.openFuelVoyageModal('${selectedVesselId}')">
@@ -1246,6 +1253,8 @@ const Views = {
                         </button>
                     </div>
                 </div>
+
+                ${fuelTabs}
 
                 <div class="grid-1">
                     ${voyages.length === 0 ? '<div class="glass-card" style="text-align:center; padding:3rem;"><p>Chưa có chuyến hàng nào được ghi nhận cho tàu này.</p></div>' : ''}
@@ -3725,36 +3734,57 @@ const Views = {
         `;
     },
 
-    'lo-inventory': () => {
-        const vessels = AppData.getVessels();
-        if (!vessels.length) return `<div class="view-section"><div class="page-header"><div><h1 class="page-title">Tồn kho Dầu LO</h1></div></div><div class="glass-card" style="text-align:center;padding:3rem;">Chưa có tàu nào. Thêm tàu ở Master Data trước.</div></div>`;
-        const vId = app.loInventoryVesselId || vessels[0].id;
-        app.loInventoryVesselId = vId;
+    // Tab Dầu LO bên trong "Quản lý Nhiên liệu" (DO/LO).
+    fuelLOTab: (vId, vessels) => {
+        vessels = vessels || AppData.getVessels();
         const vessel = AppData.getVessel(vId) || vessels[0];
+        const cfg = vessel.loConfig || {};
         const inv = AppData.getVesselLOInventory(vId);
         const supplies = AppData.getLOSupplies(vId);
-        const num = (n, d = 1) => Number(n).toLocaleString('vi-VN', { maximumFractionDigits: d });
+        const num = (n, d = 1) => Number(n || 0).toLocaleString('vi-VN', { maximumFractionDigits: d });
 
         return `
         <div class="view-section">
-            <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+            <div class="page-header">
                 <div>
-                    <h1 class="page-title">Tồn kho Dầu LO (Lube Oil)</h1>
-                    <p class="page-subtitle">Phiếu cấp &amp; tồn kho lũy kế dầu nhờn — tàu ${esc(vessel.name)}</p>
+                    <h1 class="page-title">Quản lý Nhiên liệu</h1>
+                    <p class="page-subtitle">Cấu hình định mức &amp; tồn kho Dầu LO — tàu ${esc(vessel.name)}</p>
                 </div>
-                <select class="form-control" style="width:auto;" onchange="app.changeLOVessel(this.value)">
-                    ${vessels.map(v => `<option value="${esc(v.id)}" ${v.id === vId ? 'selected' : ''}>${esc(v.id)} - ${esc(v.name)}</option>`).join('')}
+                <select class="form-control" style="width:auto;" onchange="app.navigate('fuel', this.value, 'LO')">
+                    ${vessels.map(v => `<option value="${esc(v.id)}" ${v.id === vId ? 'selected' : ''}>${esc(v.id)}</option>`).join('')}
                 </select>
             </div>
 
+            <div style="display:flex; gap:10px; margin:0 0 1.5rem; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
+                <button class="btn btn-outline" onclick="app.navigate('fuel', '${esc(vId)}', 'DO')"><i class="fa-solid fa-gas-pump"></i> Dầu DO</button>
+                <button class="btn btn-primary" onclick="app.navigate('fuel', '${esc(vId)}', 'LO')"><i class="fa-solid fa-oil-can"></i> Dầu LO (Lube Oil)</button>
+            </div>
+
             <div class="kpi-grid" style="margin-bottom:2rem;">
-                <div class="kpi-card kpi-info"><div class="kpi-details"><span class="kpi-title">Tổng giờ chạy</span><span class="kpi-value">${num(inv.totalHours)} h</span></div><div class="kpi-icon-wrapper"><i class="fa-solid fa-clock"></i></div></div>
+                <div class="kpi-card kpi-info"><div class="kpi-details"><span class="kpi-title">Tổng giờ chạy (từ C1)</span><span class="kpi-value">${num(inv.totalHours)} h</span></div><div class="kpi-icon-wrapper"><i class="fa-solid fa-clock"></i></div></div>
                 <div class="kpi-card kpi-primary"><div class="kpi-details"><span class="kpi-title">Tổng LO đã cấp</span><span class="kpi-value">${num(inv.totalSupplied)} phi</span></div><div class="kpi-icon-wrapper"><i class="fa-solid fa-truck-field"></i></div></div>
                 <div class="kpi-card kpi-danger"><div class="kpi-details"><span class="kpi-title">Tổng LO đã dùng</span><span class="kpi-value">${num(inv.totalConsumed)} phi</span></div><div class="kpi-icon-wrapper"><i class="fa-solid fa-oil-can"></i></div></div>
-                <div class="kpi-card kpi-success"><div class="kpi-details"><span class="kpi-title">Tồn LO còn lại</span><span class="kpi-value" style="color:${inv.remaining >= 0 ? 'var(--secondary)' : 'var(--accent)'};">${num(inv.remaining)} phi</span></div><div class="kpi-icon-wrapper"><i class="fa-solid fa-boxes-stacked"></i></div></div>
+                <div class="kpi-card kpi-success"><div class="kpi-details"><span class="kpi-title">Lượng LO còn lại</span><span class="kpi-value" style="color:${inv.remaining >= 0 ? 'var(--secondary)' : 'var(--accent)'};">${num(inv.remaining)} phi</span></div><div class="kpi-icon-wrapper"><i class="fa-solid fa-boxes-stacked"></i></div></div>
             </div>
 
             <div class="grid-2">
+                <!-- Định mức LO -->
+                <div class="glass-card">
+                    <h3 style="color:var(--primary-light);margin-bottom:1.25rem;border-bottom:1px solid var(--border-color);padding-bottom:0.5rem;"><i class="fa-solid fa-sliders"></i> Định mức Dầu LO</h3>
+                    <form onsubmit="event.preventDefault(); app.saveLOConfig('${esc(vId)}');">
+                        <div class="form-group"><label class="form-label">Chu kỳ thay dầu hoàn toàn (số giờ chạy)</label><input type="number" step="any" class="form-control" id="lo-cfg-cycle" value="${Number(cfg.cycleHours) || 800}" required></div>
+                        <div class="form-group"><label class="form-label">Số phi thay thế hoàn toàn (drum)</label><input type="number" step="any" class="form-control" id="lo-cfg-drums" value="${Number(cfg.drumsPerCycle) || 8}" required></div>
+                        <div class="form-group"><label class="form-label">Số phi bù trong quá trình (drum)</label><input type="number" step="any" class="form-control" id="lo-cfg-supp" value="${Number(cfg.supplement) || 3}" required></div>
+                        <div style="background:rgba(255,255,255,0.03);padding:0.9rem 1rem;border-radius:8px;font-size:0.85rem;line-height:1.6;margin-bottom:1.25rem;">
+                            <div>• Tổng tiêu hao mỗi chu kỳ: <strong>${num(inv.perCycle)} phi</strong></div>
+                            <div>• Định mức/giờ chạy: <strong>${inv.cycle > 0 ? num(inv.hourlyRate, 5) : 0} phi/giờ</strong></div>
+                            <div style="color:var(--info);">• Tồn = Tổng cấp − (Tổng giờ chạy × định mức/giờ).</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-floppy-disk"></i> Lưu định mức Dầu LO</button>
+                    </form>
+                </div>
+
+                <!-- Cấp LO + lịch sử -->
                 <div class="glass-card">
                     <h3 style="color:var(--secondary);margin-bottom:1.25rem;border-bottom:1px solid var(--border-color);padding-bottom:0.5rem;"><i class="fa-solid fa-cart-plus"></i> Nhập/Cấp Dầu LO mới</h3>
                     <form onsubmit="event.preventDefault(); app.saveLOSupply('${esc(vId)}');" style="margin-bottom:1.5rem;">
@@ -3766,18 +3796,10 @@ const Views = {
                             <div class="form-group"><label class="form-label">Số lượng (phi)</label><input type="number" step="any" class="form-control" id="lo-supply-qty" placeholder="VD: 8" required></div>
                             <div class="form-group"><label class="form-label">Đơn giá (VNĐ/phi)</label><input type="text" inputmode="numeric" class="form-control money" id="lo-supply-price" placeholder="VD: 15.000.000" required></div>
                         </div>
-                        <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-plus"></i> Thêm phiếu cấp Dầu LO</button>
+                        <button type="submit" class="btn btn-success" style="width:100%;"><i class="fa-solid fa-plus"></i> Thêm phiếu cấp Dầu LO</button>
                     </form>
-                    <div style="background:rgba(255,255,255,0.03);padding:0.8rem 1rem;border-radius:8px;font-size:0.85rem;line-height:1.6;color:var(--text-muted);">
-                        Định mức tiêu hao: <strong style="color:var(--text-main);">${inv.cycle > 0 ? num(inv.hourlyRate, 5) + ' phi/giờ' : 'chưa cấu hình'}</strong>
-                        ${inv.cycle > 0 ? `(${num(inv.perCycle)} phi / ${num(inv.cycle, 0)} giờ chu kỳ)` : ''}.
-                        <br>Cấu hình định mức LO trong <strong>Master Data → sửa tàu</strong>.
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <h3 style="color:var(--primary-light);margin-bottom:1rem;border-bottom:1px solid var(--border-color);padding-bottom:0.5rem;"><i class="fa-solid fa-clock-rotate-left"></i> Lịch sử cấp Dầu LO</h3>
-                    <div class="table-container" style="max-height:360px;">
+                    <h3 style="color:var(--text-main);font-size:0.95rem;margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:1px;opacity:0.8;">Lịch sử cấp Dầu LO</h3>
+                    <div class="table-container" style="max-height:260px;">
                         <table class="table" style="font-size:0.85rem;">
                             <thead><tr><th>Ngày</th><th>NCC</th><th style="text-align:right;">SL (phi)</th><th style="text-align:right;">Đơn giá</th><th style="text-align:center;">Xóa</th></tr></thead>
                             <tbody>
