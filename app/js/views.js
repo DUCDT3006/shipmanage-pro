@@ -411,11 +411,17 @@ const Views = {
         let totalRevenue = 0;
         let totalCost = 0;
 
+        const excludeDepr = app.excludeDockingDepreciation;
         filteredShips.forEach(s => {
             totalRevenue += Number(s.revenueReal || 0);
             const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
             const baseCosts = { ...s.costs };
             delete baseCosts.vat; // Tránh cộng dồn
+            if (excludeDepr) {
+                delete baseCosts.dockingIntermediate;
+                delete baseCosts.dockingPeriodic;
+                delete baseCosts.depreciation;
+            }
             const costSum = Object.values(baseCosts).reduce((sum, v) => sum + (Number(v) || 0), 0) + (vat > 0 ? vat : 0);
             totalCost += costSum;
         });
@@ -440,6 +446,10 @@ const Views = {
                             ${availableMonths.map(m => `<option value="${m}" ${m === filterMonth ? 'selected' : ''}>Tháng ${m.split('-')[1]}/${m.split('-')[0]}</option>`).join('')}
                         </select>
                     </div>
+                    <label title="Loại bỏ chi phí lên đà trung gian, định kỳ và khấu hao khỏi tổng chi phí & lợi nhuận (giữ lại đăng kiểm và bảo hiểm thân vỏ)" style="display: flex; align-items: center; gap: 6px; cursor: pointer; background: rgba(255,255,255,0.03); padding: 8px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted); user-select: none;">
+                        <input type="checkbox" onchange="app.toggleExcludeDockingDepreciation(this.checked)" ${excludeDepr ? 'checked' : ''} style="width:14px; height:14px; cursor:pointer; accent-color:var(--accent);">
+                        <i class="fa-solid fa-ship" style="color:var(--accent);"></i> Bỏ đà & khấu hao
+                    </label>
                 </div>
 
                 ${Views.onboardingChecklist()}

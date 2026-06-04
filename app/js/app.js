@@ -5,6 +5,13 @@
 const app = {
     currentView: 'dashboard',
     selectedDebtCustomer: '',
+    excludeDockingDepreciation: JSON.parse(localStorage.getItem('sm3_excludeDockDepr') || 'false'),
+
+    toggleExcludeDockingDepreciation(val) {
+        this.excludeDockingDepreciation = !!val;
+        localStorage.setItem('sm3_excludeDockDepr', JSON.stringify(this.excludeDockingDepreciation));
+        this.navigate('dashboard', this.currentDashboardMonth || '');
+    },
     
     exportFuelReport() {
         if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện xuất Excel!');
@@ -1469,6 +1476,9 @@ const app = {
         // X3: vào lại Theo dõi Tài chính từ view khác -> reset giới hạn phân trang
         if (viewName === 'financials' && this.currentView !== 'financials') this.transLimit = 100;
         this.currentView = viewName;
+        if (viewName === 'dashboard' && args.length > 0) {
+            this.currentDashboardMonth = args[0];
+        }
         if (viewName === 'debts' && args.length > 0) {
             this.currentDebtTab = args[0];
         }
