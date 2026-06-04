@@ -156,5 +156,16 @@ const get = (expr) => { vm.runInContext('globalThis.__r = (' + expr + ');', ctx)
   check('Tồn DO: đã cấp = 200+300 = 500', inv.added === 500);
   check('Tồn DO: tồn hiện tại = 1000 + 500 - tiêu thụ', inv.current === (1000 + 500 - inv.consumed));
 
+  // 8) Tồn kho LO: cấp 20 phi, định mức (8+3)/800 phi/giờ, 400 giờ -> dùng 5.5, tồn 14.5
+  vm.runInContext(`
+    AppData.state.vessels = [{ id: 'VG01', name: 'Tàu 01', loConfig: { cycleHours: 800, drumsPerCycle: 8, supplement: 3 } }];
+    AppData.state.shipments = [{ id: 'S1', vesselId: 'VG01', voyageNo: 'C1', fuelHours: 400, costs: {} }];
+    AppData.state.loSupplies = [{ id: 'L1', vesselId: 'VG01', date: '2026-05-01', vendor: 'X', qty: 20, price: 15000000 }];
+  `, ctx);
+  const loInv = JSON.parse(get("JSON.stringify(AppData.getVesselLOInventory('VG01'))"));
+  check('LO: đã cấp = 20 phi', loInv.totalSupplied === 20);
+  check('LO: đã dùng = 400 × 11/800 = 5.5 phi', Math.abs(loInv.totalConsumed - 5.5) < 1e-9);
+  check('LO: tồn = 20 − 5.5 = 14.5 phi', Math.abs(loInv.remaining - 14.5) < 1e-9);
+
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();

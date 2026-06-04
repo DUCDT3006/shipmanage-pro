@@ -3723,5 +3723,77 @@ const Views = {
                 </div>
             </div>
         `;
+    },
+
+    'lo-inventory': () => {
+        const vessels = AppData.getVessels();
+        if (!vessels.length) return `<div class="view-section"><div class="page-header"><div><h1 class="page-title">Tồn kho Dầu LO</h1></div></div><div class="glass-card" style="text-align:center;padding:3rem;">Chưa có tàu nào. Thêm tàu ở Master Data trước.</div></div>`;
+        const vId = app.loInventoryVesselId || vessels[0].id;
+        app.loInventoryVesselId = vId;
+        const vessel = AppData.getVessel(vId) || vessels[0];
+        const inv = AppData.getVesselLOInventory(vId);
+        const supplies = AppData.getLOSupplies(vId);
+        const num = (n, d = 1) => Number(n).toLocaleString('vi-VN', { maximumFractionDigits: d });
+
+        return `
+        <div class="view-section">
+            <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+                <div>
+                    <h1 class="page-title">Tồn kho Dầu LO (Lube Oil)</h1>
+                    <p class="page-subtitle">Phiếu cấp &amp; tồn kho lũy kế dầu nhờn — tàu ${esc(vessel.name)}</p>
+                </div>
+                <select class="form-control" style="width:auto;" onchange="app.changeLOVessel(this.value)">
+                    ${vessels.map(v => `<option value="${esc(v.id)}" ${v.id === vId ? 'selected' : ''}>${esc(v.id)} - ${esc(v.name)}</option>`).join('')}
+                </select>
+            </div>
+
+            <div class="kpi-grid" style="margin-bottom:2rem;">
+                <div class="kpi-card kpi-info"><div class="kpi-details"><span class="kpi-title">Tổng giờ chạy</span><span class="kpi-value">${num(inv.totalHours)} h</span></div><div class="kpi-icon-wrapper"><i class="fa-solid fa-clock"></i></div></div>
+                <div class="kpi-card kpi-primary"><div class="kpi-details"><span class="kpi-title">Tổng LO đã cấp</span><span class="kpi-value">${num(inv.totalSupplied)} phi</span></div><div class="kpi-icon-wrapper"><i class="fa-solid fa-truck-field"></i></div></div>
+                <div class="kpi-card kpi-danger"><div class="kpi-details"><span class="kpi-title">Tổng LO đã dùng</span><span class="kpi-value">${num(inv.totalConsumed)} phi</span></div><div class="kpi-icon-wrapper"><i class="fa-solid fa-oil-can"></i></div></div>
+                <div class="kpi-card kpi-success"><div class="kpi-details"><span class="kpi-title">Tồn LO còn lại</span><span class="kpi-value" style="color:${inv.remaining >= 0 ? 'var(--secondary)' : 'var(--accent)'};">${num(inv.remaining)} phi</span></div><div class="kpi-icon-wrapper"><i class="fa-solid fa-boxes-stacked"></i></div></div>
+            </div>
+
+            <div class="grid-2">
+                <div class="glass-card">
+                    <h3 style="color:var(--secondary);margin-bottom:1.25rem;border-bottom:1px solid var(--border-color);padding-bottom:0.5rem;"><i class="fa-solid fa-cart-plus"></i> Nhập/Cấp Dầu LO mới</h3>
+                    <form onsubmit="event.preventDefault(); app.saveLOSupply('${esc(vId)}');" style="margin-bottom:1.5rem;">
+                        <div class="grid-2">
+                            <div class="form-group"><label class="form-label">Ngày cấp</label><input type="date" class="form-control" id="lo-supply-date" value="${new Date().toISOString().substring(0,10)}" required></div>
+                            <div class="form-group"><label class="form-label">Nhà cung cấp</label><input type="text" class="form-control" id="lo-supply-vendor" placeholder="Tên NCC..." required></div>
+                        </div>
+                        <div class="grid-2">
+                            <div class="form-group"><label class="form-label">Số lượng (phi)</label><input type="number" step="any" class="form-control" id="lo-supply-qty" placeholder="VD: 8" required></div>
+                            <div class="form-group"><label class="form-label">Đơn giá (VNĐ/phi)</label><input type="text" inputmode="numeric" class="form-control money" id="lo-supply-price" placeholder="VD: 15.000.000" required></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-plus"></i> Thêm phiếu cấp Dầu LO</button>
+                    </form>
+                    <div style="background:rgba(255,255,255,0.03);padding:0.8rem 1rem;border-radius:8px;font-size:0.85rem;line-height:1.6;color:var(--text-muted);">
+                        Định mức tiêu hao: <strong style="color:var(--text-main);">${inv.cycle > 0 ? num(inv.hourlyRate, 5) + ' phi/giờ' : 'chưa cấu hình'}</strong>
+                        ${inv.cycle > 0 ? `(${num(inv.perCycle)} phi / ${num(inv.cycle, 0)} giờ chu kỳ)` : ''}.
+                        <br>Cấu hình định mức LO trong <strong>Master Data → sửa tàu</strong>.
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <h3 style="color:var(--primary-light);margin-bottom:1rem;border-bottom:1px solid var(--border-color);padding-bottom:0.5rem;"><i class="fa-solid fa-clock-rotate-left"></i> Lịch sử cấp Dầu LO</h3>
+                    <div class="table-container" style="max-height:360px;">
+                        <table class="table" style="font-size:0.85rem;">
+                            <thead><tr><th>Ngày</th><th>NCC</th><th style="text-align:right;">SL (phi)</th><th style="text-align:right;">Đơn giá</th><th style="text-align:center;">Xóa</th></tr></thead>
+                            <tbody>
+                                ${supplies.length === 0 ? `<tr><td colspan="5" style="text-align:center;font-style:italic;padding:2rem;color:var(--text-muted);">Chưa có phiếu cấp LO nào.</td></tr>`
+                                : supplies.map(s => `<tr>
+                                    <td>${esc((s.date || '').split('-').reverse().join('/'))}</td>
+                                    <td><strong>${esc(s.vendor || '')}</strong></td>
+                                    <td style="text-align:right;">${num(s.qty)}</td>
+                                    <td style="text-align:right;font-weight:600;color:var(--secondary);">${AppData.formatCurrency(s.price)}</td>
+                                    <td style="text-align:center;"><button class="btn btn-outline" style="padding:0.1rem 0.4rem;border-color:var(--accent);" onclick="app.deleteLOSupply('${esc(s.id)}')"><i class="fa-solid fa-trash" style="color:var(--accent);"></i></button></td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>`;
     }
 };

@@ -831,7 +831,7 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
                 openingBalances: { 'ABbank': 0, 'Viettinbank': 0, 'Tài khoản cá nhân': 0, 'Tiền mặt': 0 } },
             vessels: [], vendors: [], customers: [], employees: [], monthlyCosts: [],
             transactions: [], fuelLogs: [], fuelVoyages: [], shipments: [],
-            captainReports: [], vesselExpenses: [], timesheets: [], annualCosts: []
+            captainReports: [], vesselExpenses: [], timesheets: [], annualCosts: [], loSupplies: []
         };
     },
 
@@ -1590,6 +1590,42 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         s.costs.fixedCost = annualAlloc.dockingIntermediate + annualAlloc.dockingPeriodic
             + annualAlloc.registryAnnual + annualAlloc.depreciation + annualAlloc.hullInsurance;
     },
+    // ===== Tồn kho dầu LO (phiếu cấp + tồn lũy kế) =====
+    getLOSupplies(vesselId) {
+        if (!this.state.loSupplies) this.state.loSupplies = [];
+        const list = vesselId ? this.state.loSupplies.filter(s => s.vesselId === vesselId) : [...this.state.loSupplies];
+        return list.sort((a, b) => new Date(b.date) - new Date(a.date));
+    },
+    addLOSupply(supply) {
+        if (!this.state.loSupplies) this.state.loSupplies = [];
+        supply.id = supply.id || ('LOS-' + Date.now());
+        const idx = this.state.loSupplies.findIndex(x => x.id === supply.id);
+        if (idx >= 0) this.state.loSupplies[idx] = supply;
+        else this.state.loSupplies.push(supply);
+        this.save();
+        return supply.id;
+    },
+    deleteLOSupply(id) {
+        if (!this.state.loSupplies) return;
+        this.state.loSupplies = this.state.loSupplies.filter(s => s.id !== id);
+        this.save();
+    },
+    // Tồn kho LO của 1 tàu (đơn vị phi): đã cấp − đã dùng.
+    //   đã dùng = tổng giờ chạy × định mức/giờ; định mức/giờ = (phi thay + phi bổ sung) / giờ chu kỳ.
+    getVesselLOInventory(vesselId) {
+        const cfg = (this.getVessel(vesselId) || {}).loConfig || {};
+        const cycle = Number(cfg.cycleHours) || 0;
+        const perCycle = (Number(cfg.drumsPerCycle) || 0) + (Number(cfg.supplement) || 0);
+        const hourlyRate = cycle > 0 ? (perCycle / cycle) : 0;
+        const totalHours = (this.state.shipments || [])
+            .filter(s => s.vesselId === vesselId)
+            .reduce((sum, s) => sum + (Number(s.fuelHours) || 0), 0);
+        const supplies = this.getLOSupplies(vesselId);
+        const totalSupplied = supplies.reduce((sum, s) => sum + (Number(s.qty) || 0), 0);
+        const totalConsumed = totalHours * hourlyRate;
+        return { hourlyRate, totalHours, totalSupplied, totalConsumed, remaining: totalSupplied - totalConsumed, perCycle, cycle };
+    },
+
     // Tính lại chi phí cố định cho tất cả chuyến của 1 tàu (gọi khi đổi cấu hình chi phí cố định).
     recalcVesselFixedCosts(vesselId) {
         (this.state.shipments || []).forEach(s => {
@@ -1770,7 +1806,8 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
             fuelLogs: (s.fuelLogs || []).filter(l => voyIds.has(l.fuelVoyageId)).length,
             vesselExpenses: (s.vesselExpenses || []).filter(x => x.vesselId === id).length,
             captainReports: (s.captainReports || []).filter(x => x.vesselId === id).length,
-            monthlyCosts: (s.monthlyCosts || []).filter(x => x.vesselId === id).length
+            monthlyCosts: (s.monthlyCosts || []).filter(x => x.vesselId === id).length,
+            loSupplies: (s.loSupplies || []).filter(x => x.vesselId === id).length
         };
     },
     // X1: xóa tàu + DỌN mọi dữ liệu liên quan (tránh orphaned records).
@@ -1784,6 +1821,7 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         s.vesselExpenses = (s.vesselExpenses || []).filter(x => x.vesselId !== id);
         s.captainReports = (s.captainReports || []).filter(x => x.vesselId !== id);
         s.monthlyCosts = (s.monthlyCosts || []).filter(x => x.vesselId !== id);
+        s.loSupplies = (s.loSupplies || []).filter(x => x.vesselId !== id);
         s.vessels = (s.vessels || []).filter(v => v.id !== id);
         this.save();
     },

@@ -66,6 +66,26 @@ const app = {
         this.navigate('dashboard', this.currentDashboardMonth || '');
     },
 
+    // ===== Tồn kho dầu LO =====
+    loInventoryVesselId: '',
+    changeLOVessel(vId) { this.loInventoryVesselId = vId; this.navigate('lo-inventory'); },
+    saveLOSupply(vesselId) {
+        const qty = Number(document.getElementById('lo-supply-qty').value) || 0;
+        const price = this.parseNum(document.getElementById('lo-supply-price').value);
+        const date = document.getElementById('lo-supply-date').value;
+        const vendor = document.getElementById('lo-supply-vendor').value.trim();
+        if (qty <= 0 || price <= 0 || !date || !vendor) return alert('Nhập đủ ngày, NCC, số lượng và đơn giá (> 0).');
+        AppData.addLOSupply({ vesselId, date, vendor, qty, price });
+        if (window.smLogAudit) window.smLogAudit('Thêm phiếu cấp Dầu LO', `Tàu ${vesselId} · ${qty} phi × ${price} · ${vendor}`);
+        this.loInventoryVesselId = vesselId;
+        this.navigate('lo-inventory');
+    },
+    deleteLOSupply(id) {
+        if (!confirm('Xóa phiếu cấp Dầu LO này?')) return;
+        AppData.deleteLOSupply(id);
+        this.navigate('lo-inventory');
+    },
+
     // Thanh cuộn ngang phụ ở TRÊN bảng rộng, đồng bộ với thanh cuộn chính bên dưới.
     initDoubleScroll(wrapperId) {
         setTimeout(() => {
