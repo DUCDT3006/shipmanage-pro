@@ -6,6 +6,44 @@ const app = {
     currentView: 'dashboard',
     selectedDebtCustomer: '',
     excludeDockingDepreciation: JSON.parse(localStorage.getItem('sm3_excludeDockDepr') || 'false'),
+    annualCostsYear: new Date().getFullYear(),
+    annualCostsVesselId: '',
+
+    loadAnnualCosts() {
+        const year = document.getElementById('a-year')?.value;
+        const vesselId = document.getElementById('a-vessel')?.value;
+        if (year) this.annualCostsYear = Number(year);
+        if (vesselId) this.annualCostsVesselId = vesselId;
+        this.navigate('annual-costs');
+    },
+
+    saveAnnualCosts() {
+        const year     = Number(document.getElementById('a-year').value);
+        const vesselId = document.getElementById('a-vessel').value;
+        this.annualCostsYear = year;
+        this.annualCostsVesselId = vesselId;
+        const parseNum = id => {
+            const raw = document.getElementById(id)?.value || '0';
+            return Number(String(raw).replace(/\./g,'').replace(/,/g,'.')) || 0;
+        };
+        const data = {
+            year, vesselId,
+            dockingIntermediateCost:  parseNum('a-docking-int-cost'),
+            dockingIntermediateYears: Number(document.getElementById('a-docking-int-years').value) || 2.5,
+            dockingIntermediateDate:  document.getElementById('a-docking-int-date').value || '',
+            dockingPeriodicCost:      parseNum('a-docking-per-cost'),
+            dockingPeriodicYears:     Number(document.getElementById('a-docking-per-years').value) || 5,
+            dockingPeriodicDate:      document.getElementById('a-docking-per-date').value || '',
+            registryAnnualCost:       parseNum('a-registry-ann-cost'),
+            registryAnnualYears:      Number(document.getElementById('a-registry-ann-years').value) || 1,
+            registryAnnualDate:       document.getElementById('a-registry-ann-date').value || '',
+            depreciationCost:         parseNum('a-depreciation-cost'),
+            hullInsuranceCost:        parseNum('a-hull-ins-cost')
+        };
+        AppData.saveAnnualCosts(data);
+        alert(`✅ Đã lưu cấu hình năm ${year} cho tàu ${vesselId} và phân bổ lại toàn bộ chuyến!`);
+        this.navigate('annual-costs');
+    },
 
     toggleExcludeDockingDepreciation(val) {
         this.excludeDockingDepreciation = !!val;

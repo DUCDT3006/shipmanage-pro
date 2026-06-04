@@ -831,7 +831,7 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
                 openingBalances: { 'ABbank': 0, 'Viettinbank': 0, 'Tài khoản cá nhân': 0, 'Tiền mặt': 0 } },
             vessels: [], vendors: [], customers: [], employees: [], monthlyCosts: [],
             transactions: [], fuelLogs: [], fuelVoyages: [], shipments: [],
-            captainReports: [], vesselExpenses: [], timesheets: []
+            captainReports: [], vesselExpenses: [], timesheets: [], annualCosts: []
         };
     },
 
@@ -1438,17 +1438,104 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         if (isNaN(a) || isNaN(b)) return 0;
         return Math.max(0, Math.round((b - a) / 86400000) + 1);
     },
+    // ─── Annual costs (V5): cấu hình chi phí theo NĂM × TÀU ───────────────────
+    // Lấy cấu hình chi phí hàng năm cho 1 tàu + 1 năm.
+    // Nếu chưa có, tìm năm gần nhất → migration tự động từ fixedCosts cũ.
+    getAnnualCosts(year, vesselId) {
+        if (!this.state.annualCosts) this.state.annualCosts = [];
+        let config = this.state.annualCosts.find(c => c.year === Number(year) && c.vesselId === vesselId);
+        if (!config) {
+            const sameVessel = this.state.annualCosts.filter(c => c.vesselId === vesselId);
+            if (sameVessel.length > 0) {
+                sameVessel.sort((a, b) => Math.abs(a.year - year) - Math.abs(b.year - year));
+                config = sameVessel[0];
+            }
+        }
+        // Migration: nếu chưa có annualCosts nhưng có fixedCosts cũ → tạo tạm từ fixedCosts
+        if (!config) {
+            const v = this.getVessel(vesselId);
+            const fc = v && v.fixedCosts;
+            if (fc) {
+                config = {
+                    year: Number(year), vesselId,
+                    dockingIntermediateCost: Number(fc.drydockIntermediate) || 0,
+                    dockingIntermediateYears: 2.5, dockingIntermediateDate: '',
+                    dockingPeriodicCost: Number(fc.drydockPeriodic) || 0,
+                    dockingPeriodicYears: 5, dockingPeriodicDate: '',
+                    registryAnnualCost: Number(fc.annualSurvey) || 0,
+                    registryAnnualYears: 1, registryAnnualDate: '',
+                    depreciationCost: Number(fc.depreciation) || 0,
+                    hullInsuranceCost: Number(fc.hullInsurance) || 0
+                };
+            }
+        }
+        const res = config ? { ...config } : {
+            year: Number(year), vesselId,
+            dockingIntermediateCost: 0, dockingIntermediateYears: 2.5, dockingIntermediateDate: '',
+            dockingPeriodicCost: 0, dockingPeriodicYears: 5, dockingPeriodicDate: '',
+            registryAnnualCost: 0, registryAnnualYears: 1, registryAnnualDate: '',
+            depreciationCost: 0, hullInsuranceCost: 0
+        };
+        res.dockingIntermediateDaily = (Number(res.dockingIntermediateCost) || 0) / ((Number(res.dockingIntermediateYears) || 2.5) * 365);
+        res.dockingPeriodicDaily    = (Number(res.dockingPeriodicCost)    || 0) / ((Number(res.dockingPeriodicYears)    || 5  ) * 365);
+        res.registryAnnualDaily    = (Number(res.registryAnnualCost)     || 0) / ((Number(res.registryAnnualYears)     || 1  ) * 365);
+        res.depreciationDaily      = (Number(res.depreciationCost)       || 0) / 365;
+        res.hullInsuranceDaily     = (Number(res.hullInsuranceCost)      || 0) / 365;
+        return res;
+    },
+
+    saveAnnualCosts(data) {
+        if (!this.state.annualCosts) this.state.annualCosts = [];
+        data.year = Number(data.year);
+        const idx = this.state.annualCosts.findIndex(c => c.year === data.year && c.vesselId === data.vesselId);
+        if (idx >= 0) this.state.annualCosts[idx] = data;
+        else this.state.annualCosts.push(data);
+        this.save();
+        this.recalcAllAllocations();
+    },
+
+    // Phân bổ chi phí cố định hàng năm cho 1 chuyến (tích phân theo ngày, hỗ trợ chuyến vắt qua 2 năm).
+    calcAnnualAllocation(startStr, endStr, vesselId) {
+        const empty = { dockingIntermediate: 0, dockingPeriodic: 0, registryAnnual: 0, depreciation: 0, hullInsurance: 0 };
+        if (!startStr || !endStr) return empty;
+        const d1 = new Date(startStr), d2 = new Date(endStr);
+        if (isNaN(d1) || isNaN(d2)) return empty;
+        const totals = { ...empty };
+        if (d2 <= d1) {
+            const cfg = this.getAnnualCosts(d1.getFullYear(), vesselId);
+            totals.dockingIntermediate = Math.round(cfg.dockingIntermediateDaily);
+            totals.dockingPeriodic     = Math.round(cfg.dockingPeriodicDaily);
+            totals.registryAnnual      = Math.round(cfg.registryAnnualDaily);
+            totals.depreciation        = Math.round(cfg.depreciationDaily);
+            totals.hullInsurance       = Math.round(cfg.hullInsuranceDaily);
+            return totals;
+        }
+        let cur = new Date(d1);
+        while (cur < d2) {
+            const nxt = new Date(Math.min(new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1), d2));
+            const cfg = this.getAnnualCosts(cur.getFullYear(), vesselId);
+            const frac = (nxt - cur) / 86400000;
+            totals.dockingIntermediate += cfg.dockingIntermediateDaily * frac;
+            totals.dockingPeriodic     += cfg.dockingPeriodicDaily     * frac;
+            totals.registryAnnual      += cfg.registryAnnualDaily      * frac;
+            totals.depreciation        += cfg.depreciationDaily        * frac;
+            totals.hullInsurance       += cfg.hullInsuranceDaily       * frac;
+            cur = nxt;
+        }
+        totals.dockingIntermediate = Math.round(totals.dockingIntermediate);
+        totals.dockingPeriodic     = Math.round(totals.dockingPeriodic);
+        totals.registryAnnual      = Math.round(totals.registryAnnual);
+        totals.depreciation        = Math.round(totals.depreciation);
+        totals.hullInsurance       = Math.round(totals.hullInsurance);
+        return totals;
+    },
+    // ────────────────────────────────────────────────────────────────────────────
+
     // Lớn#A: chi phí cố định/năm của tàu -> phân bổ cho chuyến theo số ngày (annual/365 × ngày).
+    // Kept for backward-compat (tests). New logic uses calcAnnualAllocation above.
     calcFixedCostForShipment(s, vesselId) {
-        const v = this.getVessel(vesselId || (s && s.vesselId));
-        if (!v || !v.fixedCosts) return 0;
-        const fc = v.fixedCosts;
-        const annual = (Number(fc.drydockPeriodic) || 0) + (Number(fc.drydockIntermediate) || 0)
-            + (Number(fc.depreciation) || 0) + (Number(fc.annualSurvey) || 0) + (Number(fc.hullInsurance) || 0);
-        if (annual <= 0) return 0;
-        const days = this._voyageDays(s.dateStart, s.dateEnd);
-        if (days <= 0) return 0;
-        return Math.round(annual / 365 * days);
+        const alloc = this.calcAnnualAllocation(s && s.dateStart, s && s.dateEnd, vesselId || (s && s.vesselId));
+        return alloc.dockingIntermediate + alloc.dockingPeriodic + alloc.registryAnnual + alloc.depreciation + alloc.hullInsurance;
     },
     // Lớn#B: chi phí dầu LO theo công thức giờ chạy.
     //   tiêu thụ (phi) = giờ chạy × (phi thay + phi bổ sung) / giờ chu kỳ
@@ -1488,7 +1575,15 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
             if (lo.cost > 0) { s.costs.fuelLO = lo.cost; s.loLiters = lo.liters; s._loAuto = true; }
             else if (s._loAuto) { s.costs.fuelLO = 0; delete s.loLiters; delete s._loAuto; }
         }
-        s.costs.fixedCost = this.calcFixedCostForShipment(s, s.vesselId);
+        const annualAlloc = this.calcAnnualAllocation(s.dateStart, s.dateEnd, s.vesselId);
+        s.costs.dockingIntermediate = annualAlloc.dockingIntermediate;
+        s.costs.dockingPeriodic     = annualAlloc.dockingPeriodic;
+        s.costs.registryAnnual      = annualAlloc.registryAnnual;
+        s.costs.depreciation        = annualAlloc.depreciation;
+        s.costs.hullInsurance       = annualAlloc.hullInsurance;
+        // Giữ fixedCost = tổng 5 khoản để tương thích với báo cáo cũ
+        s.costs.fixedCost = annualAlloc.dockingIntermediate + annualAlloc.dockingPeriodic
+            + annualAlloc.registryAnnual + annualAlloc.depreciation + annualAlloc.hullInsurance;
     },
     // Tính lại chi phí cố định cho tất cả chuyến của 1 tàu (gọi khi đổi cấu hình chi phí cố định).
     recalcVesselFixedCosts(vesselId) {

@@ -3567,5 +3567,140 @@ const Views = {
                 ${content}
             </div>
         `;
+    },
+
+    'annual-costs': () => {
+        const vessels = AppData.getVessels();
+        const currentYear = new Date().getFullYear();
+        const activeVesselId = app.annualCostsVesselId || (vessels[0] ? vessels[0].id : '');
+        const activeYear = Number(app.annualCostsYear || currentYear);
+        const config = AppData.getAnnualCosts(activeYear, activeVesselId);
+
+        // Lịch nhắc nhở cho tất cả tàu
+        const reminders = [];
+        vessels.forEach(v => {
+            const vCfg = AppData.getAnnualCosts(activeYear, v.id);
+            const getReminderInfo = (dateStr, label) => {
+                if (!dateStr) return null;
+                const today = new Date(); today.setHours(0,0,0,0);
+                const target = new Date(dateStr);
+                if (isNaN(target.getTime())) return null;
+                target.setHours(0,0,0,0);
+                const diffDays = Math.round((target - today) / 86400000);
+                let badgeClass = 'badge-success';
+                let text = `Còn ${diffDays} ngày`;
+                let style = 'border-left:4px solid var(--secondary);background:rgba(0,255,100,0.02);';
+                if (diffDays < 0) { badgeClass = 'badge-danger'; text = `Quá hạn ${Math.abs(diffDays)} ngày`; style = 'border-left:4px solid var(--rose-light);background:rgba(244,63,94,0.05);'; }
+                else if (diffDays <= 30) { badgeClass = 'badge-warning'; style = 'border-left:4px solid var(--warning);background:rgba(245,158,11,0.05);'; }
+                return { vesselName: v.name, vesselId: v.id, label, date: target.toLocaleDateString('vi-VN'), text, badgeClass, style, diffDays };
+            };
+            [
+                [vCfg.dockingIntermediateDate, 'Lên đà trung gian'],
+                [vCfg.dockingPeriodicDate,     'Lên đà định kỳ'],
+                [vCfg.registryAnnualDate,      'Đăng kiểm hàng năm']
+            ].forEach(([d, lbl]) => { const r = getReminderInfo(d, lbl); if (r) reminders.push(r); });
+        });
+        reminders.sort((a, b) => a.diffDays - b.diffDays);
+
+        const remindersHtml = reminders.length === 0
+            ? `<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-bell-slash" style="font-size:2rem;display:block;margin-bottom:10px;opacity:0.5;"></i>Chưa cấu hình lịch lên đà / đăng kiểm.</div>`
+            : reminders.map(r => `
+                <div style="padding:1rem;margin-bottom:0.75rem;border-radius:8px;${r.style}display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(255,255,255,0.05);">
+                    <div>
+                        <strong style="color:var(--primary-light);font-size:0.95rem;">${esc(r.vesselName)} (${esc(r.vesselId)})</strong>
+                        <div style="font-size:0.85rem;opacity:0.8;margin-top:4px;">${r.label}: <strong>${r.date}</strong></div>
+                    </div>
+                    <span class="badge ${r.badgeClass}" style="font-size:0.8rem;padding:4px 8px;border-radius:4px;white-space:nowrap;">${r.text}</span>
+                </div>`).join('');
+
+        const fmtNum = n => (Number(n) || 0).toLocaleString('vi-VN');
+
+        return `
+            <div class="view-section">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Chi phí Hàng năm &amp; Lịch lên đà</h1>
+                        <p class="page-subtitle">Nhập chi phí cố định theo năm và theo dõi hạn đăng kiểm, lên đà của đội tàu</p>
+                    </div>
+                </div>
+
+                <div class="grid-2" style="grid-template-columns:1.1fr 1.9fr;gap:1.5rem;align-items:start;">
+                    <!-- Cột trái: Lịch nhắc nhở -->
+                    <div class="glass-card" style="padding:1.5rem;">
+                        <h3 style="color:var(--accent);margin:0 0 1rem;font-size:1.1rem;display:flex;align-items:center;gap:8px;">
+                            <i class="fa-solid fa-bell"></i> Lịch lên đà &amp; Đăng kiểm nhắc nhở
+                        </h3>
+                        <div style="max-height:480px;overflow-y:auto;padding-right:4px;">
+                            ${remindersHtml}
+                        </div>
+                    </div>
+
+                    <!-- Cột phải: Form cấu hình -->
+                    <div class="glass-card" style="padding:1.5rem;">
+                        <h3 style="color:var(--info);margin:0 0 1.25rem;font-size:1.1rem;border-bottom:1px solid var(--border-color);padding-bottom:0.5rem;display:flex;align-items:center;gap:8px;">
+                            <i class="fa-solid fa-sliders"></i> Thiết lập cấu hình Chi phí Phân bổ Hàng năm
+                        </h3>
+                        <form onsubmit="event.preventDefault(); app.saveAnnualCosts();">
+                            <div class="grid-2" style="margin-bottom:1.25rem;">
+                                <div class="form-group">
+                                    <label class="form-label">Chọn năm</label>
+                                    <select class="form-control" id="a-year" onchange="app.loadAnnualCosts()">
+                                        ${[2024,2025,2026,2027,2028,2029,2030].map(y => `<option value="${y}" ${y===activeYear?'selected':''}>Năm ${y}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Chọn tàu</label>
+                                    <select class="form-control" id="a-vessel" onchange="app.loadAnnualCosts()">
+                                        ${vessels.map(v => `<option value="${v.id}" ${v.id===activeVesselId?'selected':''}>${esc(v.id)} - ${esc(v.name)}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style="border:1px solid rgba(255,255,255,0.05);padding:1rem;border-radius:8px;margin-bottom:1.25rem;background:rgba(0,0,0,0.15);">
+                                <h4 style="margin:0 0 0.75rem;color:var(--secondary);font-size:0.95rem;display:flex;align-items:center;gap:6px;">
+                                    <i class="fa-solid fa-ship"></i> 1. Lên đà trung gian
+                                </h4>
+                                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Chi phí (VNĐ)</label><input type="number" class="form-control" id="a-docking-int-cost" value="${fmtNum(config.dockingIntermediateCost)}"></div>
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Năm phân bổ</label><input type="number" step="any" class="form-control" id="a-docking-int-years" value="${config.dockingIntermediateYears||2.5}"></div>
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Ngày lên đà tiếp</label><input type="date" class="form-control" id="a-docking-int-date" value="${config.dockingIntermediateDate||''}"></div>
+                                </div>
+                            </div>
+
+                            <div style="border:1px solid rgba(255,255,255,0.05);padding:1rem;border-radius:8px;margin-bottom:1.25rem;background:rgba(0,0,0,0.15);">
+                                <h4 style="margin:0 0 0.75rem;color:var(--secondary);font-size:0.95rem;display:flex;align-items:center;gap:6px;">
+                                    <i class="fa-solid fa-anchor"></i> 2. Lên đà định kỳ
+                                </h4>
+                                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Chi phí (VNĐ)</label><input type="number" class="form-control" id="a-docking-per-cost" value="${fmtNum(config.dockingPeriodicCost)}"></div>
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Năm phân bổ</label><input type="number" step="any" class="form-control" id="a-docking-per-years" value="${config.dockingPeriodicYears||5}"></div>
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Ngày lên đà tiếp</label><input type="date" class="form-control" id="a-docking-per-date" value="${config.dockingPeriodicDate||''}"></div>
+                                </div>
+                            </div>
+
+                            <div style="border:1px solid rgba(255,255,255,0.05);padding:1rem;border-radius:8px;margin-bottom:1.25rem;background:rgba(0,0,0,0.15);">
+                                <h4 style="margin:0 0 0.75rem;color:var(--secondary);font-size:0.95rem;display:flex;align-items:center;gap:6px;">
+                                    <i class="fa-solid fa-file-shield"></i> 3. Đăng kiểm hàng năm
+                                </h4>
+                                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Chi phí (VNĐ)</label><input type="number" class="form-control" id="a-registry-ann-cost" value="${fmtNum(config.registryAnnualCost)}"></div>
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Năm phân bổ</label><input type="number" step="any" class="form-control" id="a-registry-ann-years" value="${config.registryAnnualYears||1}"></div>
+                                    <div class="form-group" style="margin:0;"><label class="form-label">Ngày đăng kiểm tiếp</label><input type="date" class="form-control" id="a-registry-ann-date" value="${config.registryAnnualDate||''}"></div>
+                                </div>
+                            </div>
+
+                            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:1.5rem;">
+                                <div class="form-group" style="margin:0;"><label class="form-label"><i class="fa-solid fa-chart-line-down"></i> 4. Khấu hao năm (VNĐ)</label><input type="number" class="form-control" id="a-depreciation-cost" value="${fmtNum(config.depreciationCost)}"></div>
+                                <div class="form-group" style="margin:0;"><label class="form-label"><i class="fa-solid fa-shield-halved"></i> 5. Bảo hiểm thân vỏ năm (VNĐ)</label><input type="number" class="form-control" id="a-hull-ins-cost" value="${fmtNum(config.hullInsuranceCost)}"></div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" style="width:100%;font-weight:700;height:42px;">
+                                <i class="fa-solid fa-floppy-disk"></i> LƯU CẤU HÌNH &amp; TÍNH PHÂN BỔ LẠI
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 };
