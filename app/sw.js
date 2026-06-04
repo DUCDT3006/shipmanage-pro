@@ -1,7 +1,7 @@
 /* Service Worker — network-first cho app shell (same-origin).
    v2: luôn revalidate với server (cache:'no-cache') để KHÔNG kẹt code cũ khi online;
        chỉ dùng cache khi offline. Xoá cache cũ khi kích hoạt. */
-const CACHE = 'shipmanage-shell-v3';
+const CACHE = 'shipmanage-shell-v4';
 
 self.addEventListener('install', (e) => { self.skipWaiting(); });
 

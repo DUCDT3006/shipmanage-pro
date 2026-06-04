@@ -1794,6 +1794,8 @@ const app = {
 
     init() {
         this.runAutoBackup();
+        // Khôi phục trạng thái thu gọn sidebar (desktop)
+        try { if (JSON.parse(localStorage.getItem('sm3_sidebarCollapsed') || 'false')) document.body.classList.add('sidebar-collapsed'); } catch (e) {}
         // Tự thêm dấu chấm phân cách nghìn cho mọi input có class "money" khi gõ
         document.addEventListener('input', (e) => {
             const el = e.target;
@@ -1822,14 +1824,26 @@ const app = {
         try { this.checkCertNotificationsOnBoot(); } catch (e) {}
     },
 
-    // Mở/đóng sidebar dạng off-canvas trên mobile
+    // Nút hamburger: mobile = off-canvas; desktop = thu/mở sidebar để mở rộng vùng làm việc.
     toggleSidebar(force) {
         const sb = document.querySelector('.sidebar');
-        const bd = document.querySelector('.sidebar-backdrop');
         if (!sb) return;
-        const open = (typeof force === 'boolean') ? force : !sb.classList.contains('open');
-        sb.classList.toggle('open', open);
-        if (bd) bd.classList.toggle('show', open);
+        const bd = document.querySelector('.sidebar-backdrop');
+        // force=boolean (từ click nav-item) -> chỉ đóng/mở off-canvas mobile, KHÔNG đụng collapse desktop
+        if (typeof force === 'boolean') {
+            sb.classList.toggle('open', force);
+            if (bd) bd.classList.toggle('show', force);
+            return;
+        }
+        if (window.innerWidth <= 768) {
+            const open = !sb.classList.contains('open');
+            sb.classList.toggle('open', open);
+            if (bd) bd.classList.toggle('show', open);
+        } else {
+            const collapsed = !document.body.classList.contains('sidebar-collapsed');
+            document.body.classList.toggle('sidebar-collapsed', collapsed);
+            localStorage.setItem('sm3_sidebarCollapsed', JSON.stringify(collapsed));
+        }
     },
 
     showMoreTrans() {
