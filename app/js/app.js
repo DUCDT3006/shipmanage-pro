@@ -144,9 +144,9 @@ const app = {
                 <div class="print-actions no-print" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;">
                     <strong style="color:var(--primary-light);">Bảng Xem Trước &amp; Điều Chỉnh Số Liệu</strong>
                     <div style="display:flex;gap:8px;">
-                        <button class="btn btn-outline" style="border-color:#10b981;color:#10b981;" onclick="app.exportMonthlyVesselReport('${vesselId}','${monthStr}')"><i class="fa-solid fa-file-excel"></i> Xuất Excel</button>
-                        <button class="btn btn-outline" onclick="app.closeModal('report-modal')">Đóng</button>
+                        <button class="btn btn-outline" style="border-color:#10b981;color:#10b981;background:#fff;" onclick="app.exportMonthlyVesselReport('${vesselId}','${monthStr}')"><i class="fa-solid fa-file-excel"></i> Xuất Excel</button>
                         <button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> In A4</button>
+                        <button class="btn" style="background:#ef4444;color:#fff;font-weight:600;" onclick="app.closeModal('report-modal')"><i class="fa-solid fa-xmark"></i> Đóng</button>
                     </div>
                 </div>
                 <div class="print-header">
