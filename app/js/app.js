@@ -9,7 +9,40 @@ const app = {
     annualCostsYear: new Date().getFullYear(),
     annualCostsVesselId: '',
 
+    // Đọc dữ liệu form chi phí năm hiện tại trong DOM, gắn với year/vesselId truyền vào.
+    _buildAnnualData(year, vesselId) {
+        const parseNum = id => {
+            const raw = document.getElementById(id)?.value || '0';
+            return Number(String(raw).replace(/\./g, '').replace(/,/g, '.')) || 0;
+        };
+        const numVal = (id, def) => { const v = Number(document.getElementById(id)?.value); return v > 0 ? v : def; };
+        const dateVal = id => document.getElementById(id)?.value || '';
+        return {
+            year: Number(year), vesselId,
+            dockingIntermediateCost:  parseNum('a-docking-int-cost'),
+            dockingIntermediateYears: numVal('a-docking-int-years', 2.5),
+            dockingIntermediateDate:  dateVal('a-docking-int-date'),
+            dockingPeriodicCost:      parseNum('a-docking-per-cost'),
+            dockingPeriodicYears:     numVal('a-docking-per-years', 5),
+            dockingPeriodicDate:      dateVal('a-docking-per-date'),
+            registryAnnualCost:       parseNum('a-registry-ann-cost'),
+            registryAnnualYears:      numVal('a-registry-ann-years', 1),
+            registryAnnualDate:       dateVal('a-registry-ann-date'),
+            depreciationCost:         parseNum('a-depreciation-cost'),
+            hullInsuranceCost:        parseNum('a-hull-ins-cost')
+        };
+    },
+
+    // Lưu lặng lẽ form ĐANG hiển thị (theo tàu/năm của lần render trước) — gọi trước khi đổi dropdown.
+    _persistCurrentAnnualForm() {
+        if (!document.getElementById('a-docking-int-cost')) return;   // form chưa render
+        if (!this.annualCostsVesselId) return;
+        AppData.saveAnnualCosts(this._buildAnnualData(this.annualCostsYear, this.annualCostsVesselId));
+    },
+
     loadAnnualCosts() {
+        // TỰ LƯU form hiện tại trước khi đổi tàu/năm (tránh mất dữ liệu vừa gõ chưa bấm Lưu)
+        this._persistCurrentAnnualForm();
         const year = document.getElementById('a-year')?.value;
         const vesselId = document.getElementById('a-vessel')?.value;
         if (year) this.annualCostsYear = Number(year);
@@ -22,25 +55,7 @@ const app = {
         const vesselId = document.getElementById('a-vessel').value;
         this.annualCostsYear = year;
         this.annualCostsVesselId = vesselId;
-        const parseNum = id => {
-            const raw = document.getElementById(id)?.value || '0';
-            return Number(String(raw).replace(/\./g,'').replace(/,/g,'.')) || 0;
-        };
-        const data = {
-            year, vesselId,
-            dockingIntermediateCost:  parseNum('a-docking-int-cost'),
-            dockingIntermediateYears: Number(document.getElementById('a-docking-int-years').value) || 2.5,
-            dockingIntermediateDate:  document.getElementById('a-docking-int-date').value || '',
-            dockingPeriodicCost:      parseNum('a-docking-per-cost'),
-            dockingPeriodicYears:     Number(document.getElementById('a-docking-per-years').value) || 5,
-            dockingPeriodicDate:      document.getElementById('a-docking-per-date').value || '',
-            registryAnnualCost:       parseNum('a-registry-ann-cost'),
-            registryAnnualYears:      Number(document.getElementById('a-registry-ann-years').value) || 1,
-            registryAnnualDate:       document.getElementById('a-registry-ann-date').value || '',
-            depreciationCost:         parseNum('a-depreciation-cost'),
-            hullInsuranceCost:        parseNum('a-hull-ins-cost')
-        };
-        AppData.saveAnnualCosts(data);
+        AppData.saveAnnualCosts(this._buildAnnualData(year, vesselId));
         alert(`✅ Đã lưu cấu hình năm ${year} cho tàu ${vesselId} và phân bổ lại toàn bộ chuyến!`);
         this.navigate('annual-costs');
     },

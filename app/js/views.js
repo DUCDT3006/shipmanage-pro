@@ -3574,6 +3574,9 @@ const Views = {
         const currentYear = new Date().getFullYear();
         const activeVesselId = app.annualCostsVesselId || (vessels[0] ? vessels[0].id : '');
         const activeYear = Number(app.annualCostsYear || currentYear);
+        // Đồng bộ app state với những gì ĐANG hiển thị -> để tự lưu đúng tàu/năm khi đổi dropdown
+        app.annualCostsVesselId = activeVesselId;
+        app.annualCostsYear = activeYear;
         const config = AppData.getAnnualCosts(activeYear, activeVesselId);
 
         // Lịch nhắc nhở cho tất cả tàu
