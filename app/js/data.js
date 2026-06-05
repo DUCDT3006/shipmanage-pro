@@ -828,7 +828,8 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
     blankState() {
         return {
             company: { name: '', taxId: '', bankInfo: '', address: '',
-                openingBalances: { 'ABbank': 0, 'Viettinbank': 0, 'Tài khoản cá nhân': 0, 'Tiền mặt': 0 } },
+                openingBalances: { 'ABbank': 0, 'Viettinbank': 0, 'Tài khoản cá nhân': 0, 'Tiền mặt': 0 },
+                customerOpeningDebts: {} },
             vessels: [], vendors: [], customers: [], employees: [], monthlyCosts: [],
             transactions: [], fuelLogs: [], fuelVoyages: [], shipments: [],
             captainReports: [], vesselExpenses: [], timesheets: [], annualCosts: [], loSupplies: []

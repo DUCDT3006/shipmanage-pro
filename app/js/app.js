@@ -620,13 +620,14 @@ const app = {
         const code = prompt('Để xác nhận xóa, gõ chính xác (in hoa, có dấu cách):\n\nXOA TAT CA');
         if (code !== 'XOA TAT CA') return alert('Đã HỦY — không xóa gì cả.');
         try {
+            localStorage.setItem('sm3_resetPending', '1');   // ép trắng lại sau khi reload (chống snapshot cũ ghi đè)
             AppData.resetAllData();
             if (window.smLogAudit) window.smLogAudit('XÓA TOÀN BỘ DỮ LIỆU', 'reset state về trắng (' + (c.name || '') + ')');
         } catch (e) {
             return alert('Lỗi khi xóa: ' + e.message);
         }
-        alert('✅ Đã xóa toàn bộ dữ liệu và đồng bộ lên đám mây.\nTrang sẽ tải lại để bạn bắt đầu nhập mới.');
-        setTimeout(() => window.location.reload(), 900);
+        alert('✅ Đã xóa toàn bộ dữ liệu và đồng bộ lên đám mây.\n\n⚠️ HÃY ĐÓNG TẤT CẢ TAB ShipManage KHÁC trước khi tiếp tục (tab cũ có thể đẩy lại dữ liệu).\n\nTrang sẽ tải lại để bạn bắt đầu nhập mới.');
+        setTimeout(() => window.location.reload(), 1200);
     },
 
     // === JSON Backup/Restore (sao lưu trung thực từ state trong bộ nhớ) ===
@@ -1818,6 +1819,19 @@ const app = {
 
     init() {
         this.runAutoBackup();
+        // Sau khi XÓA TOÀN BỘ: ép trắng lại 1 lần sau khi cloud sync ổn định,
+        // để chống snapshot cũ/đẩy ngược làm "sống lại" số dư & công nợ đầu kỳ.
+        if (localStorage.getItem('sm3_resetPending')) {
+            localStorage.removeItem('sm3_resetPending');
+            setTimeout(() => {
+                try {
+                    AppData.state = AppData.blankState();
+                    AppData.save();
+                    this.navigate(this.currentView || 'dashboard');
+                    console.log('✅ Reset enforcement: đã ép trắng lại sau sync.');
+                } catch (e) { console.warn('reset enforce lỗi', e); }
+            }, 3500);
+        }
         // Khôi phục trạng thái thu gọn sidebar (desktop)
         try { if (JSON.parse(localStorage.getItem('sm3_sidebarCollapsed') || 'false')) document.body.classList.add('sidebar-collapsed'); } catch (e) {}
         // Đóng panel tìm kiếm khi bấm ra ngoài
