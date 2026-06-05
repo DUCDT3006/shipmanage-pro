@@ -156,8 +156,6 @@ a:hover {
 .logo-img-wrapper {
     width: 32px;
     height: 32px;
-    border-radius: 50%;
-    background: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -167,8 +165,8 @@ a:hover {
 }
 
 .logo-img-wrapper img {
-    width: 85%;
-    height: 85%;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
 }
 
