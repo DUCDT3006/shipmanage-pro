@@ -605,6 +605,30 @@ const app = {
         XLSX.writeFile(wb, filename);
     },
 
+    // === XÓA TOÀN BỘ DỮ LIỆU (bắt đầu nhập mới) — có 2 lớp xác nhận ===
+    resetAllData() {
+        const c = AppData.getCompany() || {};
+        const ok1 = confirm(
+            '⚠️ XÓA TOÀN BỘ DỮ LIỆU\n\n' +
+            'Sẽ xóa VĨNH VIỄN mọi giao dịch, chuyến hàng, tàu, nhiên liệu, lương, công nợ, ' +
+            'chi phí... TRÊN MÁY và TRÊN ĐÁM MÂY của công ty "' + (c.name || '(chưa đặt tên)') + '".\n\n' +
+            '❗ KHÔNG THỂ HOÀN TÁC. Tài khoản đăng nhập KHÔNG bị xóa.\n\n' +
+            'Bạn ĐÃ bấm "Tải Backup JSON" để lưu dữ liệu hiện tại CHƯA?\n' +
+            'Bấm OK nếu đã backup và muốn tiếp tục.'
+        );
+        if (!ok1) return;
+        const code = prompt('Để xác nhận xóa, gõ chính xác (in hoa, có dấu cách):\n\nXOA TAT CA');
+        if (code !== 'XOA TAT CA') return alert('Đã HỦY — không xóa gì cả.');
+        try {
+            AppData.resetAllData();
+            if (window.smLogAudit) window.smLogAudit('XÓA TOÀN BỘ DỮ LIỆU', 'reset state về trắng (' + (c.name || '') + ')');
+        } catch (e) {
+            return alert('Lỗi khi xóa: ' + e.message);
+        }
+        alert('✅ Đã xóa toàn bộ dữ liệu và đồng bộ lên đám mây.\nTrang sẽ tải lại để bạn bắt đầu nhập mới.');
+        setTimeout(() => window.location.reload(), 900);
+    },
+
     // === JSON Backup/Restore (sao lưu trung thực từ state trong bộ nhớ) ===
     exportLocalJSON() {
         const data = (AppData.state) ? JSON.stringify(AppData.state) : localStorage.getItem('shipManageDB_v2');

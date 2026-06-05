@@ -2437,6 +2437,20 @@ const Views = {
                         </div>
                     </div>
 
+                    <div class="glass-card" style="margin-top: 1.5rem; grid-column: span 2; border: 1px solid var(--accent); background: rgba(244,63,94,0.04);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <h3 style="margin: 0; color: var(--accent);"><i class="fa-solid fa-triangle-exclamation"></i> Vùng nguy hiểm — Xóa toàn bộ dữ liệu</h3>
+                                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0 0; max-width: 640px;">
+                                    Xóa <strong>vĩnh viễn</strong> mọi dữ liệu nghiệp vụ (giao dịch, chuyến, tàu, nhiên liệu, lương, công nợ, chi phí...) trên máy và đám mây để bắt đầu nhập mới. <strong style="color:var(--accent);">Hãy bấm "Tải Backup JSON" ở trên TRƯỚC.</strong> Tài khoản đăng nhập không bị xóa.
+                                </p>
+                            </div>
+                            <button class="btn" style="background: var(--accent); color: #fff; font-weight: 600; white-space: nowrap;" onclick="app.resetAllData()">
+                                <i class="fa-solid fa-trash-can"></i> Xóa toàn bộ &amp; bắt đầu mới
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="glass-card" style="margin-top: 1.5rem; grid-column: span 2;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
                             <h3 style="margin: 0;">Sao lưu & Khôi phục Dữ liệu (Excel)</h3>

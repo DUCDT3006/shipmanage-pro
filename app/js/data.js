@@ -835,6 +835,13 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         };
     },
 
+    // Xóa TOÀN BỘ dữ liệu nghiệp vụ -> state trắng. save() sẽ đồng bộ XÓA trên cloud
+    // (sync gom batch ≤450 op nên xóa hàng loạt an toàn). KHÔNG đụng tài khoản/đăng nhập.
+    resetAllData() {
+        this.state = this.blankState();
+        this.save();
+    },
+
     mergeDefaultTransactions() {
         if (!this.state.transactions) this.state.transactions = [];
         const currentIds = new Set(this.state.transactions.map(t => t.id));
