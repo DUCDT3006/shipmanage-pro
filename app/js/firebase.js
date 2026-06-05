@@ -661,7 +661,7 @@ function injectLoginOverlay() {
     <div style="background:rgba(17,24,39,0.85);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:2.5rem;width:90%;max-width:400px;box-shadow:0 20px 50px rgba(0,0,0,0.5);">
       <div style="text-align:center;margin-bottom:1.5rem;">
         <div style="font-size:2.5rem;color:#3b82f6;margin-bottom:0.5rem;"><i class="fa-solid fa-anchor"></i></div>
-        <h2 style="color:#fff;margin:0;font-size:1.4rem;font-weight:700;">ShipManage Pro</h2>
+        <h2 style="color:#fff;margin:0;font-size:1.4rem;font-weight:700;">VesselFil (VEF) Pro</h2>
         <p style="color:#94a3b8;font-size:0.85rem;margin:0.4rem 0 0;">Đăng nhập để tiếp tục</p>
       </div>
       <form id="auth-form" onsubmit="event.preventDefault();doLogin();">
