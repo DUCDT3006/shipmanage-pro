@@ -7,8 +7,8 @@
     --bg-surface: rgba(30, 33, 43, 0.6);
     --bg-surface-hover: rgba(40, 44, 56, 0.8);
     
-    --primary: #4f46e5;      /* Indigo */
-    --primary-light: #6366f1;
+    --primary: #2563eb;      /* Blue */
+    --primary-light: #3b82f6;
     --secondary: #10b981;    /* Emerald */
     --accent: #f43f5e;       /* Rose */
     --warning: #f59e0b;      /* Amber */
@@ -62,7 +62,7 @@ body {
     overflow-x: hidden;
     /* Subtle background glow effect */
     background-image: 
-        radial-gradient(circle at 15% 50%, rgba(79, 70, 229, 0.15), transparent 25%),
+        radial-gradient(circle at 15% 50%, rgba(37, 99, 235, 0.15), transparent 25%),
         radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.1), transparent 25%);
     background-attachment: fixed;
 }
@@ -193,7 +193,7 @@ a:hover {
 .nav-item.active {
     background: var(--gradient-primary);
     color: var(--text-inverse);
-    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
 }
 
 .sidebar-footer {
@@ -269,7 +269,7 @@ a:hover {
 
 .header-search:focus-within {
     border-color: var(--primary-light);
-    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
 .header-search i {
@@ -361,11 +361,11 @@ a:hover {
 .btn-primary {
     background: var(--gradient-primary);
     color: var(--text-inverse);
-    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
 }
 
 .btn-primary:hover {
-    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
     transform: translateY(-1px);
 }
 
@@ -419,7 +419,7 @@ a:hover {
 .form-control:focus {
     outline: none;
     border-color: var(--primary-light);
-    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
     background: rgba(0, 0, 0, 0.3);
 }
 
@@ -521,7 +521,7 @@ a:hover {
 
 .icon-blue { background: rgba(14, 165, 233, 0.1); color: #38bdf8; }
 .icon-green { background: rgba(16, 185, 129, 0.1); color: #34d399; }
-.icon-purple { background: rgba(79, 70, 229, 0.1); color: #818cf8; }
+.icon-purple { background: rgba(37, 99, 235, 0.1); color: #60a5fa; }
 .icon-rose { background: rgba(244, 63, 94, 0.1); color: #fb7185; }
 
 .stat-value {
@@ -628,8 +628,8 @@ a:hover {
 
 /* Active Card highlight for Debts Report */
 .active-card {
-    background: rgba(99, 102, 241, 0.08) !important;
-    box-shadow: 0 8px 32px 0 rgba(99, 102, 241, 0.2) !important;
+    background: rgba(59, 130, 246, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(59, 130, 246, 0.2) !important;
 }
 
 /* Reports Overview Specific Styles */
@@ -707,7 +707,7 @@ a:hover {
     background: rgba(255, 255, 255, 0.05);
 }
 
-.kpi-primary .kpi-icon-wrapper { color: var(--primary-light); background: rgba(99, 102, 241, 0.1); }
+.kpi-primary .kpi-icon-wrapper { color: var(--primary-light); background: rgba(59, 130, 246, 0.1); }
 .kpi-success .kpi-icon-wrapper { color: var(--secondary); background: rgba(16, 185, 129, 0.1); }
 .kpi-danger .kpi-icon-wrapper { color: var(--accent); background: rgba(244, 63, 94, 0.1); }
 .kpi-info .kpi-icon-wrapper { color: var(--info); background: rgba(14, 165, 233, 0.1); }
