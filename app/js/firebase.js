@@ -661,7 +661,7 @@ function injectLoginOverlay() {
     <div style="background:rgba(17,24,39,0.85);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:2.5rem;width:90%;max-width:400px;box-shadow:0 20px 50px rgba(0,0,0,0.5);">
       <div style="text-align:center;margin-bottom:1.5rem;">
         <div style="display:flex;justify-content:center;margin-bottom:0.8rem;">
-          <div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          <div style="width:115px;height:115px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
             <img src="logo.png" alt="VesselFil Logo" style="width:100%;height:100%;object-fit:contain;">
           </div>
         </div>
