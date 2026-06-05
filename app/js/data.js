@@ -1594,9 +1594,9 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         s.costs.registryAnnual      = annualAlloc.registryAnnual;
         s.costs.depreciation        = annualAlloc.depreciation;
         s.costs.hullInsurance       = annualAlloc.hullInsurance;
-        // Giữ fixedCost = tổng 5 khoản để tương thích với báo cáo cũ
-        s.costs.fixedCost = annualAlloc.dockingIntermediate + annualAlloc.dockingPeriodic
-            + annualAlloc.registryAnnual + annualAlloc.depreciation + annualAlloc.hullInsurance;
+        // BỎ fixedCost: trước đây lưu thêm = tổng 5 khoản trên -> bị ĐẾM 2 LẦN khi cộng Object.values.
+        // Nay chỉ giữ 5 khoản chi tiết; tổng chi phí cố định tính lại từ chúng ở nơi cần.
+        delete s.costs.fixedCost;
     },
     // ===== Tồn kho dầu LO (phiếu cấp + tồn lũy kế) =====
     getLOSupplies(vesselId) {

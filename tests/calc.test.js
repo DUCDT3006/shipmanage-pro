@@ -32,4 +32,14 @@ check('profit rỗng -> 0', Calc.profit(undefined, undefined) === 0);
 check('margin 70/100 = 70%', Calc.profitMargin(70, 100) === 70);
 check('margin chia 0 -> 0', Calc.profitMargin(70, 0) === 0);
 
+console.log('[Group] Tổng chi phí chuyến (chống đếm trùng fixedCost)');
+const costsA = { fuelDO: 100, crewSalary: 30,
+  dockingIntermediate: 10, dockingPeriodic: 15, registryAnnual: 5, depreciation: 12, hullInsurance: 8,
+  fixedCost: 50, vat: 999, _agentAuto: true };
+check('tripCostTotal bỏ fixedCost+vat+cờ_: 100+30+10+15+5+12+8 = 180', Calc.tripCostTotal(costsA) === 180);
+check('tripCostTotal excludeDepr bỏ đà+khấu hao: 180-10-15-12 = 143', Calc.tripCostTotal(costsA, { excludeDepr: true }) === 143);
+check('tripCostTotal rỗng -> 0', Calc.tripCostTotal({}) === 0 && Calc.tripCostTotal(null) === 0);
+check('tripCostTotal KHÔNG đếm trùng (cả 5 khoản lẫn fixedCost)',
+  Calc.tripCostTotal({ a: 100, dockingPeriodic: 50, fixedCost: 50 }) === 150);
+
 console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));

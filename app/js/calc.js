@@ -21,6 +21,22 @@ const Calc = {
   profitMargin(profit, revenue) {
     const r = Number(revenue) || 0;
     return r > 0 ? ((Number(profit) || 0) / r * 100) : 0;
+  },
+
+  // Tổng chi phí 1 chuyến (CHƯA gồm VAT — gọi nơi dùng tự cộng VAT).
+  //  - BỎ 'vat' (cộng riêng) và 'fixedCost' (= tổng 5 khoản cố định chi tiết -> tránh ĐẾM 2 LẦN).
+  //  - opts.excludeDepr: bỏ lên đà (trung gian/định kỳ) + khấu hao khỏi tổng.
+  tripCostTotal(costs, opts) {
+    const o = opts || {};
+    const c = costs || {};
+    let sum = 0;
+    for (const k in c) {
+      if (k === 'vat' || k === 'fixedCost') continue;
+      if (k[0] === '_') continue;                 // cờ nội bộ (_agentAuto, _loAuto...)
+      if (o.excludeDepr && (k === 'dockingIntermediate' || k === 'dockingPeriodic' || k === 'depreciation')) continue;
+      sum += Number(c[k]) || 0;
+    }
+    return sum;
   }
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = Calc;

@@ -81,9 +81,12 @@ const get = (expr) => { vm.runInContext('globalThis.__r = (' + expr + ');', ctx)
   // depreciation: 100tr/365 × 10 = 2,739,726
   // hullInsurance: 65tr/365 × 10 = 1,780,822 → tổng ≈ 5,616,438
   // Nhưng test cũ dùng fixedCosts => 365tr/365*10 = 10tr. Thay test bằng cách kiểm tra logic đúng:
-  const s1FixedCost = get("AppData.state.shipments.find(s => s.id === 'S1').costs.fixedCost");
-  check('Lớn#A: chi phí cố định > 0 và được phân bổ đúng (annualCosts V5)',
+  // Chi phí cố định = tổng 5 khoản chi tiết (KHÔNG còn field fixedCost để tránh đếm trùng)
+  const s1FixedCost = get("(() => { const c = AppData.state.shipments.find(s => s.id === 'S1').costs; return (Number(c.dockingIntermediate)||0)+(Number(c.dockingPeriodic)||0)+(Number(c.registryAnnual)||0)+(Number(c.depreciation)||0)+(Number(c.hullInsurance)||0); })()");
+  check('Lớn#A: chi phí cố định (5 khoản) > 0 và hợp lý (annualCosts V5)',
     s1FixedCost > 0 && s1FixedCost < 15000000);
+  check('Lớn#A: KHÔNG còn field fixedCost trong costs (chống đếm trùng)',
+    get("'fixedCost' in AppData.state.shipments.find(s => s.id === 'S1').costs") === false);
   check('Lớn#A: cờ _agentAuto KHÔNG nằm trong costs (tránh hỏng tổng chi phí)',
     get("'_agentAuto' in AppData.state.shipments.find(s => s.id === 'S1').costs") === false);
 
