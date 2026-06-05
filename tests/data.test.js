@@ -170,5 +170,24 @@ const get = (expr) => { vm.runInContext('globalThis.__r = (' + expr + ');', ctx)
   check('LO: đã dùng = 400 × 11/800 = 5.5 phi', Math.abs(loInv.totalConsumed - 5.5) < 1e-9);
   check('LO: tồn = 20 − 5.5 = 14.5 phi', Math.abs(loInv.remaining - 14.5) < 1e-9);
 
+  // 9) mergeAnnualCosts: local có VG05+VG09, cloud (cũ) chỉ có VG05 -> KHÔNG mất VG09
+  vm.runInContext(`
+    globalThis.__merge = AppData.mergeAnnualCosts(
+      [{year:2026,vesselId:'VG05',dockingPeriodicCost:1}, {year:2026,vesselId:'VG09',dockingPeriodicCost:2}],
+      [{year:2026,vesselId:'VG05',dockingPeriodicCost:1}]
+    );
+  `, ctx);
+  const merged = ctx.__merge;
+  check('Merge annualCosts: giữ đủ 2 tàu khi snapshot cũ chỉ có 1', merged.length === 2);
+  check('Merge annualCosts: VG09 (local) KHÔNG bị mất',
+    merged.some(c => c.vesselId === 'VG09' && c.dockingPeriodicCost === 2));
+  vm.runInContext(`
+    globalThis.__merge2 = AppData.mergeAnnualCosts(
+      [{year:2026,vesselId:'VG05'}],
+      [{year:2026,vesselId:'VG05'}, {year:2026,vesselId:'VG18'}]
+    );
+  `, ctx);
+  check('Merge annualCosts: thêm tàu mới từ cloud (VG18)', ctx.__merge2.length === 2);
+
   console.log('\n' + (process.exitCode ? '❌ CÓ TEST THẤT BẠI' : `✅ TẤT CẢ ${passed} KIỂM TRA ĐỀU PASS`));
 })();

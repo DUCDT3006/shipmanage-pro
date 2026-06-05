@@ -1493,6 +1493,19 @@ if (!localStorage.getItem('allowances_extracted_v6')) {
         return res;
     },
 
+    // Gộp annualCosts từ cloud về theo khóa (năm|tàu): GIỮ mọi mục đang có ở local
+    // (gồm tàu vừa lưu mà snapshot cũ chưa có) + THÊM mục từ cloud chưa có ở local.
+    // -> chống lỗi "lưu tàu sau làm mất tàu trước" do doc gộp ghi đè cả cụm.
+    mergeAnnualCosts(localArr, incomingArr) {
+        const local = Array.isArray(localArr) ? localArr : [];
+        const incoming = Array.isArray(incomingArr) ? incomingArr : [];
+        const key = c => (c ? (Number(c.year) + '|' + c.vesselId) : '');
+        const seen = new Set(local.map(key));
+        const out = local.slice();
+        incoming.forEach(c => { if (c && !seen.has(key(c))) out.push(c); });
+        return out;
+    },
+
     saveAnnualCosts(data) {
         if (!this.state.annualCosts) this.state.annualCosts = [];
         data.year = Number(data.year);

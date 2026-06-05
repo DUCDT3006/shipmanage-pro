@@ -895,7 +895,13 @@ function attachListeners() {
       if (SM3.perRecord.includes(k)) return;
       // Phòng vệ: bỏ qua key private nếu doc public cũ còn sót (trước khi dọn tách).
       if (SM3.groupedPrivateKeys.includes(k)) return;
-      AppData.state[k] = data[k];
+      // annualCosts (chi phí năm) chỉ thêm/sửa theo (năm+tàu), KHÔNG có xóa -> GỘP theo khóa
+      // để snapshot cũ (thiếu tàu vừa lưu) KHÔNG ghi đè làm mất cấu hình tàu khác.
+      if (k === 'annualCosts' && typeof AppData.mergeAnnualCosts === 'function') {
+        AppData.state[k] = AppData.mergeAnnualCosts(AppData.state[k], data[k]);
+      } else {
+        AppData.state[k] = data[k];
+      }
     });
     lastSynced.grouped = groupedSyncBasis();
     originalSave();
