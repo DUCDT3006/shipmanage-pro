@@ -3,11 +3,19 @@
  * Trước đây các công thức này bị lặp ~9 nơi trong views.js/app.js -> dễ sai lệch.
  */
 const Calc = {
-  // VAT đặc thù ngành: 8% doanh thu (ưu tiên hóa đơn, fallback thực tế) - 10% tiền dầu DO
-  vat(revenueInvoice, revenueReal, fuelDO) {
+  // VAT đặc thù ngành (KHỚP với form nhập chuyến & báo cáo in):
+  //   8% × doanh thu (ưu tiên hóa đơn, fallback thực tế) − 8% × (dầu DO + dầu LO + đại lý + phí cảng)
+  // Tham số thứ 3 nhận object costs (hoặc, để tương thích cũ, 1 số = fuelDO).
+  vat(revenueInvoice, revenueReal, costs) {
     const rev = Number(revenueInvoice) || Number(revenueReal) || 0;
-    const fuel = Number(fuelDO) || 0;
-    return Math.round((0.08 * rev) - (0.10 * fuel));
+    let deduc;
+    if (costs && typeof costs === 'object') {
+      deduc = (Number(costs.fuelDO) || 0) + (Number(costs.fuelLO) || 0)
+            + (Number(costs.agent) || 0) + (Number(costs.portFees) || 0);
+    } else {
+      deduc = Number(costs) || 0;   // tương thích: chỉ truyền fuelDO
+    }
+    return Math.round((0.08 * rev) - (0.08 * deduc));
   },
   // Tiêu thụ dầu 1 chặng = định mức (L/h) × số giờ chạy
   legConsumption(hours, fuelRate) {

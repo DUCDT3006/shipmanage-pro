@@ -12,13 +12,14 @@ function check(name, cond) {
 
 console.log('Công thức tài chính — tests\n');
 
-console.log('[Group] VAT (0.08*DT - 0.10*dầuDO)');
-check('VAT cơ bản: 1.000.000 DT, 100.000 dầu = 70.000', Calc.vat(1000000, 0, 100000) === 70000);
-check('VAT dùng doanh thu hóa đơn (ưu tiên)', Calc.vat(2000000, 999, 0) === 160000);
-check('VAT fallback doanh thu thực tế khi không có hóa đơn', Calc.vat(0, 500000, 0) === 40000);
-check('VAT có thể âm (dầu lớn)', Calc.vat(1000000, 0, 1000000) === -20000);
+console.log('[Group] VAT (8%×DT − 8%×(DO+LO+Đại lý+Cảng)) — khớp form + báo cáo');
+// object costs: 8%×1tr − 8%×(DO 50k + LO 20k + agent 10k + port 20k=100k) = 80.000 − 8.000 = 72.000
+check('VAT object costs: 1tr DT, deduc 100k = 72.000', Calc.vat(1000000, 0, { fuelDO: 50000, fuelLO: 20000, agent: 10000, portFees: 20000 }) === 72000);
+check('VAT ưu tiên doanh thu hóa đơn', Calc.vat(2000000, 999, {}) === 160000);
+check('VAT fallback doanh thu thực tế', Calc.vat(0, 500000, {}) === 40000);
+check('VAT có thể âm (khấu trừ lớn)', Calc.vat(1000000, 0, { fuelDO: 1500000 }) === -40000);
 check('VAT rỗng/undefined -> 0', Calc.vat(undefined, undefined, undefined) === 0);
-check('VAT nhận chuỗi số', Calc.vat('1000000', '0', '100000') === 70000);
+check('VAT tương thích cũ: tham số 3 là 1 số = fuelDO (8%×1tr − 8%×100k = 72.000)', Calc.vat(1000000, 0, 100000) === 72000);
 
 console.log('[Group] Tiêu thụ dầu chặng (giờ × định mức)');
 check('10h × 150 L/h = 1500', Calc.legConsumption(10, 150) === 1500);

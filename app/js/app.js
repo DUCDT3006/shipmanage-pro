@@ -2159,7 +2159,7 @@ const app = {
                 vesselStats[vId] = { name: vId, revenue: 0, cost: 0, profit: 0, fuelDO: 0 };
             }
             const rev = Number(s.revenueReal || 0);
-            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
+            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);
             const costSum = Calc.tripCostTotal(s.costs) + (vat > 0 ? vat : 0);
             const profit = rev - costSum;
 
@@ -2255,7 +2255,7 @@ const app = {
                     monthlyStats[m] = { revenue: 0, cost: 0, profit: 0 };
                 }
                 const rev = Number(s.revenueReal || 0);
-                const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
+                const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);
                 const costSum = Calc.tripCostTotal(s.costs) + (vat > 0 ? vat : 0);
                 const profit = rev - costSum;
 
@@ -2279,7 +2279,7 @@ const app = {
             trendRevData = sortedVoyages.map(s => Number(s.revenueReal || 0));
             trendProfitData = sortedVoyages.map(s => {
                 const rev = Number(s.revenueReal || 0);
-                const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
+                const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);
                 const costSum = Calc.tripCostTotal(s.costs) + (vat > 0 ? vat : 0);
                 return rev - costSum;
             });
@@ -2358,7 +2358,7 @@ const app = {
         };
 
         shipments.forEach(s => {
-            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
+            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);
             costSums.fuelDO += Number(s.costs?.fuelDO || 0);
             costSums.fuelLO += Number(s.costs?.fuelLO || 0);
             costSums.crewSalary += Number(s.costs?.crewSalary || 0);
@@ -2536,7 +2536,7 @@ const app = {
 
         filteredShipments.forEach(s => {
             totalRevenue += Number(s.revenueReal || 0);
-            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
+            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);
             const costSum = Calc.tripCostTotal(s.costs) + (vat > 0 ? vat : 0);
             
             totalCost += costSum;
@@ -2578,7 +2578,7 @@ const app = {
                 };
             }
             const rev = Number(s.revenueReal || 0);
-            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
+            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);
             const costSum = Calc.tripCostTotal(s.costs) + (vat > 0 ? vat : 0);
             
             vesselStats[vId].revenue += rev;
@@ -2653,7 +2653,7 @@ const app = {
                 let prevCost = 0;
                 prevMonthShipments.forEach(s => {
                     prevRevenue += Number(s.revenueReal || 0);
-                    const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
+                    const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);
                     const costSum = Calc.tripCostTotal(s.costs) + (vat > 0 ? vat : 0);
                     prevCost += costSum;
                 });

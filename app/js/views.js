@@ -409,7 +409,7 @@ const Views = {
         let totalRevenue = 0, totalCost = 0;
         filteredShips.forEach(s => {
             totalRevenue += Number(s.revenueReal || 0);
-            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
+            const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);
             totalCost += Calc.tripCostTotal(s.costs, { excludeDepr }) + (vat > 0 ? vat : 0);
         });
         const totalProfit = totalRevenue - totalCost;
@@ -1732,7 +1732,7 @@ const Views = {
                             </thead>
                             <tbody>
                                 ${ships.map(s => {
-                                    const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
+                                    const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);
                                     const costSum = Calc.tripCostTotal(s.costs) + (vat > 0 ? vat : 0);
                                     const profit = s.revenueReal - costSum;
                                     return `
@@ -3182,12 +3182,7 @@ const Views = {
     },
 
     report: (s) => {
-        const fuelDO = s.costs.fuelDO || 0;
-        const fuelLO = s.costs.fuelLO || 0;
-        const agent = s.costs.agent || 0;
-        const portFees = s.costs.portFees || 0;
-        const deduc = fuelDO + fuelLO + agent + portFees;
-        const vat = Math.round((0.08 * (s.revenueInvoice || s.revenueReal)) - (0.08 * deduc));
+        const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);   // 8%DT − 8%(DO+LO+ĐL+Cảng)
         const costSum = Calc.tripCostTotal(s.costs) + vat;
         const profit = s.revenueReal - costSum;
         const vessel = AppData.getVessel(s.vesselId);
@@ -3254,8 +3249,9 @@ const Views = {
                         <tr><td>13. Phân bổ chi phí khác từ Cty</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.monthlyOther || 0)}</td></tr>
                         <tr><td>14. Chi phí khác tàu chi tại chuyến</td><td style="text-align: right;">${AppData.formatCurrency(s.costs.others || 0)}</td></tr>
                         <tr><td>15. Chi phí cố định phân bổ (lên đà, khấu hao, đăng kiểm, BH thân vỏ)</td><td style="text-align: right; color: var(--info);">${AppData.formatCurrency((Number(s.costs.dockingIntermediate)||0)+(Number(s.costs.dockingPeriodic)||0)+(Number(s.costs.registryAnnual)||0)+(Number(s.costs.depreciation)||0)+(Number(s.costs.hullInsurance)||0))}</td></tr>
+                        <tr><td>16. Thuế VAT phải nộp (tính vào chi phí)</td><td style="text-align: right; color: var(--warning);">${AppData.formatCurrency(vat)}</td></tr>
                         <tr style="font-weight: bold; background: rgba(255,0,100,0.05);">
-                            <td>TỔNG CHI PHÍ</td>
+                            <td>TỔNG CHI PHÍ (gồm cả VAT)</td>
                             <td style="text-align: right; color: var(--rose-light);">${AppData.formatCurrency(costSum)}</td>
                         </tr>
                     </table>
@@ -3543,7 +3539,7 @@ const Views = {
                                 ${monthShips.map(s => {
                                     const rev = Number(s.revenueReal || 0);
                                     
-                                    const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs?.fuelDO);
+                                    const vat = Calc.vat(s.revenueInvoice, s.revenueReal, s.costs);
                                     const costSum = Calc.tripCostTotal(s.costs) + (vat > 0 ? vat : 0);
                                     const profit = rev - costSum;
                                     
