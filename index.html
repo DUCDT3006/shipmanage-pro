@@ -23,14 +23,14 @@
         :root {
             --bg-base: #0f111a;
             --bg-surface: rgba(30, 33, 43, 0.6);
-            --primary: #4f46e5;
-            --primary-light: #6366f1;
+            --primary: #2563eb;
+            --primary-light: #3b82f6;
             --secondary: #10b981;
             --warning: #f59e0b;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
             --border-color: rgba(255, 255, 255, 0.08);
-            --gradient-primary: linear-gradient(135deg, #4f46e5, #6366f1);
+            --gradient-primary: linear-gradient(135deg, #1d4ed8, #3b82f6);
             --radius-lg: 16px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -39,7 +39,7 @@
             font-family: 'Inter', sans-serif; background: var(--bg-base); color: var(--text-main);
             line-height: 1.6; overflow-x: hidden;
             background-image:
-                radial-gradient(circle at 15% 10%, rgba(79,70,229,0.18), transparent 30%),
+                radial-gradient(circle at 15% 10%, rgba(37,99,235,0.18), transparent 30%),
                 radial-gradient(circle at 85% 25%, rgba(16,185,129,0.12), transparent 30%);
             background-attachment: fixed;
         }
@@ -51,7 +51,7 @@
             border: 1px solid transparent; transition: transform .15s, box-shadow .15s, background .15s;
         }
         .btn:hover { transform: translateY(-2px); }
-        .btn-primary { background: var(--gradient-primary); color: #fff; box-shadow: 0 6px 20px rgba(79,70,229,.35); }
+        .btn-primary { background: var(--gradient-primary); color: #fff; box-shadow: 0 6px 20px rgba(37,99,235,.35); }
         .btn-outline { border-color: var(--border-color); color: var(--text-main); background: rgba(255,255,255,.03); }
         .btn-lg { padding: 1rem 2rem; font-size: 1.05rem; }
 
@@ -72,7 +72,7 @@
         .hero { padding: 5rem 0 4rem; text-align: center; }
         .badge-pill {
             display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 99px;
-            background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.3);
+            background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.3);
             color: var(--primary-light); font-size: 0.82rem; font-weight: 600; margin-bottom: 1.5rem;
         }
         .hero h1 {
@@ -80,7 +80,7 @@
             margin-bottom: 1.2rem;
         }
         .hero h1 .grad {
-            background: linear-gradient(135deg, #818cf8, #34d399);
+            background: linear-gradient(135deg, #60a5fa, #34d399);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
         .hero p.sub { font-size: 1.15rem; color: var(--text-muted); max-width: 640px; margin: 0 auto 2rem; }
@@ -99,10 +99,10 @@
             background: rgba(255,255,255,.03); border: 1px solid var(--border-color);
             border-radius: var(--radius-lg); padding: 1.5rem; transition: transform .15s, border-color .15s;
         }
-        .feature:hover { transform: translateY(-3px); border-color: rgba(99,102,241,.4); }
+        .feature:hover { transform: translateY(-3px); border-color: rgba(59,130,246,.4); }
         .feature .ic {
             width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
-            background: rgba(99,102,241,.12); color: var(--primary-light); font-size: 1.3rem; margin-bottom: 1rem;
+            background: rgba(59,130,246,.12); color: var(--primary-light); font-size: 1.3rem; margin-bottom: 1rem;
         }
         .feature h3 { font-size: 1.05rem; margin-bottom: 0.4rem; }
         .feature p { color: var(--text-muted); font-size: 0.9rem; }
@@ -113,7 +113,7 @@
             background: rgba(255,255,255,.03); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
             padding: 2rem 1.75rem; display: flex; flex-direction: column; position: relative;
         }
-        .plan.popular { border-color: var(--primary-light); box-shadow: 0 10px 40px -10px rgba(79,70,229,.5); }
+        .plan.popular { border-color: var(--primary-light); box-shadow: 0 10px 40px -10px rgba(37,99,235,.5); }
         .plan .tag-popular {
             position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
             background: var(--gradient-primary); color: #fff; font-size: 0.72rem; font-weight: 700;
@@ -131,7 +131,7 @@
         /* CTA / Contact */
         .cta-box {
             background: var(--gradient-primary); border-radius: 24px; padding: 3rem 2rem; text-align: center;
-            box-shadow: 0 20px 50px -20px rgba(79,70,229,.6);
+            box-shadow: 0 20px 50px -20px rgba(37,99,235,.6);
         }
         .cta-box h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); margin-bottom: 0.6rem; }
         .cta-box p { color: rgba(255,255,255,.85); margin-bottom: 1.8rem; }
