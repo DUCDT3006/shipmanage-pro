@@ -17,7 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" href="app/icon.svg" type="image/svg+xml">
+    <link rel="icon" href="logo.jpg" type="image/jpeg">
 
     <style>
         :root {
@@ -63,7 +63,22 @@
         }
         .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 68px; }
         .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.25rem; }
-        .logo i { color: var(--primary-light); font-size: 1.5rem; }
+        .logo-img-wrapper {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .logo-img-wrapper img {
+            width: 85%;
+            height: 85%;
+            object-fit: contain;
+        }
         .nav-links { display: flex; align-items: center; gap: 1.5rem; }
         .nav-links a.link { color: var(--text-muted); font-weight: 500; font-size: 0.92rem; }
         .nav-links a.link:hover { color: var(--text-main); }
@@ -152,7 +167,12 @@
     <!-- NAV -->
     <header class="nav">
         <div class="container nav-inner">
-            <div class="logo"><i class="fa-solid fa-anchor"></i> VesselFil (VEF)</div>
+            <div class="logo">
+                <div class="logo-img-wrapper">
+                    <img src="logo.jpg" alt="VesselFil Logo">
+                </div>
+                VesselFil (VEF)
+            </div>
             <nav class="nav-links">
                 <a class="link" href="#features">Tính năng</a>
                 <a class="link" href="#pricing">Bảng giá</a>
@@ -269,7 +289,12 @@
     <!-- FOOTER -->
     <footer>
         <div class="container footer-inner">
-            <div class="logo" style="font-size:1.1rem;"><i class="fa-solid fa-anchor"></i> VesselFil (VEF)</div>
+            <div class="logo" style="font-size:1.1rem;">
+                <div class="logo-img-wrapper" style="width: 28px; height: 28px;">
+                    <img src="logo.jpg" alt="VesselFil Logo">
+                </div>
+                VesselFil (VEF)
+            </div>
             <div>© <span id="year"></span> VesselFil (VEF). Phần mềm quản lý vận tải biển.</div>
             <a class="link" href="app/" style="color:var(--primary-light); font-weight:600;">Đăng nhập hệ thống →</a>
         </div>
